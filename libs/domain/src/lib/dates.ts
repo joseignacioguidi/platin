@@ -4,11 +4,8 @@
  * - Period: 'YYYY-MM' (a calendar month; stored in the database as its first day)
  */
 
-declare const localDateBrand: unique symbol;
-declare const periodBrand: unique symbol;
-
-export type LocalDate = string & { readonly [localDateBrand]: true };
-export type Period = string & { readonly [periodBrand]: true };
+export type LocalDate = string & { readonly __brand: 'LocalDate' };
+export type Period = string & { readonly __brand: 'Period' };
 
 export const APP_TIME_ZONE = 'America/Argentina/Buenos_Aires';
 
