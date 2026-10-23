@@ -1,0 +1,411 @@
+# platin — Plan de implementación
+
+Oct 23, 2026 · @Jose
+
+Nueve fases para llegar al MVP de platin con Claude Code, cada una con su prompt listo para pegar. Se apoya en la [especificación funcional](https://claude.ai/artifact/QfQnXa1fhMndVJKuFPGbPY) y en la [arquitectura](https://claude.ai/artifact/BVim3tHX5vux8aCx6sRRKj).
+
+## Cómo trabajar con Claude Code
+
+Una fase por sesión, en su propia rama, terminando en un pull request que revisás vos antes de mergear. Claude Code trabaja mejor con objetivos acotados y criterios de terminado claros que con "hacé la app".
+
+### Preparar el repo (una sola vez)
+
+1. Exportar la especificación, la arquitectura y este plan como Markdown (menú de cada documento) y guardarlos en \`docs/plan.md\`, `docs/especificacion.md` y `docs/arquitectura.md`.
+2. Guardar los mockups como capturas en `docs/mockups/` (una imagen por pantalla), para que Claude Code pueda mirarlos.
+3. Copiar los íconos SVG a `docs/brand/`.
+4. Poner el `CLAUDE.md` en la raíz.
+5. Hacer el primer commit en `main` con todo eso.
+
+### En cada fase
+
+1. Arrancar una sesión nueva de Claude Code (contexto limpio).
+2. Pegar el prompt de la fase. Todos le piden leer `CLAUDE.md` y las secciones relevantes de `docs/` antes de escribir código, y proponer un plan antes de implementar.
+3. Revisar el plan que propone y corregirlo si hace falta; es el momento más barato para cambiar algo.
+4. Dejarlo implementar. Pedirle que corra lint, typecheck y tests antes de dar algo por terminado.
+5. Revisar el PR: correr la app en local, probar el criterio de terminado de la fase y leer los tests.
+6. Mergear y, si apareció una decisión nueva, pedirle que la registre en `docs/adr/` o que actualice `CLAUDE.md`.
+
+Si una fase se hace larga, dividila: "hacé solo el backend de la fase 4" y en otra sesión el frontend.
+
+## Hoja de ruta
+
+Las fases van en orden: cada una deja algo desplegado y usable que la siguiente aprovecha. A partir de la fase 3 ya podés empezar a cargar tus datos reales.
+
+| Fase | Qué se construye | Casos de uso | Terminado cuando |
+| --- | --- | --- | --- |
+| 0 | Monorepo, Docker, CI, deploy vacío | — | La app vacía responde en producción y `/api/v1/health` contesta a través de Vercel |
+| 1 | Reglas de negocio en `libs/domain` | Reglas de la especificación | Todos los ejemplos de la especificación pasan como tests |
+| 2 | Auth y shell de la app | AUTH-01, 02, 04 | Me registro, entro, cierro el navegador y sigo logueado; veo la barra inferior |
+| 3 | Cuentas, categorías, movimientos, carga rápida | CTA-01 a 04, MOV-01 a 05 | Cargo un gasto en 3 toques desde el celular y el saldo de la cuenta cambia |
+| 4 | Tarjetas, resúmenes, cuotas | TAR-01 a 05, 07, 08 | Cargo una compra en 12 cuotas y la veo repartida en los resúmenes correctos |
+| 5 | Fijos, sync, compromisos | FIJ-01 a 04, COM-01, 02 | Al abrir la app aparecen los pendientes del mes y veo los compromisos de 12 meses |
+| 6 | Inicio y cotizaciones | DAS-01, cotizaciones | El inicio muestra "Libre este mes" con datos reales y las cotizaciones del día |
+| 7 | Ahorros y metas | MET-01 a 03 | La meta del auto calcula USD 771 por mes con los datos del ejemplo |
+| 8 | Landing y pulido | LAN-01, 02 | La landing está publicada y el MVP reemplaza a la app anterior |
+
+## Fase 0 — Cimientos
+
+Deja el esqueleto completo funcionando de punta a punta antes de escribir una sola funcionalidad, y resuelve las tres preguntas abiertas técnicas de la arquitectura.
+
+**Antes de empezar (vos):** cuentas creadas en Neon, Render y Vercel; repo en GitHub con el commit inicial de `docs/` y `CLAUDE.md`.
+
+Tareas:
+
+- Workspace Nx con pnpm: `apps/web` (Angular), `apps/api` (NestJS), `libs/domain`, `libs/contracts`, `libs/web-ui`, con tags y `@nx/enforce-module-boundaries`.
+- TypeScript estricto, ESLint, Prettier, Vitest configurado en todos los proyectos.
+- Prisma 7 en `apps/api` con un modelo mínimo (`User`) y una migración inicial. Si Prisma 7 + Nest en ESM da problemas, usar Prisma 6 y dejar un ADR.
+- Endpoint `GET /api/v1/health` que verifica la conexión a la base.
+- Tailwind en `apps/web` con los tokens de color de la arquitectura y las dos tipografías; una página de prueba con los colores.
+- Dockerfile de la API, `docker-compose.yml` local con Postgres, `.env.example`.
+- GitHub Actions: lint, typecheck, test y build de lo afectado.
+- `vercel.json` con el rewrite de `/api` y la cabecera secreta; Render desplegando el Dockerfile.
+
+**Terminado cuando:** la URL de Vercel muestra la página de prueba con la paleta de platin y `https://<app>/api/v1/health` responde OK a través de Vercel, incluso con Render dormido.
+
+```
+Leé CLAUDE.md y docs/arquitectura.md completos antes de empezar.
+
+Vamos a hacer la Fase 0 de docs/plan.md: los cimientos del monorepo de platin. Todavía no hay ninguna funcionalidad de negocio; el objetivo es que el esqueleto completo funcione de punta a punta: local, CI y producción.
+
+Alcance:
+1. Workspace Nx con pnpm: apps/web (Angular, standalone, zoneless), apps/api (NestJS), libs/domain, libs/contracts y libs/web-ui. Configurá los tags y las reglas de @nx/enforce-module-boundaries exactamente como dice la sección "Monorepo" de la arquitectura.
+2. TypeScript strict, ESLint, Prettier y Vitest en todos los proyectos.
+3. Prisma 7 en apps/api (adaptador @prisma/adapter-pg, prisma.config.ts, generador prisma-client con output explícito) con solo el modelo User y una migración inicial. Si Prisma 7 con Nest en ESM no compila o no corre dentro de Nx, pasá a Prisma 6, explicame por qué y dejá un ADR en docs/adr/.
+4. GET /api/v1/health que haga un SELECT 1 contra la base.
+5. Tailwind en apps/web con los tokens de color y las tipografías de la sección "Frontend > Diseño". Una página temporal en / que muestre los colores y las dos tipografías.
+6. apps/api/Dockerfile multi-stage y entrypoint con prisma migrate deploy, docker-compose.yml local con Postgres y .env.example con todas las variables de la arquitectura.
+7. Workflow de GitHub Actions: nx affected -t lint typecheck test build.
+8. vercel.json con el rewrite de /api/:path* a la URL de Render y la cabecera x-origin-secret, y el middleware en la API que la verifica (opcional si ORIGIN_SECRET no está definida; /health exento).
+
+Fuera de alcance: auth, cualquier entidad que no sea User, pantallas reales.
+
+Forma de trabajo:
+- Antes de tocar código, proponeme un plan con los pasos y los comandos de Nx que vas a usar, y esperá mi OK.
+- Trabajá en la rama feat/fase-0-cimientos con commits chicos en Conventional Commits.
+- Al terminar, corré lint, typecheck, test y build de todo el workspace y mostrame el resultado.
+- Escribí en el README cómo levantar todo en local y qué variables configurar en Neon, Render y Vercel.
+- Abrí un PR con un resumen y la lista de cosas que tengo que configurar yo a mano.
+```
+
+## Fase 1 — Reglas de negocio
+
+Todas las reglas de la especificación como funciones puras y testeadas en `libs/domain`, antes de cualquier endpoint. Es la fase que más errores evita después: cuotas, cierres de tarjeta y metas quedan probados de una vez.
+
+Tareas:
+
+- Enums compartidos (`Currency`, `RateType`, etc.) y tipos `Period` (`YYYY-MM`) y `LocalDate` (`YYYY-MM-DD`).
+- Clase `Money` sobre decimal.js: suma, resta, multiplicación por cotización, reparto, redondeo mitad hacia arriba a 2 decimales, formateo `es-AR`.
+- Ciclo de tarjeta: `buildStatementDates`, `statementPeriodFor`.
+- Cuotas: `splitInstallments` (con inicio en la cuota k), asignación de cuotas a períodos.
+- Fijos: `duePeriods` con frecuencia, inicio, fin, pausa y monto vigente por período.
+- Compromisos: `commitmentsByMonth` por moneda.
+- Metas: `goalProjection` (faltante, meses restantes, aporte mensual, ritmo, simulación).
+- Saldo de cuenta a partir de sus movimientos y transferencias.
+
+**Terminado cuando:** cada ejemplo numérico y cada regla de la especificación tiene su test y todos pasan, incluidos los casos borde.
+
+```
+Leé CLAUDE.md, la sección "Reglas de negocio" de docs/especificacion.md y la sección "Backend > Lógica de dominio" de docs/arquitectura.md antes de empezar.
+
+Vamos a hacer la Fase 1 de docs/plan.md: implementar todas las reglas de negocio de platin como funciones puras en libs/domain, con tests en Vitest. No hay base de datos, ni HTTP, ni Angular en esta fase.
+
+Alcance:
+1. Enums compartidos (Currency, RateType, AccountType, TxType, TxStatus, StatementStatus, etc., iguales al esquema de Prisma de la arquitectura) y tipos Period (YYYY-MM) y LocalDate (YYYY-MM-DD) con funciones para sumar meses, comparar y convertir.
+2. Money sobre decimal.js: inmutable, con moneda, suma, resta, multiplicación por cotización, reparto en N partes y redondeo half-up a 2 decimales. Nunca usar number para montos.
+3. Ciclo de tarjeta: buildStatementDates(card, period) y statementPeriodFor(card, purchaseDate, overrides).
+4. Cuotas: splitInstallments(total, count, startAt) con la diferencia de redondeo en la última cuota, y asignación de cada cuota a su período.
+5. Fijos: duePeriods(fixed, from, to) respetando frecuencia, inicio, fin, pausa y el monto vigente de cada período.
+6. Compromisos: commitmentsByMonth(input, months), separado por moneda.
+7. Metas: goalProjection(goal, accumulated, today, monthly?) con faltante, meses restantes, aporte mensual, ritmo (adelantado/atrasado y por cuánto) y fecha estimada para un aporte dado.
+8. Saldo de cuenta: accountBalance(initial, transactions, transfers).
+
+Tests obligatorios (además de los que consideres):
+- Todos los ejemplos numéricos de la especificación como tests literales, por ejemplo: meta de USD 15.000 a diciembre 2027 con USD 4.200 en octubre 2026 → USD 771,43 por mes.
+- Compra el mismo día del cierre, compra el día después del cierre, día de cierre 31 en febrero.
+- 3 cuotas de $ 100.000 → 33.333,33 / 33.333,33 / 33.333,34.
+- "Voy por la 4 de 12" genera solo las cuotas 4 a 12.
+- Fijo con aumento desde un mes: los meses anteriores conservan el monto viejo.
+- Ninguna función lee la fecha del sistema: "hoy" siempre es un parámetro.
+
+Forma de trabajo:
+- Antes de codear, proponeme la API pública de libs/domain (firmas de funciones y tipos) y esperá mi OK.
+- Rama feat/fase-1-dominio, commits chicos.
+- Si una regla de la especificación es ambigua, no la inventes: preguntame.
+- Al terminar, corré los tests con cobertura y mostrame el resumen. Abrí el PR.
+```
+
+## Fase 2 — Auth y shell de la app
+
+Registro, login y sesión persistente, más el esqueleto visual de la app: barra inferior, barra lateral en escritorio, botón + y la pantalla de "despertando el servidor". También los primeros componentes de `libs/web-ui`.
+
+Tareas:
+
+- Backend: módulos `auth` y `users`, `RefreshToken`, rotación con detección de reuso, argon2id, guard global, `@CurrentUser()`, throttler y helmet.
+- Frontend: páginas `/ingresar` y `/registro`, servicio de auth con el token en un signal, interceptor con refresh automático, guard de `/app`.
+- Arranque de la app: pedido a `/health`, pantalla de espera si tarda, luego refresh.
+- Shell: layout con barra inferior (celular) y lateral (escritorio), botón + que por ahora abre una hoja vacía, modo oscuro, perfil con moneda base y cotización preferida.
+- `libs/web-ui`: `pl-button`, `pl-segmented`, `pl-bottom-sheet`, `pl-money`, `pl-empty-state`.
+
+**Terminado cuando:** me registro, cierro el navegador, vuelvo a abrir y sigo adentro; el usuario B no puede ver nada del usuario A (test e2e); la shell se ve como en los mockups.
+
+```
+Leé CLAUDE.md, la sección "Auth y seguridad" y "Frontend" de docs/arquitectura.md, y mirá los mockups en docs/mockups/ antes de empezar.
+
+Vamos a hacer la Fase 2 de docs/plan.md: autenticación completa y la shell visual de la app.
+
+Backend:
+1. Modelos User y RefreshToken según el esquema de la arquitectura, con su migración.
+2. Módulo auth: POST /auth/register, /auth/login, /auth/refresh, /auth/logout. JWT de acceso de 15 minutos; refresh token opaco de 30 días en cookie httpOnly, Secure, SameSite=Lax, Path=/api/v1/auth, guardado hasheado. Rotación en cada refresh; si llega un token ya revocado, revocar toda la familia.
+3. Contraseñas con argon2id, mínimo 10 caracteres. Validación con los esquemas Zod de libs/contracts.
+4. Guard JWT global (salvo /auth/* y /health), decorador @CurrentUser(), throttler estricto en /auth/*, helmet.
+5. Módulo users: GET y PATCH /users/me (nombre, moneda base, cotización preferida).
+6. Tests e2e: registro, login, refresh con rotación, reuso detectado, logout, y que un usuario no pueda leer el perfil de otro.
+
+Frontend:
+1. Páginas /ingresar y /registro con la identidad de platin (prerenderizadas).
+2. AuthService con el access token en un signal, interceptor que ante un 401 hace un único refresh y reintenta, guard para /app.
+3. Arranque: pedido directo a la URL de Render /health; si tarda más de 1,5 s, pantalla "Despertando el servidor" con el ícono de platin; después refresh y entrar.
+4. Shell de /app: barra inferior en celular (Inicio, Movimientos, +, Tarjetas, Ahorros) y barra lateral en escritorio; botón + verde que abre un pl-bottom-sheet vacío; modo oscuro; página de perfil.
+5. libs/web-ui: pl-button, pl-segmented, pl-bottom-sheet (sobre Angular CDK), pl-money (con modo ocultar montos) y pl-empty-state. Accesibles: foco visible, aria-labels, áreas táctiles de 44 px.
+
+Forma de trabajo:
+- Proponeme el plan primero y esperá mi OK.
+- Rama feat/fase-2-auth-shell. Lint, typecheck y tests en verde antes del PR.
+- En el PR, incluí capturas de la shell en celular y escritorio, en modo claro y oscuro.
+```
+
+## Fase 3 — Cuentas, movimientos y carga rápida
+
+El corazón del uso diario: cuentas con saldo calculado, categorías, ingresos, gastos, transferencias (incluida la compra de dólares) y la carga rápida en 3 toques. Desde acá ya podés usar platin con tus datos reales.
+
+Tareas:
+
+- Backend: módulos `accounts`, `categories`, `transactions`, `transfers`; saldos con `libs/domain`; ajuste de saldo; confirmación de pendientes en lote; paginación por cursor; categorías sugeridas al registrarse.
+- Cotización provisoria: mientras no esté la fase 6, un movimiento en dólares pide la cotización a mano.
+- Frontend: pantalla de cuentas, detalle de cuenta, lista de movimientos (agrupada por día, filtros, búsqueda) y carga rápida.
+- `libs/web-ui`: `pl-chip`, `pl-amount-keypad`, `pl-list-item`.
+
+**Terminado cuando:** desde el celular cargo un gasto en 3 toques, una compra de dólares como transferencia, y los saldos de las dos cuentas cambian correctamente.
+
+```
+Leé CLAUDE.md, los módulos 2 y 3 de docs/especificacion.md (CTA-01 a 04, MOV-01 a 05), las secciones "Modelo de datos" y "Backend" de docs/arquitectura.md, y los mockups Carga rápida y Movimientos en docs/mockups/.
+
+Vamos a hacer la Fase 3 de docs/plan.md: cuentas, categorías, movimientos, transferencias y carga rápida.
+
+Backend:
+1. Modelos Account, Category, Transaction y Transfer según el esquema de la arquitectura, con la check constraint de Transfer (exactamente un destino) en SQL dentro de la migración.
+2. Módulos accounts, categories, transactions y transfers con los endpoints de la tabla de la arquitectura. Todo filtrado por userId; recurso ajeno = 404.
+3. Saldos calculados con accountBalance de libs/domain (no se guardan). POST /accounts/:id/adjust crea un movimiento de ajuste por la diferencia.
+4. Categorías sugeridas creadas al registrarse (supermercado, delivery, transporte, servicios, salud, salidas, sueldo, etc.) con íconos de Lucide.
+5. GET /transactions con paginación por cursor y filtros (período, cuenta, categoría, tipo, texto). POST /transactions/confirm para confirmar pendientes en lote.
+6. Mientras no exista el módulo de cotizaciones, un movimiento en una moneda distinta a la base exige rateToBase en el request.
+7. Tests e2e por módulo, incluido aislamiento entre usuarios y que los saldos cierren después de transferencias entre monedas.
+
+Frontend:
+1. Cuentas: lista con saldo por cuenta y total por moneda, alta y edición, detalle con movimientos, ajuste de saldo.
+2. Movimientos: igual al mockup (selector de mes, totales, filtros por tipo, lista agrupada por día, pendientes con etiqueta amarilla que no suman).
+3. Carga rápida en el pl-bottom-sheet del botón +: segmentado Gasto/Ingreso/Transferencia, monto con pl-amount-keypad, categorías recientes como pl-chip, cuenta preseleccionada (la última usada), fecha "Hoy" editable, nota opcional, guardar. En escritorio también se abre con Ctrl+K. En modo Transferencia: cuenta origen, destino y los dos montos si las monedas difieren, mostrando la cotización resultante.
+4. pl-chip, pl-amount-keypad y pl-list-item en libs/web-ui.
+
+Forma de trabajo:
+- Plan primero, esperá mi OK. Si la fase te parece grande, proponé dividirla en backend y frontend.
+- Rama feat/fase-3-movimientos. Todo en verde antes del PR, con capturas de la carga rápida y de Movimientos en celular.
+```
+
+## Fase 4 — Tarjetas, resúmenes y cuotas
+
+La sección de tarjetas completa: alta con días de cierre y vencimiento, consumos en cuotas repartidos solos en los resúmenes, carga de cuotas ya empezadas, cierre con el total del banco y pago desde una cuenta.
+
+Tareas:
+
+- Backend: modelos `CreditCard`, `CardStatement`, `CardCharge`, `Installment`, `StatementAdjustment`; creación perezosa de resúmenes; consumos con cuotas en una transacción; cierre con ajuste; pago como `Transfer`.
+- Los consumos con tarjeta aparecen también en Movimientos (filtro Tarjetas).
+- Frontend: lista de tarjetas, detalle como en el mockup (tarjeta violeta, límite, pestañas Resumen / Próximos / Cuotas, barras de cuotas por resumen), alta de consumo, cierre y pago.
+- La carga rápida suma la opción de pagar con tarjeta y elegir cantidad de cuotas.
+
+**Terminado cuando:** cargo una compra de $ 550.000 en 12 cuotas un día antes del cierre y otra un día después, y cada una cae en el resumen correcto; migro una compra "4 de 12"; cierro un resumen con intereses y lo pago.
+
+```
+Leé CLAUDE.md, el módulo 4 de docs/especificacion.md (TAR-01 a 05, 07 y 08), las reglas "Ciclo de la tarjeta" y "Cuotas", las secciones "Modelo de datos" y "Backend" de docs/arquitectura.md, y el mockup Tarjeta con cuotas.
+
+Vamos a hacer la Fase 4 de docs/plan.md: tarjetas de crédito, resúmenes, consumos en cuotas, cierre y pago.
+
+Backend:
+1. Modelos CreditCard, CardStatement, CardCharge, Installment y StatementAdjustment según la arquitectura, con su migración.
+2. Los resúmenes se crean cuando hacen falta (al cargar un consumo o al consultar períodos), con fechas de buildStatementDates de libs/domain.
+3. POST /cards/:id/charges: usa statementPeriodFor y splitInstallments de libs/domain y crea consumo, resúmenes faltantes y cuotas en una sola transacción. Soporta startInstallment para "voy por la k de N": solo genera las cuotas k a N, desde el resumen abierto.
+4. Editar o borrar un consumo regenera solo las cuotas que no estén en un resumen cerrado; si alguna lo está, devolver un error con code CARD_STATEMENT_CLOSED.
+5. GET /cards/:id/statements con totales en ARS y USD calculados; GET /cards/:id/installments?active=true con número actual, total de cuotas y monto restante.
+6. POST /statements/:id/close con los totales del banco: la diferencia se guarda como StatementAdjustment con su categoría.
+7. POST /statements/:id/payments: crea un Transfer desde una cuenta, por pesos o dólares por separado, y actualiza el estado (PARTIALLY_PAID o PAID).
+8. Tests e2e con los casos del criterio de terminado de la fase.
+
+Frontend:
+1. /app/tarjetas con la lista y /app/tarjetas/:id igual al mockup: tarjeta violeta con resumen abierto, días al cierre y vencimiento; límite disponible; pestañas Resumen, Próximos y Cuotas; barras de cuotas por resumen; lista de cuotas activas con progreso "4 de 12".
+2. Alta y edición de tarjeta. Alta de consumo con vista previa del reparto de cuotas (calculada en el front con libs/domain).
+3. Cierre de resumen (cargar los totales del banco y ver la diferencia) y pago (cuenta, monto, moneda).
+4. En la carga rápida, al elegir una tarjeta como medio de pago, aparece el selector de cuotas.
+5. Los consumos con tarjeta se ven en Movimientos con el filtro Tarjetas.
+
+Forma de trabajo:
+- Plan primero, esperá mi OK. Si conviene, dividí en backend y frontend.
+- Rama feat/fase-4-tarjetas. Todo en verde antes del PR, con capturas del detalle de tarjeta.
+```
+
+## Fase 5 — Fijos, sync y compromisos
+
+Los gastos e ingresos que se repiten dejan de cargarse a mano: generan pendientes solos al abrir la app. Y aparece la vista de compromisos: cuánto tengo ya comprometido en los próximos 12 meses.
+
+Tareas:
+
+- Backend: modelos `FixedItem` y `FixedAmount`; módulo `fixed`; módulo `sync` que genera pendientes y resúmenes faltantes de forma idempotente; módulo `commitments`.
+- Frontend: pantalla de fijos (alta, aumento desde un mes, pausa, fin), bandeja "Para confirmar" y pantalla de compromisos.
+- La app llama a `POST /sync` al arrancar, después del refresh.
+
+**Terminado cuando:** creo el alquiler y el sueldo como fijos, abro la app al mes siguiente (simulando la fecha) y aparecen como pendientes una sola vez; los confirmo en lote; la vista de compromisos muestra cuotas y fijos de los próximos 12 meses por moneda.
+
+```
+Leé CLAUDE.md, los módulos 5 y 6 de docs/especificacion.md (FIJ-01 a 04, COM-01 y 02), las reglas "Fijos y movimientos pendientes" y "Compromisos de un mes", y las secciones "Modelo de datos" y "Backend" de docs/arquitectura.md.
+
+Vamos a hacer la Fase 5 de docs/plan.md: fijos, sincronización al abrir la app y compromisos.
+
+Backend:
+1. Modelos FixedItem y FixedAmount según la arquitectura, con su migración.
+2. Módulo fixed: CRUD, POST /fixed/:id/amounts para cambiar el monto desde un período (sin tocar los anteriores), pausar y finalizar.
+3. Módulo sync: POST /sync genera, para cada fijo activo, un Transaction PENDING por cada período vencido desde lastGeneratedPeriod, usando duePeriods de libs/domain. Debe ser idempotente: la restricción única (fixedId, fixedPeriod) garantiza que llamarlo dos veces no duplique nada. También crea los resúmenes de tarjeta faltantes hasta el período actual. Todo en una transacción por usuario.
+4. "Hoy" se calcula en America/Argentina/Buenos_Aires y se inyecta con un ClockService, para poder simular fechas en los tests.
+5. Módulo commitments: GET /commitments?months=12 con commitmentsByMonth de libs/domain: cuotas de resúmenes por mes de vencimiento + fijos de gasto activos con su monto vigente, separado por moneda y valuado en moneda base.
+6. Tests e2e: sync idempotente, cambio de monto desde un período, fijo pausado que no genera, compromisos que cierran con las cuotas de la fase 4.
+
+Frontend:
+1. /app/fijos: lista de fijos con próximo período y monto, alta y edición, "cambiar monto desde", pausar y finalizar.
+2. Bandeja "Para confirmar": lista de pendientes; se confirma deslizando o en lote, con la opción de corregir el monto antes.
+3. /app/compromisos: los próximos 12 meses con lo comprometido por mes y moneda, y el detalle de qué cuotas y fijos lo componen.
+4. Al arrancar la app, después del refresh, llamar a POST /sync.
+
+Forma de trabajo:
+- Plan primero, esperá mi OK.
+- Rama feat/fase-5-fijos-compromisos. Todo en verde antes del PR.
+```
+
+## Fase 6 — Inicio y cotizaciones
+
+La pantalla de inicio con "Libre este mes", y las cotizaciones automáticas de DolarApi que reemplazan la carga manual de la fase 3.
+
+Tareas:
+
+- Backend: modelo `ExchangeRate`, módulo `rates` con `RateProvider` y DolarApi, módulo `dashboard`.
+- Los movimientos en dólares toman la cotización del día del tipo preferido (sin pedirla a mano), con opción de corregirla.
+- Frontend: inicio igual al mockup (libre del mes, barra gastado / comprometido / libre, aviso de pendientes, próximos 30 días) y aviso cuando la cotización está desactualizada.
+
+**Terminado cuando:** el inicio muestra "Libre este mes" con mis datos reales y la cotización MEP del día; si DolarApi no responde, se usa la última guardada y la app lo avisa.
+
+```
+Leé CLAUDE.md, el módulo 10 de docs/especificacion.md (DAS-01), la regla "Dinero y monedas", las secciones "Cotizaciones" y "Backend" de docs/arquitectura.md, y el mockup Inicio.
+
+Vamos a hacer la Fase 6 de docs/plan.md: cotizaciones automáticas y la pantalla de inicio.
+
+Backend:
+1. Modelo ExchangeRate según la arquitectura, con su migración.
+2. Módulo rates: interfaz RateProvider y una implementación para DolarApi (GET /v1/dolares, mapeando oficial → OFICIAL, blue → BLUE, bolsa → MEP). Upsert por fecha y tipo cuando no hay cotización del día o la última tiene más de una hora. Se dispara desde POST /sync y GET /rates/latest; no hay cron. Si la API falla, devolver la última guardada con stale: true.
+3. Para valuar se usa el precio de venta. Un movimiento en moneda distinta a la base toma la cotización de esa fecha del tipo preferido del usuario (o la anterior más cercana); rateToBase en el request pasa a ser opcional y, si viene, manda.
+4. Módulo dashboard: GET /dashboard?period= devuelve ingresos esperados, gastado, comprometido y libre del mes; cantidad y resumen de pendientes; próximos 30 días (vencimientos de resúmenes, fijos); y la cotización usada. Todo en moneda base con decimal.
+5. Tests: provider mockeado (caso OK, caso caído con fallback), cálculo de libre del mes con un escenario armado.
+
+Frontend:
+1. /app igual al mockup Inicio: saludo, selector de mes, "Libre este mes" grande, pl-stacked-bar con gastado / comprometido / libre y su leyenda, aviso amarillo "Para confirmar" que lleva a la bandeja, lista de próximos 30 días.
+2. Botón de ojo para ocultar montos en toda la app (estado global, persistido en localStorage).
+3. Si la cotización viene stale, un aviso discreto con la fecha de la última.
+4. En la carga rápida, mostrar la cotización que se va a usar cuando el monto es en otra moneda.
+
+Forma de trabajo:
+- Plan primero, esperá mi OK.
+- Rama feat/fase-6-inicio. Todo en verde antes del PR, con capturas del inicio en celular, claro y oscuro.
+```
+
+## Fase 7 — Ahorros y metas
+
+La pantalla de ahorros con el total valuado en dólares, y las metas conectadas a cuentas reales que calculan cuánto falta, cuánto ahorrar por mes y si vas a ritmo.
+
+Tareas:
+
+- Backend: modelos `Goal`, `GoalAccount`, `GoalContribution`; módulo `goals` con proyección y simulación.
+- Frontend: Ahorros (total en USD, dólares y pesos, metas, cuentas de ahorro) y detalle de meta igual a los mockups, con el simulador de aporte.
+
+**Terminado cuando:** creo la meta del auto con los datos del ejemplo y muestra 28 %, faltan USD 10.800 y USD 771 por mes; al cambiar el aporte simulado a USD 900 dice octubre 2027.
+
+```
+Leé CLAUDE.md, el módulo 8 de docs/especificacion.md (MET-01 a 03, y MET-04 si llegás), la regla "Metas", las secciones "Modelo de datos" y "Backend" de docs/arquitectura.md, y los mockups Ahorros y Meta de ahorro.
+
+Vamos a hacer la Fase 7 de docs/plan.md: ahorros y metas.
+
+Backend:
+1. Modelos Goal, GoalAccount y GoalContribution según la arquitectura, con su migración.
+2. Módulo goals: CRUD de metas; vincular y desvincular cuentas; aportes asignados (para repartir una cuenta entre varias metas); marcar cumplida o cancelada.
+3. GET /goals y GET /goals/:id devuelven el acumulado (saldos de cuentas vinculadas convertidos a la moneda de la meta, o suma de aportes) y la proyección de goalProjection de libs/domain: faltante, meses restantes, aporte mensual, ritmo y monto esperado a hoy.
+4. GET /goals/:id/projection?monthly= para el simulador: fecha estimada con ese aporte y cuántos meses antes o después del objetivo.
+5. GET /savings: total ahorrado valuado en USD con la cotización preferida, separado en dólares y pesos, más las cuentas de tipo SAVINGS y CASH en USD.
+6. Tests e2e con el ejemplo del auto de la especificación.
+
+Frontend:
+1. /app/ahorros igual al mockup: tarjeta oscura con el total, barra dólares/pesos, metas como tarjetas compactas (progreso, aporte mensual, fecha, etiqueta de ritmo) y cuentas de ahorro. Link a inversiones deshabilitado hasta la segunda tanda.
+2. /app/metas/:id igual al mockup: anillo de progreso, ahorrado y faltante, aporte mensual necesario destacado, aviso de ritmo, simulador con input de aporte y cuentas vinculadas.
+3. Alta y edición de meta, con selección de cuentas vinculadas.
+4. pl-progress (barra y anillo) en libs/web-ui.
+
+Forma de trabajo:
+- Plan primero, esperá mi OK.
+- Rama feat/fase-7-ahorros-metas. Todo en verde antes del PR, con capturas.
+```
+
+## Fase 8 — Landing y pulido del MVP
+
+La cara pública de platin y una pasada de calidad sobre todo lo anterior. Al terminar esta fase, platin reemplaza a la app anterior.
+
+Tareas:
+
+- Landing prerenderizada: propuesta de valor ("Tu plata, más clara."), capturas de las pantallas, funcionalidades, llamado a registrarse.
+- Metadatos: título, descripción, imagen para compartir, favicon e íconos del manifest a partir de los SVG.
+- Onboarding mínimo: al registrarse, crear la primera cuenta y (opcional) la primera tarjeta.
+- Pasada de calidad: estados vacíos, estados de carga y error, accesibilidad, modo oscuro en todas las pantallas, rendimiento en celular.
+
+**Terminado cuando:** la landing está publicada, un usuario nuevo llega desde ahí, se registra y carga su primer gasto sin ayuda; Lighthouse en celular da 90 o más en accesibilidad y buenas prácticas.
+
+```
+Leé CLAUDE.md, el módulo 10 de docs/especificacion.md (LAN-01 y 02), la sección "Identidad visual y UX", la sección "Frontend" de docs/arquitectura.md, y usá los íconos de docs/brand/.
+
+Vamos a hacer la Fase 8 de docs/plan.md: la landing de platin y el pulido final del MVP.
+
+Landing (ruta /, prerenderizada):
+1. Hero con el nombre, la frase "Tu plata, más clara.", una captura de la pantalla de inicio en un marco de celular y botones Ingresar / Crear cuenta.
+2. Secciones: "Cuánto te queda libre este mes", "Tus cuotas, bajo control", "Metas que te dicen cuánto ahorrar", "Pesos y dólares, juntos". Cada una con su captura real de la app.
+3. Paleta de platin: los acentos coral, celeste y rosa solo se usan acá.
+4. Metadatos SEO y Open Graph, imagen para compartir, favicon e íconos del manifest generados desde docs/brand/icono-verde.svg.
+5. Rápida en celular: imágenes optimizadas, fuentes con font-display: swap.
+
+Onboarding:
+6. Después del registro, un paso guiado: crear la primera cuenta (con su saldo actual) y, opcionalmente, la primera tarjeta. Se puede saltear.
+
+Pulido:
+7. Revisá todas las pantallas de /app: estados vacíos con pl-empty-state que expliquen qué cargar, estados de carga (skeletons) y de error con reintento.
+8. Accesibilidad: navegación por teclado, foco visible, contraste AA (los textos chicos usan brand-strong, no brand), aria-labels en botones de ícono.
+9. Modo oscuro revisado pantalla por pantalla.
+10. Corré Lighthouse en celular sobre la landing y el inicio y corregí lo que baje de 90 en accesibilidad y buenas prácticas.
+
+Forma de trabajo:
+- Plan primero, esperá mi OK.
+- Rama feat/fase-8-landing. Todo en verde antes del PR, con capturas de la landing y los resultados de Lighthouse.
+```
+
+## Después del MVP
+
+La segunda tanda de la especificación, en fases chicas que se pueden hacer en cualquier orden. Los prompts siguen el mismo molde que las fases anteriores: leer `CLAUDE.md` y la sección de la especificación, plan primero, rama propia, PR con todo en verde.
+
+| Fase | Qué incluye | Casos de uso |
+| --- | --- | --- |
+| 9 | Presupuestos por categoría con alertas | PRE-01 a 03 |
+| 10 | Inversiones con valuación manual | INV-01 a 03 |
+| 11 | Reportes y evolución del patrimonio | DAS-02, 03 |
+| 12 | Tarjetas avanzado: corregir fechas, fijos en tarjeta, límite disponible | TAR-06, 09, 10 |
+| 13 | Recuperar contraseña, exportar CSV, simulador y cierre de metas, liberación de cuotas | AUTH-03, MOV-06, MET-04, 05, COM-03 |
+| 14 | Mudanza a VPS (opcional): Caddy, compose de producción, backups, deploy por SSH | Sección "Docker y VPS" de la arquitectura |
