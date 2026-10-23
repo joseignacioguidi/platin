@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Meta de ahorro</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#007A65}a:hover{color:#005C4C}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #F5F5F3; color: #181818; font-family: 'Uncut Sans', 'Inter Tight', system-ui, sans-serif; box-sizing: border-box">
+  <div style="display: flex; flex-direction: column; gap: 12px; padding: 12px 20px 0">
+    <div style="display: flex; align-items: center; gap: 8px; height: 44px">
+      <a href="Main.dc.html" aria-label="Volver" style="width: 44px; height: 44px; margin-left: -12px; display: flex; align-items: center; justify-content: center">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#181818" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></a>
+      <span style="flex: 1; font-size: 15px; color: #6D6D6D">Metas</span>
+      <button aria-label="Editar meta" style="width: 44px; height: 44px; border: none; background: none; display: flex; align-items: center; justify-content: center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#181818" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path></svg></button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <h1 style="margin: 0; font-size: 28px; font-weight: 700">Auto</h1>
+      <span style="font-size: 14px; color: #6D6D6D"><span style="font-family: 'JetBrains Mono', monospace; color: #181818">USD 15.000</span> para diciembre 2027</span>
+    </div>
+
+    <div style="background: #FFFFFF; border-radius: 24px; padding: 18px; display: flex; align-items: center; gap: 18px">
+      <div style="position: relative; width: 128px; height: 128px; flex: none">
+        <svg width="128" height="128" viewBox="0 0 128 128" role="img" aria-label="28 % de la meta">
+          <circle cx="64" cy="64" r="54" fill="none" stroke="#E6F8FB" stroke-width="14"></circle>
+          <circle cx="64" cy="64" r="54" fill="none" stroke="#7DE2F2" stroke-width="14" stroke-linecap="round" stroke-dasharray="95 339.3" transform="rotate(-90 64 64)"></circle>
+        </svg>
+        <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center">
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 600">28%</span>
+        </div>
+      </div>
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #6D6D6D">Ahorrado</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 600">USD 4.200</span></div>
+        <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #6D6D6D">Faltan</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 600">USD 10.800</span></div>
+      </div>
+    </div>
+
+    <div style="background: #181818; color: #FFFFFF; border-radius: 24px; padding: 18px 20px; display: flex; flex-direction: column; gap: 4px">
+      <span style="font-size: 13px; color: #BDBDB8">Para llegar en 14 meses necesitás ahorrar</span>
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 34px; font-weight: 600; letter-spacing: -1px; color: #7DE2F2">USD 771<span style="font-size: 16px; color: #FFFFFF">/mes</span></span>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 18px; background: #FDF0D0">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#181818" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+      <div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+        <span style="font-size: 14px; font-weight: 600">Vas atrasado <span style="font-family: 'JetBrains Mono', monospace">USD 1.425</span></span>
+        <span style="font-size: 12px; color: #5A4A1F">A esta altura el plan esperaba USD 5.625</span>
+      </div>
+    </div>
+
+    <div style="background: #FFFFFF; border-radius: 20px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+      <span style="font-size: 14px; font-weight: 600">¿Y si aporto otro monto?</span>
+      <div style="display: flex; align-items: center; gap: 10px">
+        <label for="aporte" style="font-size: 13px; color: #6D6D6D">Aporte</label>
+        <input id="aporte" value="USD 900" style="width: 110px; height: 40px; padding: 0 12px; border: 1px solid #E4E4E0; border-radius: 12px; font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #181818; box-sizing: border-box">
+        <span style="flex: 1; text-align: right; font-size: 13px">Llegás en <strong>oct 2027</strong></span>
+      </div>
+      <span style="font-size: 12px; color: #007A65; font-weight: 600">2 meses antes de la fecha objetivo</span>
+    </div>
+
+    <div style="background: #FFFFFF; border-radius: 20px; padding: 4px 16px">
+      <div style="display: flex; align-items: center; gap: 10px; height: 50px; border-bottom: 1px solid #EFEFEC">
+        <span style="width: 8px; height: 8px; border-radius: 4px; background: #0590CB"></span>
+        <span style="flex: 1; font-size: 14px">Caja de ahorro USD</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px">USD 3.000</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; height: 50px">
+        <span style="width: 8px; height: 8px; border-radius: 4px; background: #0590CB"></span>
+        <span style="flex: 1; font-size: 14px">Efectivo USD</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px">USD 1.200</span>
+      </div>
+    </div>
+  </div>
+
+  <nav style="position: absolute; left: 0; right: 0; bottom: 0; height: 84px; background: #FFFFFF; border-top: 1px solid #E8E8E4; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: start; padding-top: 8px; box-sizing: border-box">
+    <a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #6D6D6D; font-size: 11px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6D6D6D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"></path></svg>Inicio</a>
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #6D6D6D; font-size: 11px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6D6D6D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"></path></svg>Movimientos</a>
+    <a href="Carga.dc.html" aria-label="Cargar movimiento" style="justify-self: center; margin-top: -24px; width: 60px; height: 60px; border-radius: 30px; background: #00B99A; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 6px #FFFFFF">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#181818" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></a>
+    <a href="Tarjeta.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #6D6D6D; font-size: 11px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6D6D6D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2.5"></rect><path d="M2.5 10h19"></path></svg>Tarjetas</a>
+    <a href="Meta.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #007A65; font-size: 11px; font-weight: 600">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#007A65" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="12" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle></svg>Más</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

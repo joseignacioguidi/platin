@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Carga rápida</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#007A65}a:hover{color:#005C4C}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #8A8A87; color: #181818; font-family: 'Uncut Sans', 'Inter Tight', system-ui, sans-serif; box-sizing: border-box">
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; top: 96px; background: #FFFFFF; border-radius: 28px 28px 0 0; padding: 10px 20px 24px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+    <div style="align-self: center; width: 40px; height: 5px; border-radius: 3px; background: #DADAD6"></div>
+
+    <div role="tablist" aria-label="Tipo de movimiento" style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; background: #F1F1EE; border-radius: 14px">
+      <button role="tab" aria-selected="true" style="height: 38px; border: none; border-radius: 10px; background: #181818; color: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 600">Gasto</button>
+      <button role="tab" aria-selected="false" style="height: 38px; border: none; border-radius: 10px; background: transparent; color: #181818; font-family: inherit; font-size: 14px; font-weight: 500">Ingreso</button>
+      <button role="tab" aria-selected="false" style="height: 38px; border: none; border-radius: 10px; background: transparent; color: #181818; font-family: inherit; font-size: 14px; font-weight: 500">Transferencia</button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 4px 0">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 48px; font-weight: 600; letter-spacing: -2px; line-height: 1.1">$ 18.500<span style="color: #00B99A">|</span></span>
+      <button style="display: flex; align-items: center; gap: 4px; height: 30px; padding: 0 12px; border: 1px solid #E4E4E0; border-radius: 15px; background: #FFFFFF; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500; color: #181818">ARS
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#181818" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+      </button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <span style="font-size: 13px; font-weight: 500; color: #6D6D6D">Categoría · recientes</span>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <button style="height: 40px; padding: 0 14px; border: none; border-radius: 20px; background: #007A65; color: #FFFFFF; font-family: inherit; font-size: 14px; font-weight: 600">Supermercado</button>
+        <button style="height: 40px; padding: 0 14px; border: 1px solid #E4E4E0; border-radius: 20px; background: #FFFFFF; color: #181818; font-family: inherit; font-size: 14px">Delivery</button>
+        <button style="height: 40px; padding: 0 14px; border: 1px solid #E4E4E0; border-radius: 20px; background: #FFFFFF; color: #181818; font-family: inherit; font-size: 14px">Nafta</button>
+        <button style="height: 40px; padding: 0 14px; border: 1px solid #E4E4E0; border-radius: 20px; background: #FFFFFF; color: #181818; font-family: inherit; font-size: 14px">Farmacia</button>
+        <button style="height: 40px; padding: 0 14px; border: 1px solid #E4E4E0; border-radius: 20px; background: #FFFFFF; color: #181818; font-family: inherit; font-size: 14px">Salidas</button>
+        <button style="height: 40px; padding: 0 14px; border: 1px dashed #BDBDB8; border-radius: 20px; background: #FFFFFF; color: #6D6D6D; font-family: inherit; font-size: 14px">Más…</button>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+      <button style="grid-column: span 2; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; height: 52px; padding: 0 14px; border: 1px solid #E4E4E0; border-radius: 14px; background: #FFFFFF; font-family: inherit; text-align: left; color: #181818">
+        <span style="font-size: 11px; color: #6D6D6D">Cuenta</span>
+        <span style="display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600"><span style="width: 8px; height: 8px; border-radius: 4px; background: #0590CB"></span>Mercado Pago</span>
+      </button>
+      <button style="display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; height: 52px; padding: 0 14px; border: 1px solid #E4E4E0; border-radius: 14px; background: #FFFFFF; font-family: inherit; text-align: left; color: #181818">
+        <span style="font-size: 11px; color: #6D6D6D">Fecha</span>
+        <span style="font-size: 14px; font-weight: 600">Hoy</span>
+      </button>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+      <button style="height: 50px; border: none; border-radius: 14px; background: #F5F5F3; font-family: 'JetBrains Mono', monospace; font-size: 22px; color: #181818">1</button>
+      <button style="height: 50px; border: none; border-radius: 14px; background: #F5F5F3; font-family: 'JetBrains Mono', monospace; font-size: 22px; color: #181818">2</button>
+      <button style="height: 50px; border: none; border-radius: 14px; background: #F5F5F3; font-family: 'JetBrains Mono', monospace; font-size: 22px; color: #181818">3</button>
+      <button style="height: 50px; border: none; border-radius: 14px; background: #F5F5F3; font-family: 'JetBrains Mono', monospace; font-size: 22px; color: #181818">4</button>
+      <button style="height: 50px; border: none; border-radius: 14px; background: #F5F5F3; font-family: 'JetBrains Mono', monospace; font-size: 22px; color: #181818">5</button>
+      <button style="height: 50px; border: none; border-radius: 14px; background: #F5F5F3; font-family: 'JetBrains Mono', monospace; font-size: 22px; color: #181818">6</button>
+      <button style="height: 50px; border: none; border-radius: 14px; background: #F5F5F3; font-family: 'JetBrains Mono', monospace; font-size: 22px; color: #181818">7</button>
+      <button style="height: 50px; border: none; border-radius: 14px; background: #F5F5F3; font-family: 'JetBrains Mono', monospace; font-size: 22px; color: #181818">8</button>
+      <button style="height: 50px; border: none; border-radius: 14px; background: #F5F5F3; font-family: 'JetBrains Mono', monospace; font-size: 22px; color: #181818">9</button>
+      <button style="height: 50px; border: none; border-radius: 14px; background: #F5F5F3; font-family: 'JetBrains Mono', monospace; font-size: 22px; color: #181818">,</button>
+      <button style="height: 50px; border: none; border-radius: 14px; background: #F5F5F3; font-family: 'JetBrains Mono', monospace; font-size: 22px; color: #181818">0</button>
+      <button aria-label="Borrar" style="height: 50px; border: none; border-radius: 14px; background: #F5F5F3; display: flex; align-items: center; justify-content: center">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#181818" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 5H9l-6 7 6 7h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"></path><path d="M17 9l-5 6M12 9l5 6"></path></svg>
+      </button>
+    </div>
+
+    <div style="display: flex; gap: 8px; margin-top: auto">
+      <button aria-label="Agregar nota" style="width: 56px; height: 56px; border: 1px solid #E4E4E0; border-radius: 16px; background: #FFFFFF; display: flex; align-items: center; justify-content: center">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#181818" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path></svg>
+      </button>
+      <button style="flex: 1; height: 56px; border: none; border-radius: 16px; background: #181818; color: #FFFFFF; font-family: inherit; font-size: 16px; font-weight: 600">Guardar gasto</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

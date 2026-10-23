@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Inicio</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#007A65}a:hover{color:#005C4C}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #F5F5F3; color: #181818; font-family: 'Uncut Sans', 'Inter Tight', system-ui, sans-serif; box-sizing: border-box">
+  <div style="display: flex; flex-direction: column; gap: 16px; padding: 16px 20px 0">
+    <div style="display: flex; align-items: center; justify-content: space-between; height: 44px">
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <span style="font-size: 13px; color: #6D6D6D">Hola, José</span>
+        <button style="display: flex; align-items: center; gap: 4px; padding: 0; border: none; background: none; font-family: inherit; font-size: 20px; font-weight: 700; color: #181818">Octubre 2026
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#181818" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+        </button>
+      </div>
+      <button aria-label="Ocultar montos" style="width: 44px; height: 44px; border-radius: 22px; border: 1px solid #E4E4E0; background: #FFFFFF; display: flex; align-items: center; justify-content: center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#181818" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+      </button>
+    </div>
+
+    <div style="background: #FFFFFF; border-radius: 24px; padding: 22px 20px; display: flex; flex-direction: column; gap: 16px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 14px; font-weight: 500; color: #6D6D6D">Libre este mes</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 40px; font-weight: 600; letter-spacing: -1.5px; line-height: 1.1">$ 412.300</span>
+        <span style="font-size: 13px; color: #6D6D6D">de <span style="font-family: 'JetBrains Mono', monospace">$ 1.850.000</span> de ingresos esperados</span>
+      </div>
+      <div role="img" aria-label="Gastado 41 %, comprometido 36 %, libre 22 %" style="display: flex; gap: 3px; height: 12px">
+        <div style="width: 41.3%; background: #FE8363; border-radius: 6px 2px 2px 6px"></div>
+        <div style="width: 36.4%; background: #8B7FFF; border-radius: 2px"></div>
+        <div style="width: 22.3%; background: #00B99A; border-radius: 2px 6px 6px 2px"></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; align-items: center; gap: 10px; font-size: 14px">
+          <span style="width: 10px; height: 10px; border-radius: 5px; background: #FE8363"></span>
+          <span style="flex: 1">Gastado</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px">$ 763.700</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; font-size: 14px">
+          <span style="width: 10px; height: 10px; border-radius: 5px; background: #8B7FFF"></span>
+          <span style="flex: 1">Comprometido <span style="color: #6D6D6D">· cuotas y fijos</span></span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px">$ 674.000</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; font-size: 14px">
+          <span style="width: 10px; height: 10px; border-radius: 5px; background: #00B99A"></span>
+          <span style="flex: 1">Libre</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600">$ 412.300</span>
+        </div>
+      </div>
+    </div>
+
+    <button style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: none; border-radius: 18px; background: #FDF0D0; font-family: inherit; text-align: left; color: #181818">
+      <span style="width: 36px; height: 36px; border-radius: 18px; background: #F9C558; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 15px">3</span>
+      <span style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+        <span style="font-size: 15px; font-weight: 600">Para confirmar</span>
+        <span style="font-size: 13px; color: #5A4A1F">Sueldo, alquiler y Spotify</span>
+      </span>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#181818" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+    </button>
+
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; align-items: baseline; justify-content: space-between">
+        <h2 style="margin: 0; font-size: 17px; font-weight: 700">Próximos 30 días</h2>
+        <a href="#" style="font-size: 14px; font-weight: 500; text-decoration: none">Ver todo</a>
+      </div>
+      <div style="background: #FFFFFF; border-radius: 20px; padding: 4px 16px">
+        <div style="display: flex; align-items: center; gap: 12px; height: 60px; border-bottom: 1px solid #EFEFEC">
+          <div style="width: 44px; display: flex; flex-direction: column; align-items: center; font-family: 'JetBrains Mono', monospace; line-height: 1.1"><span style="font-size: 17px; font-weight: 600">05</span><span style="font-size: 11px; color: #6D6D6D">NOV</span></div>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 600">Visa Galicia</span><span style="font-size: 12px; color: #6D6D6D; display: flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 4px; background: #8B7FFF"></span>Vence resumen</span></div>
+          <div style="display: flex; flex-direction: column; align-items: flex-end; font-family: 'JetBrains Mono', monospace; font-size: 13px; gap: 2px"><span>$ 312.450</span><span style="font-size: 11px; color: #6D6D6D">+ USD 24,99</span></div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; height: 60px; border-bottom: 1px solid #EFEFEC">
+          <div style="width: 44px; display: flex; flex-direction: column; align-items: center; font-family: 'JetBrains Mono', monospace; line-height: 1.1"><span style="font-size: 17px; font-weight: 600">10</span><span style="font-size: 11px; color: #6D6D6D">NOV</span></div>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 600">Alquiler</span><span style="font-size: 12px; color: #6D6D6D; display: flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 4px; background: #FE8363"></span>Fijo · Banco Galicia</span></div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px">$ 380.000</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; height: 60px; border-bottom: 1px solid #EFEFEC">
+          <div style="width: 44px; display: flex; flex-direction: column; align-items: center; font-family: 'JetBrains Mono', monospace; line-height: 1.1"><span style="font-size: 17px; font-weight: 600">15</span><span style="font-size: 11px; color: #6D6D6D">NOV</span></div>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 600">Expensas</span><span style="font-size: 12px; color: #6D6D6D; display: flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 4px; background: #FE8363"></span>Fijo · Mercado Pago</span></div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px">$ 95.000</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; height: 60px">
+          <div style="width: 44px; display: flex; flex-direction: column; align-items: center; font-family: 'JetBrains Mono', monospace; line-height: 1.1"><span style="font-size: 17px; font-weight: 600">18</span><span style="font-size: 11px; color: #6D6D6D">NOV</span></div>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 600">Mastercard BBVA</span><span style="font-size: 12px; color: #6D6D6D; display: flex; align-items: center; gap: 6px"><span style="width: 8px; height: 8px; border-radius: 4px; background: #8B7FFF"></span>Vence resumen</span></div>
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px">$ 98.700</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <nav style="position: absolute; left: 0; right: 0; bottom: 0; height: 84px; background: #FFFFFF; border-top: 1px solid #E8E8E4; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: start; padding-top: 8px; box-sizing: border-box">
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #007A65; font-size: 11px; font-weight: 600">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#007A65" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"></path></svg>Inicio</a>
+    <a href="#" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #6D6D6D; font-size: 11px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6D6D6D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"></path></svg>Movimientos</a>
+    <a href="Carga.dc.html" aria-label="Cargar movimiento" style="justify-self: center; margin-top: -24px; width: 60px; height: 60px; border-radius: 30px; background: #00B99A; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 6px #FFFFFF">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#181818" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></a>
+    <a href="Tarjeta.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #6D6D6D; font-size: 11px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6D6D6D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2.5"></rect><path d="M2.5 10h19"></path></svg>Tarjetas</a>
+    <a href="Meta.dc.html" style="display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: #6D6D6D; font-size: 11px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6D6D6D" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="12" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle></svg>Más</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
