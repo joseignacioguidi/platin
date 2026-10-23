@@ -54,6 +54,10 @@ export default [
     rules: {
       // `any` only with a justifying comment and an eslint-disable for that line.
       '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
     },
   },
 ];
