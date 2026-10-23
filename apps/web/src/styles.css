@@ -1,0 +1,11 @@
+@import 'tailwindcss' source(none);
+@source '.';
+@source '../../../libs/web-ui/src';
+
+@import '@fontsource/uncut-sans/400.css';
+@import '@fontsource/uncut-sans/500.css';
+@import '@fontsource/uncut-sans/600.css';
+@import '@fontsource/uncut-sans/700.css';
+@import '@fontsource-variable/jetbrains-mono/index.css';
+
+@import '../../../libs/web-ui/src/styles/theme.css';

@@ -1,0 +1,133 @@
+/*
+ * platin design tokens. Components use ONLY these Tailwind tokens (bg-brand, text-muted...),
+ * never raw hex values. Dark mode redefines the variables under `.dark`.
+ */
+
+:root {
+  /* Brand and financial meaning */
+  --pl-brand: #00b99a;
+  --pl-brand-strong: #007a65; /* small text on light backgrounds (AA) */
+  --pl-brand-hover: #005c4c;
+  --pl-brand-soft: #d9f5ef;
+  --pl-expense: #fe8363;
+  --pl-expense-soft: #ffe9e2;
+  --pl-pending: #f9c558;
+  --pl-pending-soft: #fdf0d0;
+  --pl-pending-ink: #5a4a1f;
+  --pl-transfer: #0590cb;
+  --pl-transfer-soft: #ddf0f9;
+  --pl-card: #8b7fff;
+  --pl-card-muted: #c9c3ff;
+  --pl-card-soft: #eceaff;
+  --pl-savings: #7de2f2;
+  --pl-savings-soft: #e6f8fb;
+
+  /* Neutrals */
+  --pl-ink: #181818;
+  --pl-muted: #6d6d6d;
+  --pl-canvas: #f5f5f3;
+  --pl-surface: #ffffff;
+  --pl-field: #f1f1ee;
+  --pl-line: #e4e4e0;
+  --pl-line-soft: #efefec;
+  --pl-on-ink: #ffffff; /* text on ink-filled buttons */
+  --pl-on-card: #181818; /* text on the violet card */
+
+  /* Landing-only accents */
+  --pl-coral: #fe8363;
+  --pl-sky: #7de2f2;
+  --pl-rose: #ffc7c7;
+
+  color-scheme: light;
+}
+
+.dark {
+  --pl-brand-strong: #3fd6bb;
+  --pl-brand-hover: #5fe0c8;
+  --pl-brand-soft: #0f3a33;
+  --pl-expense-soft: #3d2620;
+  --pl-pending-soft: #3a3020;
+  --pl-pending-ink: #f9dc9a;
+  --pl-transfer-soft: #13303d;
+  --pl-card-muted: #5a52a8;
+  --pl-card-soft: #2a2745;
+  --pl-savings-soft: #183a40;
+
+  --pl-ink: #f5f5f3;
+  --pl-muted: #a6a6a2;
+  --pl-canvas: #181818;
+  --pl-surface: #222221;
+  --pl-field: #2c2c2a;
+  --pl-line: #3a3a37;
+  --pl-line-soft: #2e2e2c;
+  --pl-on-ink: #181818;
+
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  --color-brand: var(--pl-brand);
+  --color-brand-strong: var(--pl-brand-strong);
+  --color-brand-hover: var(--pl-brand-hover);
+  --color-brand-soft: var(--pl-brand-soft);
+  --color-expense: var(--pl-expense);
+  --color-expense-soft: var(--pl-expense-soft);
+  --color-pending: var(--pl-pending);
+  --color-pending-soft: var(--pl-pending-soft);
+  --color-pending-ink: var(--pl-pending-ink);
+  --color-transfer: var(--pl-transfer);
+  --color-transfer-soft: var(--pl-transfer-soft);
+  --color-card: var(--pl-card);
+  --color-card-muted: var(--pl-card-muted);
+  --color-card-soft: var(--pl-card-soft);
+  --color-savings: var(--pl-savings);
+  --color-savings-soft: var(--pl-savings-soft);
+
+  --color-ink: var(--pl-ink);
+  --color-muted: var(--pl-muted);
+  --color-canvas: var(--pl-canvas);
+  --color-surface: var(--pl-surface);
+  --color-field: var(--pl-field);
+  --color-line: var(--pl-line);
+  --color-line-soft: var(--pl-line-soft);
+  --color-on-ink: var(--pl-on-ink);
+  --color-on-card: var(--pl-on-card);
+
+  --color-coral: var(--pl-coral);
+  --color-sky: var(--pl-sky);
+  --color-rose: var(--pl-rose);
+
+  --font-sans: 'Uncut Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+
+  --radius-card: 24px;
+  --radius-tile: 20px;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    background-color: var(--pl-canvas);
+    color: var(--pl-ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--pl-brand);
+    outline-offset: 2px;
+  }
+}
+
+/* Amounts and dates: monospace with aligned digits. */
+@utility font-amount {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
