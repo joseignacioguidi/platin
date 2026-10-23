@@ -16,6 +16,8 @@ export default defineConfig(() => ({
     coverage: {
       reportsDirectory: '../../coverage/libs/domain',
       provider: 'v8' as const,
+      include: ['src/**/*.ts'],
+      exclude: ['src/**/*.spec.ts', 'src/lib/test-helpers.ts', 'src/index.ts'],
     },
   },
 }));
