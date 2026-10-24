@@ -36,6 +36,22 @@ export const appAreaRoutes: Route[] = [
     loadComponent: () => import('./features/cards/card-detail-page').then((m) => m.CardDetailPage),
   },
   {
+    path: 'fijos',
+    title: 'Fijos · platin',
+    loadComponent: () => import('./features/fixed/fixed-page').then((m) => m.FixedPage),
+  },
+  {
+    path: 'pendientes',
+    title: 'Para confirmar · platin',
+    loadComponent: () => import('./features/pending/pending-page').then((m) => m.PendingPage),
+  },
+  {
+    path: 'compromisos',
+    title: 'Compromisos · platin',
+    loadComponent: () =>
+      import('./features/commitments/commitments-page').then((m) => m.CommitmentsPage),
+  },
+  {
     path: 'mas',
     title: 'Más · platin',
     loadComponent: () => import('./features/settings/more-page').then((m) => m.MorePage),
