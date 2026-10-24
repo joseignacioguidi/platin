@@ -32,6 +32,7 @@ import { Today } from '../../core/today';
 import { AccountsStore } from '../accounts/accounts.store';
 import { CardsStore } from '../cards/cards.store';
 import { CategoriesStore } from '../categories/categories.store';
+import { RatesStore } from '../../core/rates.store';
 import { TransactionsStore } from '../transactions/transactions.store';
 import { QUICK_ENTRY_TEXTS } from './quick-entry.texts';
 
@@ -185,7 +186,7 @@ const OVERLAY_INPUT = 'absolute inset-0 h-full w-full cursor-pointer opacity-0';
                 [value]="rateText()"
                 (input)="rateText.set(inputValue($event))"
               />
-              <span class="text-xs text-muted">{{ texts.rateHint }}</span>
+              <span class="text-xs text-muted">{{ rateHint() }}</span>
             </label>
           }
         } @else {
@@ -298,6 +299,7 @@ export class QuickEntrySheet {
   protected readonly accountsStore = inject(AccountsStore);
   private readonly categoriesStore = inject(CategoriesStore);
   private readonly cardsStore = inject(CardsStore);
+  private readonly ratesStore = inject(RatesStore);
   private readonly transactions = inject(TransactionsStore);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
@@ -361,6 +363,14 @@ export class QuickEntrySheet {
       !this.card() &&
       !!this.account() &&
       this.amountCurrency() !== base
+    );
+  });
+  protected readonly rateHint = computed(() => {
+    const rate = this.ratesStore.preferred();
+    if (!rate) return this.texts.rateHintNoRate;
+    return this.texts.rateHint(
+      rate.type,
+      displayAmount(toDecimal(rate.sell).toFixed(2).replace(/\.00$/, '')),
     );
   });
   protected readonly crossCurrency = computed(
@@ -516,7 +526,6 @@ export class QuickEntrySheet {
       return null;
     }
     if (!this.categoryId()) return errors.category;
-    if (this.needsRate() && !parseTypedAmount(this.rateText())) return errors.rate;
     return null;
   }
 }

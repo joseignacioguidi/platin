@@ -9,10 +9,9 @@ export const PENDING_TEXTS = {
   income: 'Ingreso',
   expense: 'Gasto',
   amount: 'Monto real',
-  rate: 'Cotización (pesos por dólar)',
+  rate: 'Cotización (opcional: si no, la del día)',
   confirm: 'Confirmar',
   confirmSelected: (count: number) =>
     count === 1 ? 'Confirmar 1 movimiento' : `Confirmar ${count} movimientos`,
   invalidAmount: (name: string) => `Revisá el monto de ${name}.`,
-  missingRate: (name: string) => `Falta la cotización de ${name}.`,
 } as const;

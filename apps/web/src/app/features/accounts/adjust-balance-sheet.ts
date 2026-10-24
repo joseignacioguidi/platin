@@ -104,10 +104,6 @@ export class AdjustBalanceSheet {
       return;
     }
     const exchangeRate = this.needsRate() ? parseTypedAmount(this.rate()) : undefined;
-    if (this.needsRate() && !exchangeRate) {
-      this.error.set('Ingresá la cotización.');
-      return;
-    }
     this.saving.set(true);
     this.error.set(null);
     try {

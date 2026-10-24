@@ -44,7 +44,7 @@ export const ACCOUNTS_TEXTS = {
     body: 'Si el saldo real es distinto, cargá el correcto y registramos la diferencia como un ajuste.',
     real: 'Saldo real',
     date: 'Fecha',
-    rate: 'Cotización (pesos por dólar)',
+    rate: 'Cotización (opcional: si no, la del día)',
     save: 'Ajustar',
     same: 'El saldo ya coincide: no hizo falta ajustar.',
   },

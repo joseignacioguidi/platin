@@ -195,10 +195,8 @@ export class PendingPage {
       const draft = this.draft(item);
       const amount = parseTypedAmount(draft.amount);
       if (!amount) return this.error.set(this.texts.invalidAmount(item.description ?? ''));
+      // Optional: without it the API freezes the rate of the movement's date.
       const exchangeRate = this.needsRate(item) ? parseTypedAmount(draft.rate) : undefined;
-      if (this.needsRate(item) && !exchangeRate) {
-        return this.error.set(this.texts.missingRate(item.description ?? ''));
-      }
       payload.push({ id: item.id, amount, exchangeRate });
     }
     this.busy.set(true);

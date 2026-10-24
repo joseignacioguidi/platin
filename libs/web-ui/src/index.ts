@@ -10,3 +10,4 @@ export * from './lib/amount-keypad/amount-keypad';
 export * from './lib/list-item/list-item';
 export * from './lib/format/format';
 export * from './lib/month-picker/month-picker';
+export * from './lib/stacked-bar/stacked-bar';
