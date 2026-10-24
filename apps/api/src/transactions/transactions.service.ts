@@ -121,14 +121,15 @@ export class TransactionsService {
     const updated = await this.prisma.$transaction(
       request.items.map((item) => {
         const row = rows.find((r) => r.id === item.id) as TransactionRow;
-        const amount = item.amount ? Money.of(item.amount, row.currency) : undefined;
-        const frozen = amount ? freezeBase(amount, baseCurrency, this.storedRate(row)) : undefined;
+        const amount = Money.of(item.amount ?? row.amount.toFixed(2), row.currency);
+        // Pending movements in another currency arrive without a frozen rate (ADR 0008):
+        // it is frozen now, with the rate sent or, from phase 6, the one of the day.
+        const unfrozen = row.rateToBase.isZero();
+        const rate = item.exchangeRate ?? (unfrozen ? undefined : this.storedRate(row));
+        const frozen = item.amount || unfrozen ? freezeBase(amount, baseCurrency, rate) : undefined;
         return this.prisma.transaction.update({
           where: { id: row.id },
-          data: {
-            status: 'CONFIRMED',
-            ...(amount ? { amount: amount.toString(), ...frozen } : {}),
-          },
+          data: { status: 'CONFIRMED', amount: amount.toString(), ...(frozen ?? {}) },
         });
       }),
     );

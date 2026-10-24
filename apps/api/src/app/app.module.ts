@@ -7,7 +7,9 @@ import { AccountsModule } from '../accounts/accounts.module';
 import { AuthModule } from '../auth/auth.module';
 import { CardsModule } from '../cards/cards.module';
 import { CategoriesModule } from '../categories/categories.module';
+import { CommitmentsModule } from '../commitments/commitments.module';
 import { CommonModule } from '../common/common.module';
+import { FixedModule } from '../fixed/fixed.module';
 import { OriginSecretMiddleware } from '../common/origin-secret.middleware';
 import { ProblemDetailsFilter } from '../common/problem-details.filter';
 import { AppConfig } from '../config/app-config';
@@ -15,6 +17,7 @@ import { ConfigModule } from '../config/config.module';
 import { HealthModule } from '../health/health.module';
 import { MovementsModule } from '../movements/movements.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { SyncModule } from '../sync/sync.module';
 import { TransactionsModule } from '../transactions/transactions.module';
 import { TransfersModule } from '../transfers/transfers.module';
 import { UsersModule } from '../users/users.module';
@@ -53,6 +56,9 @@ const isCredentialRoute = (context: ExecutionContext): boolean =>
     TransfersModule,
     MovementsModule,
     CardsModule,
+    FixedModule,
+    SyncModule,
+    CommitmentsModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },

@@ -50,6 +50,11 @@ enum TxOrigin {
   ADJUSTMENT
 }
 
+enum FixedKind {
+  INCOME
+  EXPENSE
+}
+
 enum StatementStatus {
   OPEN
   CLOSED
@@ -77,6 +82,7 @@ model User {
   creditCards   CreditCard[]
   statements    CardStatement[]
   cardCharges   CardCharge[]
+  fixedItems    FixedItem[]
 }
 
 model RefreshToken {
@@ -112,6 +118,7 @@ model Account {
   transfersOut Transfer[]    @relation("TransferFrom")
   transfersIn  Transfer[]    @relation("TransferTo")
   defaultFor   CreditCard[]
+  fixedItems   FixedItem[]
 
   @@index([userId])
 }
@@ -132,6 +139,7 @@ model Category {
   transactions Transaction[]
   cardCharges  CardCharge[]
   adjustments  StatementAdjustment[]
+  fixedItems   FixedItem[]
 
   @@unique([userId, kind, name])
 }
@@ -156,9 +164,10 @@ model Transaction {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  user     User      @relation(fields: [userId], references: [id], onDelete: Restrict)
-  account  Account   @relation(fields: [accountId], references: [id], onDelete: Restrict)
-  category Category? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  user     User       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  account  Account    @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  category Category?  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  fixed    FixedItem? @relation(fields: [fixedId], references: [id], onDelete: Restrict)
 
   @@unique([fixedId, fixedPeriod]) // fixed items idempotency
   @@index([userId, date])
@@ -206,6 +215,7 @@ model CreditCard {
   defaultPaymentAccount Account?        @relation(fields: [defaultPaymentAccountId], references: [id], onDelete: Restrict)
   statements            CardStatement[]
   charges               CardCharge[]
+  fixedItems            FixedItem[]
 
   @@index([userId])
 }
@@ -282,4 +292,42 @@ model StatementAdjustment {
 
   statement CardStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
   category  Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+}
+
+// ---------- Fixed items ----------
+model FixedItem {
+  id                  String    @id @default(uuid()) @db.Uuid
+  userId              String    @db.Uuid
+  kind                FixedKind
+  name                String
+  categoryId          String    @db.Uuid
+  accountId           String?   @db.Uuid // one of the two
+  cardId              String?   @db.Uuid
+  currency            Currency
+  intervalMonths      Int       @default(1) // 1 monthly, 12 yearly
+  dayOfMonth          Int
+  startPeriod         DateTime  @db.Date
+  endPeriod           DateTime? @db.Date
+  pausedAt            DateTime?
+  lastGeneratedPeriod DateTime? @db.Date
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  category     Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  account      Account?      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  card         CreditCard?   @relation(fields: [cardId], references: [id], onDelete: Restrict)
+  amounts      FixedAmount[]
+  transactions Transaction[]
+
+  @@index([userId])
+}
+
+model FixedAmount {
+  id            String   @id @default(uuid()) @db.Uuid
+  fixedId       String   @db.Uuid
+  amount        Decimal  @db.Decimal(18, 2)
+  effectiveFrom DateTime @db.Date // period it applies from
+
+  fixed FixedItem @relation(fields: [fixedId], references: [id], onDelete: Cascade)
+
+  @@unique([fixedId, effectiveFrom])
 }
