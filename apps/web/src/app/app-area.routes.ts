@@ -28,9 +28,12 @@ export const appAreaRoutes: Route[] = [
   {
     path: 'tarjetas',
     title: 'Tarjetas · platin',
-    loadComponent: () =>
-      import('./features/placeholder/coming-soon-page').then((m) => m.ComingSoonPage),
-    data: { heading: 'Tarjetas' },
+    loadComponent: () => import('./features/cards/cards-page').then((m) => m.CardsPage),
+  },
+  {
+    path: 'tarjetas/:id',
+    title: 'Tarjeta · platin',
+    loadComponent: () => import('./features/cards/card-detail-page').then((m) => m.CardDetailPage),
   },
   {
     path: 'mas',

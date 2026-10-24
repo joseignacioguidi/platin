@@ -11,6 +11,7 @@ import {
   PlSheet,
 } from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
+import { CardsStore } from '../cards/cards.store';
 import { CategoriesStore } from '../categories/categories.store';
 import { MovementRow } from './movement-row';
 import { TransactionsStore } from './transactions.store';
@@ -110,9 +111,11 @@ const INPUT =
           <button plButton="secondary" type="button" (click)="ref.close()">
             {{ texts.close }}
           </button>
-          <button plButton="danger" type="button" (click)="confirmingDelete.set(true)">
-            {{ texts.delete }}
-          </button>
+          @if (deletable) {
+            <button plButton="danger" type="button" (click)="confirmingDelete.set(true)">
+              {{ texts.delete }}
+            </button>
+          }
         </div>
       }
     </pl-sheet>
@@ -125,7 +128,10 @@ export class MovementSheet {
   protected readonly movement = inject<Movement>(DIALOG_DATA);
   private readonly store = inject(TransactionsStore);
   private readonly categoriesStore = inject(CategoriesStore);
+  private readonly cardsStore = inject(CardsStore);
 
+  /** Statement payments are undone from the card, not from the list. */
+  protected readonly deletable = !(this.movement.kind === 'TRANSFER' && this.movement.statement);
   protected readonly editable =
     this.movement.kind === 'TRANSACTION' && this.movement.type !== 'ADJUSTMENT';
   protected readonly pending =
@@ -177,10 +183,13 @@ export class MovementSheet {
   }
 
   protected async remove(): Promise<void> {
+    const { kind, id } = this.movement;
     await this.run(() =>
-      this.movement.kind === 'TRANSFER'
-        ? this.store.removeTransfer(this.movement.id)
-        : this.store.remove(this.movement.id),
+      kind === 'TRANSFER'
+        ? this.store.removeTransfer(id)
+        : kind === 'CARD_CHARGE'
+          ? this.cardsStore.removeCharge(id)
+          : this.store.remove(id),
     );
   }
 

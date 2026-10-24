@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import type { Movement } from '@platin/contracts';
-import { toDecimal } from '@platin/domain';
-import { displayAmount, PlListItem, PlMoney, PlTone } from '@platin/web-ui';
+import { parsePeriod, toDecimal } from '@platin/domain';
+import { displayAmount, formatPeriodShort, PlListItem, PlMoney, PlTone } from '@platin/web-ui';
 import { TRANSACTIONS_TEXTS } from './transactions.texts';
 
 interface RowView {
@@ -51,6 +51,31 @@ export class MovementRow {
 
   protected readonly view = computed<RowView>(() => {
     const m = this.movement();
+    if (m.kind === 'CARD_CHARGE') {
+      const plan =
+        m.installmentsCount > 1 ? ` · ${this.texts.inInstallments(m.installmentsCount)}` : '';
+      return {
+        heading: m.description,
+        subtitle: `${m.category.name} · ${m.card.name}${plan}`,
+        icon: m.category.icon,
+        tone: 'card',
+        pending: false,
+        lines: [{ sign: '-', amount: m.totalAmount, currency: m.currency, positive: false }],
+      };
+    }
+    if (m.kind === 'TRANSFER' && m.statement) {
+      return {
+        heading:
+          m.description && m.description !== 'Pago de tarjeta'
+            ? m.description
+            : this.texts.cardPayment(m.statement.cardName),
+        subtitle: `${m.fromAccount.name} → ${this.texts.statementOf(formatPeriodShort(parsePeriod(m.statement.period)))}`,
+        icon: 'credit-card',
+        tone: 'transfer',
+        pending: false,
+        lines: [{ sign: '-', amount: m.amountOut, currency: m.currencyOut, positive: false }],
+      };
+    }
     if (m.kind === 'TRANSFER') {
       const route = `${m.fromAccount.name} → ${m.toAccount?.name ?? ''}`;
       const rate = m.impliedRate

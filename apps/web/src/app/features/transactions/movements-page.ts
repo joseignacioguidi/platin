@@ -30,7 +30,7 @@ import { MovementSheet } from './movement-sheet';
 import { MovementFilters, MovementsList } from './movements-list';
 import { TRANSACTIONS_TEXTS } from './transactions.texts';
 
-type Chip = 'ALL' | 'EXPENSE' | 'INCOME' | 'TRANSFER' | 'PENDING';
+type Chip = 'ALL' | 'EXPENSE' | 'INCOME' | 'TRANSFER' | 'CARD' | 'PENDING';
 
 /** MOV-03: month, totals, filters, search and the list grouped by day. */
 @Component({
@@ -191,7 +191,7 @@ export class MovementsPage {
   private readonly bus = inject(RefreshBus);
   private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
 
-  protected readonly chips: Chip[] = ['ALL', 'EXPENSE', 'INCOME', 'TRANSFER', 'PENDING'];
+  protected readonly chips: Chip[] = ['ALL', 'EXPENSE', 'INCOME', 'TRANSFER', 'CARD', 'PENDING'];
   protected readonly period = signal<Period>(this.today.period());
   protected readonly filter = signal<Chip>('ALL');
   protected readonly accountId = signal('');
@@ -223,7 +223,10 @@ export class MovementsPage {
       period: this.period(),
       accountId: this.accountId() || undefined,
       q: this.search() || undefined,
-      type: chip === 'EXPENSE' || chip === 'INCOME' || chip === 'TRANSFER' ? chip : undefined,
+      type:
+        chip === 'EXPENSE' || chip === 'INCOME' || chip === 'TRANSFER' || chip === 'CARD'
+          ? chip
+          : undefined,
       status: chip === 'PENDING' ? 'PENDING' : undefined,
     };
   }

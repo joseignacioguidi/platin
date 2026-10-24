@@ -30,6 +30,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { errorMessage } from '../../core/errors';
 import { Today } from '../../core/today';
 import { AccountsStore } from '../accounts/accounts.store';
+import { CardsStore } from '../cards/cards.store';
 import { CategoriesStore } from '../categories/categories.store';
 import { TransactionsStore } from '../transactions/transactions.store';
 import { QUICK_ENTRY_TEXTS } from './quick-entry.texts';
@@ -74,9 +75,20 @@ const OVERLAY_INPUT = 'absolute inset-0 h-full w-full cursor-pointer opacity-0';
             <span>{{ symbol() }}&nbsp;{{ amountText() }}</span>
             <span class="ml-1 h-12 w-1 animate-pulse rounded bg-brand" aria-hidden="true"></span>
           </p>
-          <span class="font-amount rounded-full border border-line px-3 py-1 text-sm">
-            {{ amountCurrency() }}
-          </span>
+          @if (card()) {
+            <button
+              type="button"
+              class="font-amount min-h-11 rounded-full border border-line px-4 text-sm"
+              [attr.aria-label]="texts.currencyToggle(amountCurrency())"
+              (click)="cardCurrency.set(cardCurrency() === 'ARS' ? 'USD' : 'ARS')"
+            >
+              {{ amountCurrency() }} ⇄
+            </button>
+          } @else {
+            <span class="font-amount rounded-full border border-line px-3 py-1 text-sm">
+              {{ amountCurrency() }}
+            </span>
+          }
         </div>
 
         @if (mode() !== 'TRANSFER') {
@@ -103,18 +115,32 @@ const OVERLAY_INPUT = 'absolute inset-0 h-full w-full cursor-pointer opacity-0';
 
           <div class="grid grid-cols-[1fr_auto] gap-2">
             <label [class]="fieldBox">
-              <span class="text-xs text-muted">{{ texts.account }}</span>
+              <span class="text-xs text-muted">{{ card() ? texts.card : texts.account }}</span>
               <span class="flex items-center gap-2 truncate font-semibold">
-                <span class="size-2.5 rounded-full bg-transfer" aria-hidden="true"></span>
-                {{ account()?.name }}
+                <span
+                  class="size-2.5 rounded-full"
+                  [class.bg-transfer]="!card()"
+                  [class.bg-card]="!!card()"
+                  aria-hidden="true"
+                ></span>
+                {{ card()?.name ?? account()?.name }}
               </span>
               <select
                 [class]="overlayInput"
-                [value]="accountId()"
-                (change)="accountId.set(selectValue($event))"
+                [value]="paymentValue()"
+                (change)="setPayment(selectValue($event))"
               >
-                @for (option of accounts(); track option.id) {
-                  <option [value]="option.id">{{ option.name }} · {{ option.currency }}</option>
+                <optgroup [label]="texts.accountsGroup">
+                  @for (option of accounts(); track option.id) {
+                    <option [value]="option.id">{{ option.name }} · {{ option.currency }}</option>
+                  }
+                </optgroup>
+                @if (mode() === 'EXPENSE' && cards().length > 0) {
+                  <optgroup [label]="texts.cardsGroup">
+                    @for (option of cards(); track option.id) {
+                      <option [value]="'card:' + option.id">{{ option.name }}</option>
+                    }
+                  </optgroup>
                 }
               </select>
             </label>
@@ -130,6 +156,24 @@ const OVERLAY_INPUT = 'absolute inset-0 h-full w-full cursor-pointer opacity-0';
               />
             </label>
           </div>
+
+          @if (card()) {
+            <fieldset class="flex flex-col gap-2">
+              <legend class="mb-2 text-sm text-muted">{{ texts.installments }}</legend>
+              <div class="flex flex-wrap gap-2">
+                @for (n of installmentOptions; track n) {
+                  <button
+                    plChip
+                    tone="ink"
+                    [selected]="installments() === n"
+                    (click)="installments.set(n)"
+                  >
+                    {{ n === 1 ? texts.onePayment : n }}
+                  </button>
+                }
+              </div>
+            </fieldset>
+          }
 
           @if (needsRate()) {
             <label class="flex flex-col gap-1">
@@ -253,6 +297,7 @@ export class QuickEntrySheet {
   protected readonly today = inject(Today);
   protected readonly accountsStore = inject(AccountsStore);
   private readonly categoriesStore = inject(CategoriesStore);
+  private readonly cardsStore = inject(CardsStore);
   private readonly transactions = inject(TransactionsStore);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
@@ -274,13 +319,28 @@ export class QuickEntrySheet {
   protected readonly rateText = signal('');
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
+  /** Paying with a card (expenses only): the purchase goes to the card's statements. */
+  protected readonly cardId = signal<string | null>(null);
+  protected readonly cardCurrency = signal<'ARS' | 'USD'>('ARS');
+  protected readonly installments = signal(1);
+  protected readonly installmentOptions = [1, 3, 6, 12];
+
+  protected readonly cards = computed(() => this.cardsStore.cards().filter((c) => !c.archived));
+  protected readonly card = computed(() =>
+    this.mode() === 'EXPENSE' ? this.cardsStore.byId(this.cardId()) : undefined,
+  );
+  protected readonly paymentValue = computed(() =>
+    this.card() ? `card:${this.cardId()}` : (this.accountId() ?? ''),
+  );
 
   protected readonly accounts = computed(() =>
     this.accountsStore.accounts().filter((account) => !account.archived),
   );
   protected readonly account = computed(() => this.accountsStore.byId(this.accountId()));
   protected readonly toAccount = computed(() => this.accountsStore.byId(this.toAccountId()));
-  protected readonly amountCurrency = computed(() => this.account()?.currency ?? 'ARS');
+  protected readonly amountCurrency = computed(() =>
+    this.card() ? this.cardCurrency() : (this.account()?.currency ?? 'ARS'),
+  );
   protected readonly symbol = computed(() => (this.amountCurrency() === 'USD' ? 'USD' : '$'));
   protected readonly amountText = computed(() => displayAmount(this.amount()));
 
@@ -296,7 +356,12 @@ export class QuickEntrySheet {
 
   protected readonly needsRate = computed(() => {
     const base = this.auth.user()?.baseCurrency ?? 'ARS';
-    return this.mode() !== 'TRANSFER' && !!this.account() && this.amountCurrency() !== base;
+    return (
+      this.mode() !== 'TRANSFER' &&
+      !this.card() &&
+      !!this.account() &&
+      this.amountCurrency() !== base
+    );
   });
   protected readonly crossCurrency = computed(
     () => !!this.toAccount() && this.toAccount()?.currency !== this.account()?.currency,
@@ -372,6 +437,15 @@ export class QuickEntrySheet {
     if (value) this.date.set(parseLocalDate(value));
   }
 
+  protected setPayment(value: string): void {
+    if (value.startsWith('card:')) {
+      this.cardId.set(value.slice(5));
+    } else {
+      this.cardId.set(null);
+      this.accountId.set(value);
+    }
+  }
+
   protected goCreateAccount(): void {
     this.ref.close();
     void this.router.navigate(['/app/cuentas'], { queryParams: { nueva: 1 } });
@@ -398,6 +472,17 @@ export class QuickEntrySheet {
           date: this.date(),
           description,
         });
+      } else if (this.card()) {
+        const categoryId = this.categoryId() as string;
+        await this.cardsStore.createCharge(this.cardId() as string, {
+          description: description ?? this.categoriesStore.byId(categoryId)?.name ?? '—',
+          categoryId,
+          totalAmount: this.amount(),
+          currency: this.cardCurrency(),
+          date: this.date(),
+          installmentsCount: this.installments(),
+        });
+        this.categoriesStore.markUsed(categoryId);
       } else {
         const categoryId = this.categoryId() as string;
         await this.transactions.create({
@@ -423,7 +508,7 @@ export class QuickEntrySheet {
   private validate(): string | null {
     const errors = this.texts.errors;
     if (!isValidAmount(this.amount())) return errors.amount;
-    if (!this.account()) return errors.account;
+    if (!this.account() && !this.card()) return errors.account;
     if (this.mode() === 'TRANSFER') {
       if (!this.toAccount()) return errors.account;
       if (this.toAccountId() === this.accountId()) return errors.sameAccount;
