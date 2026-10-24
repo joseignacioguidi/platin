@@ -1,5 +1,4 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
 import type { AuthResponse } from '@platin/contracts';
 import type { CookieOptions, Request, Response } from 'express';
 import { ZodSerializerDto } from 'nestjs-zod';
@@ -12,7 +11,6 @@ export const REFRESH_COOKIE = 'platin_rt';
 const REFRESH_COOKIE_PATH = '/api/v1/auth';
 
 @Public()
-@Throttle({ auth: {} })
 @Controller('auth')
 export class AuthController {
   constructor(

@@ -12,8 +12,13 @@ import { HealthModule } from '../health/health.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { UsersModule } from '../users/users.module';
 
-const isAuthRoute = (context: ExecutionContext): boolean =>
-  context.switchToHttp().getRequest<Request>().originalUrl.startsWith('/api/v1/auth');
+/** Credential endpoints, the target of brute force. Refresh runs on every app open, so it only
+ * gets the general limit. */
+const CREDENTIAL_ROUTES = ['/api/v1/auth/login', '/api/v1/auth/register'];
+const isCredentialRoute = (context: ExecutionContext): boolean =>
+  CREDENTIAL_ROUTES.includes(
+    context.switchToHttp().getRequest<Request>().originalUrl.split('?')[0],
+  );
 
 @Module({
   imports: [
@@ -27,7 +32,7 @@ const isAuthRoute = (context: ExecutionContext): boolean =>
           name: 'auth',
           ttl: 60_000,
           limit: config.env.THROTTLE_AUTH_LIMIT,
-          skipIf: (context) => !isAuthRoute(context),
+          skipIf: (context) => !isCredentialRoute(context),
         },
       ],
     }),

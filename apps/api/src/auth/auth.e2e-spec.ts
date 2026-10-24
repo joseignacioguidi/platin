@@ -169,11 +169,11 @@ describe('auth', () => {
 describe('auth throttling', () => {
   let ctx: TestContext;
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     ctx = await createTestApp({ THROTTLE_AUTH_LIMIT: '5' });
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     await ctx.app.close();
   });
 
@@ -188,5 +188,16 @@ describe('auth throttling', () => {
     expect(blocked.body.code).toBe('TOO_MANY_REQUESTS');
     // Other routes are not affected by the auth limit.
     await request(ctx.app.getHttpServer()).get('/api/v1/health').expect(200);
+  });
+
+  it('does not apply the strict limit to refresh (it runs on every app open)', async () => {
+    let cookie = (await registerUser(ctx.app)).cookie;
+    for (let i = 0; i < 8; i++) {
+      const res = await request(ctx.app.getHttpServer())
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', cookie)
+        .expect(200);
+      cookie = refreshCookie(res.headers['set-cookie']);
+    }
   });
 });
