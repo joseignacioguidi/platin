@@ -1,4 +1,5 @@
 @import 'tailwindcss' source(none);
+@import '@angular/cdk/overlay-prebuilt.css';
 @source '.';
 @source '../../../libs/web-ui/src';
 

@@ -25,7 +25,9 @@ export const config: VercelConfig = {
       responseHeaders: { 'cache-control': 'no-store' },
     }),
     { handle: 'filesystem' },
-    // Client-rendered routes (/app/**) fall back to the SPA shell.
-    { src: '/(.*)', dest: '/index.html' },
+    { src: '/(ingresar|registro)/?', dest: '/$1/index.html' },
+    // Prerendered pages (/, /ingresar, /registro) are files; client routes (/app/**)
+    // fall back to the client-only shell that Angular emits as index.csr.html.
+    { src: '/(.*)', dest: '/index.csr.html' },
   ],
 };

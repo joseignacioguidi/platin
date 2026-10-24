@@ -11,6 +11,14 @@
     />
     <meta name="theme-color" content="#00B99A" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <script>
+      // Applies the saved theme (or the system preference) before the first paint.
+      try {
+        var saved = localStorage.getItem('platin.theme');
+        var dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+        if (dark) document.documentElement.classList.add('dark');
+      } catch (e) {}
+    </script>
   </head>
   <body class="bg-canvas text-ink">
     <pl-root></pl-root>

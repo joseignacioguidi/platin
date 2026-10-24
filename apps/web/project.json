@@ -20,7 +20,9 @@
             "input": "apps/web/public"
           }
         ],
-        "styles": ["apps/web/src/styles.css"]
+        "styles": ["apps/web/src/styles.css"],
+        "server": "apps/web/src/main.server.ts",
+        "outputMode": "static"
       },
       "configurations": {
         "production": {
@@ -43,7 +45,8 @@
           "extractLicenses": false,
           "sourceMap": true
         }
-      }
+      },
+      "dependsOn": ["write-env", "^build"]
     },
     "serve": {
       "continuous": true,
@@ -60,9 +63,10 @@
           "buildTarget": "web:build:development"
         }
       },
-      "dependsOn": [],
+      "dependsOn": ["write-env"],
       "options": {
-        "proxyConfig": "apps/web/proxy.conf.json"
+        "proxyConfig": "apps/web/proxy.conf.json",
+        "port": 4200
       }
     },
     "serve-static": {
@@ -86,7 +90,28 @@
         "commands": ["tsc -p tsconfig.app.json --noEmit", "tsc -p tsconfig.spec.json --noEmit"],
         "cwd": "apps/web",
         "parallel": false
+      },
+      "dependsOn": ["write-env"]
+    },
+    "write-env": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/scripts/write-env.mjs",
+        {
+          "env": "API_DIRECT_URL"
+        }
+      ],
+      "outputs": ["{projectRoot}/src/env.generated.ts"],
+      "options": {
+        "command": "node apps/web/scripts/write-env.mjs"
       }
+    },
+    "test": {
+      "dependsOn": ["write-env"]
+    },
+    "lint": {
+      "dependsOn": ["write-env"]
     }
   }
 }

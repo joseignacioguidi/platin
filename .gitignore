@@ -60,3 +60,4 @@ apps/api/src/generated
 .angular
 vitest.config.*.timestamp*
 .vitest
+apps/web/src/env.generated.ts

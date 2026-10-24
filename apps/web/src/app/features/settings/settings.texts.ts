@@ -1,0 +1,23 @@
+export const SETTINGS_TEXTS = {
+  more: {
+    title: 'Más',
+    profile: 'Perfil y preferencias',
+  },
+  profile: {
+    title: 'Perfil',
+    name: 'Nombre',
+    email: 'Email',
+    baseCurrency: 'Moneda base',
+    baseCurrencyHint: 'Los totales se muestran en esta moneda.',
+    valuationRate: 'Cotización para valuar dólares',
+    valuationHint: 'Se usa el precio de venta del día.',
+    save: 'Guardar cambios',
+    saving: 'Guardando…',
+    saved: 'Listo, guardamos tus cambios.',
+    appearance: 'Apariencia',
+    darkMode: 'Modo oscuro',
+    logout: 'Cerrar sesión',
+  },
+  currencies: { ARS: 'Pesos (ARS)', USD: 'Dólares (USD)' },
+  rates: { OFICIAL: 'Oficial', MEP: 'MEP', BLUE: 'Blue' },
+} as const;
