@@ -12,3 +12,4 @@ export * from './lib/fixed';
 export * from './lib/commitments';
 export * from './lib/rates';
 export * from './lib/dashboard';
+export * from './lib/goals';
