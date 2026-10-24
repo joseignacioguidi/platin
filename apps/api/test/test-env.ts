@@ -10,6 +10,7 @@ export function loadTestEnv(): string {
   process.env.DIRECT_URL = url;
   process.env.NODE_ENV = 'test';
   process.env.ORIGIN_SECRET = '';
+  process.env.CLOCK_TODAY = '';
   process.env.THROTTLE_AUTH_LIMIT = '1000';
   process.env.THROTTLE_LIMIT = '10000';
   process.env.JWT_ACCESS_SECRET ??= 'test-access-secret-with-at-least-32-chars';

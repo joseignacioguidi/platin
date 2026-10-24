@@ -5,6 +5,7 @@ import type { Request } from 'express';
 import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
 import { AccountsModule } from '../accounts/accounts.module';
 import { AuthModule } from '../auth/auth.module';
+import { CardsModule } from '../cards/cards.module';
 import { CategoriesModule } from '../categories/categories.module';
 import { CommonModule } from '../common/common.module';
 import { OriginSecretMiddleware } from '../common/origin-secret.middleware';
@@ -51,6 +52,7 @@ const isCredentialRoute = (context: ExecutionContext): boolean =>
     TransactionsModule,
     TransfersModule,
     MovementsModule,
+    CardsModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },

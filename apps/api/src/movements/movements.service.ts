@@ -6,7 +6,7 @@ import type {
   MovementsQuery,
   MovementsSummary,
 } from '@platin/contracts';
-import { firstDayOf, lastDayOf, Money, Period } from '@platin/domain';
+import { firstDayOf, lastDayOf, Money, Period, utcToPeriod } from '@platin/domain';
 import {
   afterCursor,
   compareByCursorOrder,
@@ -24,8 +24,9 @@ type ParsedQuery = Omit<MovementsQuery, 'limit'> & { limit: number; period?: Per
 const accountRef = { select: { id: true, name: true, currency: true } } as const;
 
 /**
- * MOV-03: one list with incomes, expenses, adjustments and transfers, newest first, filtered
- * and paginated by cursor. Each source is queried with the same cursor and the pages merged.
+ * MOV-03: one list with incomes, expenses, adjustments, transfers and card purchases, newest
+ * first, filtered and paginated by cursor. Each source is queried with the same cursor and the
+ * pages merged.
  */
 @Injectable()
 export class MovementsService {
@@ -38,15 +39,21 @@ export class MovementsService {
       ? { gte: toDbDate(firstDayOf(query.period)), lte: toDbDate(lastDayOf(query.period)) }
       : undefined;
 
-    const wantsTransactions = query.type !== 'TRANSFER';
+    const wantsTransactions = query.type !== 'TRANSFER' && query.type !== 'CARD' && !query.cardId;
     const wantsTransfers =
       (query.type === undefined || query.type === 'TRANSFER') &&
       !query.categoryId &&
       query.status !== 'PENDING';
+    // Card purchases are expenses; they never belong to an account (their payment does).
+    const wantsCharges =
+      (query.type === undefined || query.type === 'EXPENSE' || query.type === 'CARD') &&
+      !query.accountId &&
+      query.status !== 'PENDING';
 
-    const [transactions, transfers] = await Promise.all([
+    const [transactions, transfers, charges] = await Promise.all([
       wantsTransactions ? this.findTransactions(userId, query, range, cursor, take) : [],
       wantsTransfers ? this.findTransfers(userId, query, range, cursor, take) : [],
+      wantsCharges ? this.findCharges(userId, query, range, cursor, take) : [],
     ]);
 
     const merged: { key: Cursor; movement: Movement }[] = [
@@ -86,9 +93,32 @@ export class MovementsService {
             description: dto.description,
             fromAccount: row.fromAccount,
             toAccount: row.toAccount,
+            statement: row.statement
+              ? {
+                  id: row.statement.id,
+                  cardId: row.statement.card.id,
+                  cardName: row.statement.card.name,
+                  period: utcToPeriod(row.statement.period),
+                }
+              : null,
           },
         };
       }),
+      ...charges.map((row) => ({
+        key: row,
+        movement: {
+          kind: 'CARD_CHARGE' as const,
+          id: row.id,
+          date: date(row.date),
+          description: row.description,
+          totalAmount: money(row.totalAmount),
+          currency: row.currency,
+          installmentsCount: row.installmentsCount,
+          startInstallment: row.startInstallment,
+          card: row.card,
+          category: { ...row.category, color: row.category.color as ColorToken },
+        },
+      })),
     ].sort((a, b) => compareByCursorOrder(a.key, b.key));
 
     const page = merged.slice(0, query.limit);
@@ -102,15 +132,22 @@ export class MovementsService {
     };
   }
 
-  /** Confirmed income and expenses of a month in base currency; pending ones only counted. */
+  /**
+   * Confirmed income and expenses of a month in base currency; pending ones only counted.
+   * Card purchases count on their purchase date (see docs/adr/0007 for other currencies).
+   */
   async summary(userId: string, period: Period): Promise<MovementsSummary> {
     const range = { gte: toDbDate(firstDayOf(period)), lte: toDbDate(lastDayOf(period)) };
-    const [user, sums, pendingCount] = await Promise.all([
-      this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const [sums, cardSpending, pendingCount] = await Promise.all([
       this.prisma.transaction.groupBy({
         by: ['type'],
         where: { userId, date: range, status: 'CONFIRMED', type: { in: ['INCOME', 'EXPENSE'] } },
         _sum: { baseAmount: true },
+      }),
+      this.prisma.cardCharge.aggregate({
+        where: { userId, date: range, currency: user.baseCurrency },
+        _sum: { totalAmount: true },
       }),
       this.prisma.transaction.count({ where: { userId, date: range, status: 'PENDING' } }),
     ]);
@@ -123,7 +160,9 @@ export class MovementsService {
       period,
       currency: user.baseCurrency,
       income: sumOf('INCOME'),
-      expense: sumOf('EXPENSE'),
+      expense: Money.of(sumOf('EXPENSE'), user.baseCurrency)
+        .add(Money.of((cardSpending._sum.totalAmount ?? 0).toFixed(2), user.baseCurrency))
+        .toString(),
       pendingCount,
     };
   }
@@ -165,10 +204,45 @@ export class MovementsService {
     if (query.accountId) {
       filters.OR = [{ fromAccountId: query.accountId }, { toAccountId: query.accountId }];
     }
+    if (query.cardId) filters.statement = { cardId: query.cardId };
     if (query.q) filters.description = { contains: query.q, mode: 'insensitive' };
     return this.prisma.transfer.findMany({
       where: { AND: [filters, afterCursor(cursor)] },
-      include: { fromAccount: accountRef, toAccount: accountRef },
+      include: {
+        fromAccount: accountRef,
+        toAccount: accountRef,
+        statement: {
+          select: { id: true, period: true, card: { select: { id: true, name: true } } },
+        },
+      },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
+      take,
+    });
+  }
+
+  private findCharges(
+    userId: string,
+    query: ParsedQuery,
+    range: Prisma.DateTimeFilter | undefined,
+    cursor: Cursor | undefined,
+    take: number,
+  ) {
+    const filters: Prisma.CardChargeWhereInput = { userId };
+    if (range) filters.date = range;
+    if (query.cardId) filters.cardId = query.cardId;
+    if (query.categoryId) filters.categoryId = query.categoryId;
+    if (query.q) {
+      filters.OR = [
+        { description: { contains: query.q, mode: 'insensitive' } },
+        { category: { name: { contains: query.q, mode: 'insensitive' } } },
+      ];
+    }
+    return this.prisma.cardCharge.findMany({
+      where: { AND: [filters, afterCursor(cursor)] },
+      include: {
+        card: { select: { id: true, name: true } },
+        category: { select: { id: true, name: true, icon: true, color: true } },
+      },
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
       take,
     });
