@@ -131,3 +131,24 @@
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
+
+/* Bottom sheet (CDK dialog anchored to the bottom). */
+.pl-bottom-sheet-backdrop {
+  background-color: rgb(24 24 24 / 0.45);
+}
+
+.pl-bottom-sheet-panel {
+  animation: pl-sheet-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes pl-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pl-bottom-sheet-panel {
+    animation: none;
+  }
+}
