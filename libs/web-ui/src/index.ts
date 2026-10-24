@@ -12,3 +12,4 @@ export * from './lib/format/format';
 export * from './lib/month-picker/month-picker';
 export * from './lib/stacked-bar/stacked-bar';
 export * from './lib/progress/progress';
+export * from './lib/feedback/feedback';
