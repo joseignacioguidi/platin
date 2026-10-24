@@ -15,6 +15,7 @@ import { OriginSecretMiddleware } from '../common/origin-secret.middleware';
 import { ProblemDetailsFilter } from '../common/problem-details.filter';
 import { AppConfig } from '../config/app-config';
 import { ConfigModule } from '../config/config.module';
+import { GoalsModule } from '../goals/goals.module';
 import { HealthModule } from '../health/health.module';
 import { MovementsModule } from '../movements/movements.module';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -63,6 +64,7 @@ const isCredentialRoute = (context: ExecutionContext): boolean =>
     SyncModule,
     CommitmentsModule,
     DashboardModule,
+    GoalsModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },

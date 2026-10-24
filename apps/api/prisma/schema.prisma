@@ -55,6 +55,12 @@ enum FixedKind {
   EXPENSE
 }
 
+enum GoalStatus {
+  ACTIVE
+  ACHIEVED
+  CANCELLED
+}
+
 enum StatementStatus {
   OPEN
   CLOSED
@@ -83,6 +89,7 @@ model User {
   statements    CardStatement[]
   cardCharges   CardCharge[]
   fixedItems    FixedItem[]
+  goals         Goal[]
 }
 
 model RefreshToken {
@@ -119,6 +126,7 @@ model Account {
   transfersIn  Transfer[]    @relation("TransferTo")
   defaultFor   CreditCard[]
   fixedItems   FixedItem[]
+  goalLinks    GoalAccount[]
 
   @@index([userId])
 }
@@ -343,4 +351,46 @@ model ExchangeRate {
   fetchedAt DateTime @default(now())
 
   @@unique([date, type])
+}
+
+// ---------- Goals ----------
+model Goal {
+  id           String     @id @default(uuid()) @db.Uuid
+  userId       String     @db.Uuid
+  name         String
+  targetAmount Decimal    @db.Decimal(18, 2)
+  currency     Currency
+  targetPeriod DateTime   @db.Date
+  status       GoalStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+
+  user          User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  accounts      GoalAccount[]
+  contributions GoalContribution[]
+
+  @@index([userId])
+}
+
+// A whole account contributes to the goal...
+model GoalAccount {
+  goalId    String @db.Uuid
+  accountId String @db.Uuid
+
+  goal    Goal    @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@id([goalId, accountId])
+}
+
+// ...or assigned contributions, to split an account among several goals.
+model GoalContribution {
+  id         String   @id @default(uuid()) @db.Uuid
+  goalId     String   @db.Uuid
+  amount     Decimal  @db.Decimal(18, 2) // negative = withdrawal
+  date       DateTime @db.Date
+  transferId String?  @db.Uuid
+
+  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@index([goalId])
 }
