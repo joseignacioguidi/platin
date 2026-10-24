@@ -18,7 +18,7 @@ const VARIANTS: Record<PlButtonVariant, string> = {
 const SIZES: Record<PlButtonSize, string> = {
   sm: 'min-h-11 rounded-full px-4 text-sm',
   md: 'min-h-11 rounded-full px-5 text-[15px]',
-  lg: 'min-h-14 w-full rounded-[18px] px-6 text-[17px]',
+  lg: 'min-h-14 flex-1 rounded-[18px] px-6 text-[17px]',
   icon: 'size-11 rounded-full',
 };
 
