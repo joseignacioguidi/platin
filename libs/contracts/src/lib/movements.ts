@@ -42,19 +42,39 @@ export const transferMovementSchema = z.object({
   description: z.string().nullable(),
   fromAccount: accountRefSchema,
   toAccount: accountRefSchema.nullable(),
+  /** Set when the transfer pays a card statement (TAR-08). */
+  statement: z
+    .object({ id: uuidSchema, cardId: uuidSchema, cardName: z.string(), period: z.string() })
+    .nullable(),
+});
+
+/** A purchase with a credit card (its installments live in the statements). */
+export const cardChargeMovementSchema = z.object({
+  kind: z.literal('CARD_CHARGE'),
+  id: uuidSchema,
+  date: z.string(),
+  description: z.string(),
+  totalAmount: z.string(),
+  currency: currencySchema,
+  installmentsCount: z.number().int(),
+  startInstallment: z.number().int(),
+  card: z.object({ id: uuidSchema, name: z.string() }),
+  category: categoryRefSchema,
 });
 
 export const movementSchema = z.discriminatedUnion('kind', [
   transactionMovementSchema,
   transferMovementSchema,
+  cardChargeMovementSchema,
 ]);
 
-export const movementFilterSchema = z.enum(['EXPENSE', 'INCOME', 'TRANSFER']);
+export const movementFilterSchema = z.enum(['EXPENSE', 'INCOME', 'TRANSFER', 'CARD']);
 
 /** MOV-03: `GET /movements` filters, with cursor pagination. */
 export const movementsQuerySchema = z.object({
   period: periodSchema.optional(),
   accountId: uuidSchema.optional(),
+  cardId: uuidSchema.optional(),
   categoryId: uuidSchema.optional(),
   type: movementFilterSchema.optional(),
   status: txStatusSchema.optional(),
@@ -81,6 +101,7 @@ export const movementsSummaryQuerySchema = z.object({ period: periodSchema });
 
 export type TransactionMovement = z.infer<typeof transactionMovementSchema>;
 export type TransferMovement = z.infer<typeof transferMovementSchema>;
+export type CardChargeMovement = z.infer<typeof cardChargeMovementSchema>;
 export type Movement = z.infer<typeof movementSchema>;
 export type MovementFilter = z.infer<typeof movementFilterSchema>;
 export type MovementsQuery = z.input<typeof movementsQuerySchema>;
