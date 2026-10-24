@@ -9,6 +9,7 @@ import { CardsModule } from '../cards/cards.module';
 import { CategoriesModule } from '../categories/categories.module';
 import { CommitmentsModule } from '../commitments/commitments.module';
 import { CommonModule } from '../common/common.module';
+import { DashboardModule } from '../dashboard/dashboard.module';
 import { FixedModule } from '../fixed/fixed.module';
 import { OriginSecretMiddleware } from '../common/origin-secret.middleware';
 import { ProblemDetailsFilter } from '../common/problem-details.filter';
@@ -17,6 +18,7 @@ import { ConfigModule } from '../config/config.module';
 import { HealthModule } from '../health/health.module';
 import { MovementsModule } from '../movements/movements.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { RatesModule } from '../rates/rates.module';
 import { SyncModule } from '../sync/sync.module';
 import { TransactionsModule } from '../transactions/transactions.module';
 import { TransfersModule } from '../transfers/transfers.module';
@@ -35,6 +37,7 @@ const isCredentialRoute = (context: ExecutionContext): boolean =>
     ConfigModule,
     CommonModule,
     PrismaModule,
+    RatesModule,
     ThrottlerModule.forRootAsync({
       inject: [AppConfig],
       useFactory: (config: AppConfig) => [
@@ -59,6 +62,7 @@ const isCredentialRoute = (context: ExecutionContext): boolean =>
     FixedModule,
     SyncModule,
     CommitmentsModule,
+    DashboardModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },

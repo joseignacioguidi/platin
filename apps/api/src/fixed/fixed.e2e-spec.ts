@@ -160,7 +160,7 @@ describe('fixed items, sync and commitments', () => {
     expect((await pending(november)).filter((i) => i.description === 'Alquiler')).toHaveLength(1);
   });
 
-  it('a pending movement in dollars asks for the rate when confirmed', async () => {
+  it('a pending movement in dollars freezes the rate when confirmed', async () => {
     await createFixed({
       kind: 'EXPENSE',
       name: 'iCloud',
@@ -172,15 +172,11 @@ describe('fixed items, sync and commitments', () => {
     });
     await in_(october).post('/api/v1/sync').expect(200);
     const [item] = await pending(october);
-    const missing = await in_(october)
-      .post('/api/v1/transactions/confirm')
-      .send({ items: [{ id: item.id }] })
-      .expect(422);
-    expect(missing.body.code).toBe('EXCHANGE_RATE_REQUIRED');
     const done = await in_(october)
       .post('/api/v1/transactions/confirm')
-      .send({ items: [{ id: item.id, exchangeRate: '1200' }] })
+      .send({ items: [{ id: item.id }] })
       .expect(200);
+    // The rate of its date (MEP 1200 in the fake provider).
     expect(done.body[0]).toMatchObject({ rateToBase: '1200.000000', baseAmount: '3588.00' });
   });
 
@@ -217,14 +213,14 @@ describe('fixed items, sync and commitments', () => {
 
     const res = await in_(october).get('/api/v1/commitments?months=12').expect(200);
     expect(res.body.months).toHaveLength(12);
-    expect(res.body.rate).toBeNull();
+    expect(res.body.rate).toBe('1200.000000');
     const [oct, nov, dec, jan, feb] = res.body.months;
     // October: rent only (the first statement is due in November).
     expect(oct).toMatchObject({ period: '2026-10', committed: { ARS: '380000.00', USD: '0.00' } });
     expect(oct.expectedIncome.ARS).toBe('1850000.00');
     expect(oct.free).toBe('1470000.00');
-    // November: rent + installment 1 + Spotify (USD reported, not valued without a rate).
-    expect(nov.committed).toEqual({ ARS: '420000.00', USD: '24.99', base: '420000.00' });
+    // November: rent + installment 1 + Spotify (24.99 × 1200 in base).
+    expect(nov.committed).toEqual({ ARS: '420000.00', USD: '24.99', base: '449988.00' });
     expect(nov.items.map((i: { type: string }) => i.type)).toEqual([
       'INSTALLMENT',
       'INSTALLMENT',

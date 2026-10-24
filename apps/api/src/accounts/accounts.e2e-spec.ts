@@ -108,18 +108,18 @@ describe('accounts', () => {
     expect(same.body.adjustment).toBeNull();
   });
 
-  it('asks for the rate to adjust an account in another currency', async () => {
+  it('values the adjustment of an account in another currency', async () => {
     const usd = await createAccount(ctx.app, user, { currency: 'USD', initialBalance: '100' });
-    const res = await as(ctx.app, user)
+    const auto = await as(ctx.app, user)
       .post(`/api/v1/accounts/${usd.id}/adjust`)
-      .send({ balance: '120', date: '2026-10-23' })
-      .expect(422);
-    expect(res.body.code).toBe('EXCHANGE_RATE_REQUIRED');
+      .send({ balance: '110', date: '2026-10-23' })
+      .expect(200);
+    expect(auto.body.adjustment).toMatchObject({ amount: '10.00', rateToBase: '1200.000000' });
     const ok = await as(ctx.app, user)
       .post(`/api/v1/accounts/${usd.id}/adjust`)
-      .send({ balance: '120', date: '2026-10-23', exchangeRate: '1200' })
+      .send({ balance: '120', date: '2026-10-23', exchangeRate: '1300' })
       .expect(200);
-    expect(ok.body.adjustment).toMatchObject({ amount: '20.00', baseAmount: '24000.00' });
+    expect(ok.body.adjustment).toMatchObject({ amount: '10.00', baseAmount: '13000.00' });
   });
 
   it('archives and hides an account, and rejects new movements on it', async () => {

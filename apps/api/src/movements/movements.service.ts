@@ -6,7 +6,15 @@ import type {
   MovementsQuery,
   MovementsSummary,
 } from '@platin/contracts';
-import { firstDayOf, lastDayOf, Money, Period, utcToPeriod } from '@platin/domain';
+import {
+  firstDayOf,
+  lastDayOf,
+  Money,
+  Period,
+  utcToLocalDate,
+  utcToPeriod,
+  valueIn,
+} from '@platin/domain';
 import {
   afterCursor,
   compareByCursorOrder,
@@ -17,6 +25,7 @@ import {
 import { date, money, rate, toDbDate } from '../common/serialize';
 import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { UserRates } from '../rates/user-rates.service';
 import { toTransferDto } from '../transfers/transfers.service';
 
 type ParsedQuery = Omit<MovementsQuery, 'limit'> & { limit: number; period?: Period };
@@ -30,7 +39,10 @@ const accountRef = { select: { id: true, name: true, currency: true } } as const
  */
 @Injectable()
 export class MovementsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly rates: UserRates,
+  ) {}
 
   async list(userId: string, query: ParsedQuery): Promise<MovementsPage> {
     const cursor = query.cursor ? decodeCursor(query.cursor) : undefined;
@@ -134,12 +146,13 @@ export class MovementsService {
 
   /**
    * Confirmed income and expenses of a month in base currency; pending ones only counted.
-   * Card purchases count on their purchase date (see docs/adr/0007 for other currencies).
+   * Card purchases count on their purchase date; in another currency, valued with the rate of
+   * that date.
    */
   async summary(userId: string, period: Period): Promise<MovementsSummary> {
     const range = { gte: toDbDate(firstDayOf(period)), lte: toDbDate(lastDayOf(period)) };
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    const [sums, cardSpending, pendingCount] = await Promise.all([
+    const [sums, cardSpending, pendingCount, foreignCharges] = await Promise.all([
       this.prisma.transaction.groupBy({
         by: ['type'],
         where: { userId, date: range, status: 'CONFIRMED', type: { in: ['INCOME', 'EXPENSE'] } },
@@ -150,19 +163,31 @@ export class MovementsService {
         _sum: { totalAmount: true },
       }),
       this.prisma.transaction.count({ where: { userId, date: range, status: 'PENDING' } }),
+      this.prisma.cardCharge.findMany({
+        where: { userId, date: range, currency: { not: user.baseCurrency } },
+        select: { totalAmount: true, currency: true, date: true },
+      }),
     ]);
     const sumOf = (type: 'INCOME' | 'EXPENSE') =>
       Money.of(
         (sums.find((s) => s.type === type)?._sum.baseAmount ?? 0).toFixed(2),
         user.baseCurrency,
       ).toString();
+    let expense = Money.of(sumOf('EXPENSE'), user.baseCurrency).add(
+      Money.of((cardSpending._sum.totalAmount ?? 0).toFixed(2), user.baseCurrency),
+    );
+    for (const charge of foreignCharges) {
+      const rate = await this.rates.sellFor(userId, utcToLocalDate(charge.date));
+      if (rate) {
+        const amount = Money.of(charge.totalAmount.toFixed(2), charge.currency);
+        expense = expense.add(valueIn(amount, user.baseCurrency, rate));
+      }
+    }
     return {
       period,
       currency: user.baseCurrency,
       income: sumOf('INCOME'),
-      expense: Money.of(sumOf('EXPENSE'), user.baseCurrency)
-        .add(Money.of((cardSpending._sum.totalAmount ?? 0).toFixed(2), user.baseCurrency))
-        .toString(),
+      expense: expense.toString(),
       pendingCount,
     };
   }

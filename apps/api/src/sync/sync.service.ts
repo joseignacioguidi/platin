@@ -6,6 +6,7 @@ import { ClockService } from '../common/clock.service';
 import { toDbDate, toDbPeriod } from '../common/serialize';
 import { FIXED_INCLUDE, toSchedule } from '../fixed/fixed.mapper';
 import { PrismaService } from '../prisma/prisma.service';
+import { RatesService } from '../rates/rates.service';
 
 /**
  * Runs when the app opens (POST /sync): generates the pending movements of fixed items for
@@ -19,12 +20,15 @@ export class SyncService {
     private readonly prisma: PrismaService,
     private readonly statements: StatementsService,
     private readonly clock: ClockService,
+    private readonly rates: RatesService,
   ) {}
 
   async sync(userId: string): Promise<SyncResponse> {
     const today = this.clock.today();
     const current = periodOf(today);
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    // Rates refresh here too (there is no cron); a failure is not a sync failure.
+    await this.rates.refreshIfStale();
 
     return this.prisma.$transaction(
       async (tx) => {

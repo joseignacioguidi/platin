@@ -14,6 +14,7 @@ import { freezeBase } from '../common/base-conversion';
 import { money, toDbDate } from '../common/serialize';
 import type { Account as AccountRow } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { UserRates } from '../rates/user-rates.service';
 import { toTransactionDto } from '../transactions/transaction.mapper';
 import { AccountBalancesService } from './account-balances.service';
 
@@ -36,6 +37,7 @@ export class AccountsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly balances: AccountBalancesService,
+    private readonly rates: UserRates,
   ) {}
 
   async list(userId: string, includeArchived = false): Promise<AccountsResponse> {
@@ -102,7 +104,12 @@ export class AccountsService {
     if (!difference) return null;
 
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    const frozen = freezeBase(difference, user.baseCurrency, request.exchangeRate);
+    const rate =
+      request.exchangeRate ??
+      (account.currency === user.baseCurrency
+        ? undefined
+        : ((await this.rates.sellFor(userId, request.date)) ?? undefined));
+    const frozen = freezeBase(difference, user.baseCurrency, rate);
     const row = await this.prisma.transaction.create({
       data: {
         userId,

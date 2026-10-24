@@ -5,7 +5,7 @@ import type {
   Transaction,
   UpdateTransactionRequest,
 } from '@platin/contracts';
-import { Decimal, Money } from '@platin/domain';
+import { Currency, Decimal, LocalDate, Money, utcToLocalDate } from '@platin/domain';
 import { AccountsService } from '../accounts/accounts.service';
 import { CategoriesService } from '../categories/categories.service';
 import { AppException } from '../common/app-exception';
@@ -13,6 +13,7 @@ import { freezeBase } from '../common/base-conversion';
 import { toDbDate } from '../common/serialize';
 import type { Transaction as TransactionRow } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { UserRates } from '../rates/user-rates.service';
 import { toTransactionDto } from './transaction.mapper';
 
 @Injectable()
@@ -21,6 +22,7 @@ export class TransactionsService {
     private readonly prisma: PrismaService,
     private readonly accounts: AccountsService,
     private readonly categories: CategoriesService,
+    private readonly rates: UserRates,
   ) {}
 
   async get(userId: string, id: string): Promise<Transaction> {
@@ -33,7 +35,9 @@ export class TransactionsService {
     await this.categories.getOwned(userId, request.categoryId, request.type);
     const baseCurrency = await this.baseCurrency(userId);
     const amount = Money.of(request.amount, account.currency);
-    const frozen = freezeBase(amount, baseCurrency, request.exchangeRate);
+    const rate =
+      request.exchangeRate ?? (await this.rateOfDay(userId, amount, baseCurrency, request.date));
+    const frozen = freezeBase(amount, baseCurrency, rate);
 
     const row = await this.prisma.transaction.create({
       data: {
@@ -80,11 +84,15 @@ export class TransactionsService {
       changes.amount !== undefined ||
       changes.exchangeRate !== undefined ||
       account.currency !== current.currency;
+    const baseCurrency = await this.baseCurrency(userId);
+    const date = changes.date ?? utcToLocalDate(current.date);
     const frozen = needsRefreeze
       ? freezeBase(
           amount,
-          await this.baseCurrency(userId),
-          changes.exchangeRate ?? this.storedRate(current),
+          baseCurrency,
+          changes.exchangeRate ??
+            (account.currency === current.currency ? this.storedRate(current) : undefined) ??
+            (await this.rateOfDay(userId, amount, baseCurrency, date)),
         )
       : undefined;
 
@@ -117,6 +125,17 @@ export class TransactionsService {
     const rows = await this.prisma.transaction.findMany({ where: { id: { in: ids }, userId } });
     if (rows.length !== new Set(ids).size) throw AppException.notFound('Movement not found');
     const baseCurrency = await this.baseCurrency(userId);
+    // Unfrozen pending movements take the rate of their own date (ADR 0008).
+    const ratesOfDay = new Map<string, string | undefined>();
+    for (const row of rows) {
+      if (row.rateToBase.isZero() && row.currency !== baseCurrency) {
+        const amount = Money.of(row.amount.toFixed(2), row.currency);
+        ratesOfDay.set(
+          row.id,
+          await this.rateOfDay(userId, amount, baseCurrency, utcToLocalDate(row.date)),
+        );
+      }
+    }
 
     const updated = await this.prisma.$transaction(
       request.items.map((item) => {
@@ -125,7 +144,8 @@ export class TransactionsService {
         // Pending movements in another currency arrive without a frozen rate (ADR 0008):
         // it is frozen now, with the rate sent or, from phase 6, the one of the day.
         const unfrozen = row.rateToBase.isZero();
-        const rate = item.exchangeRate ?? (unfrozen ? undefined : this.storedRate(row));
+        const rate =
+          item.exchangeRate ?? (unfrozen ? ratesOfDay.get(row.id) : this.storedRate(row));
         const frozen = item.amount || unfrozen ? freezeBase(amount, baseCurrency, rate) : undefined;
         return this.prisma.transaction.update({
           where: { id: row.id },
@@ -134,6 +154,17 @@ export class TransactionsService {
       }),
     );
     return updated.map(toTransactionDto);
+  }
+
+  /** The rate of the user's preferred type for that date, when the amount needs one. */
+  private async rateOfDay(
+    userId: string,
+    amount: Money,
+    baseCurrency: Currency,
+    day: LocalDate,
+  ): Promise<string | undefined> {
+    if (amount.currency === baseCurrency) return undefined;
+    return (await this.rates.sellFor(userId, day)) ?? undefined;
   }
 
   private async getOwned(userId: string, id: string): Promise<TransactionRow> {

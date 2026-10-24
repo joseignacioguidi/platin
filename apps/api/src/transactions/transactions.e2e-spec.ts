@@ -52,14 +52,22 @@ describe('transactions', () => {
     expect(await balanceOf(ctx.app, user, wallet.id)).toBe('81500.00');
   });
 
-  it('a movement in dollars requires the rate and freezes its base amount', async () => {
+  it('a movement in dollars freezes the rate of the day (preferred type) or the one sent', async () => {
     const usd = await createAccount(ctx.app, user, { currency: 'USD', name: 'Caja USD' });
     const api = as(ctx.app, user);
-    const missing = await api
+    // Default preference MEP: sell 1200 in the fake provider.
+    const auto = await api
       .post('/api/v1/transactions')
       .send(expense({ accountId: usd.id, amount: '24.99' }))
-      .expect(422);
-    expect(missing.body.code).toBe('EXCHANGE_RATE_REQUIRED');
+      .expect(201);
+    expect(auto.body).toMatchObject({ rateToBase: '1200.000000', baseAmount: '29988.00' });
+
+    await api.patch('/api/v1/users/me').send({ valuationRate: 'BLUE' }).expect(200);
+    const blue = await api
+      .post('/api/v1/transactions')
+      .send(expense({ accountId: usd.id, amount: '10' }))
+      .expect(201);
+    expect(blue.body.rateToBase).toBe('1565.000000');
 
     const res = await api
       .post('/api/v1/transactions')

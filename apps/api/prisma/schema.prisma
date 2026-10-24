@@ -331,3 +331,16 @@ model FixedAmount {
 
   @@unique([fixedId, effectiveFrom])
 }
+
+// ---------- Exchange rates (global, no userId) ----------
+model ExchangeRate {
+  id        String   @id @default(uuid()) @db.Uuid
+  date      DateTime @db.Date
+  type      RateType
+  buy       Decimal  @db.Decimal(18, 6) // ARS per 1 USD
+  sell      Decimal  @db.Decimal(18, 6)
+  source    String
+  fetchedAt DateTime @default(now())
+
+  @@unique([date, type])
+}
