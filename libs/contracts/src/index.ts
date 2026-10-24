@@ -8,3 +8,5 @@ export * from './lib/transactions';
 export * from './lib/transfers';
 export * from './lib/movements';
 export * from './lib/cards';
+export * from './lib/fixed';
+export * from './lib/commitments';

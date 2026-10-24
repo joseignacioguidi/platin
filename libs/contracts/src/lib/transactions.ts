@@ -32,7 +32,14 @@ export const updateTransactionRequestSchema = z
 /** MOV-05: confirm pending movements in batch, optionally fixing the amount. */
 export const confirmTransactionsRequestSchema = z.object({
   items: z
-    .array(z.object({ id: uuidSchema, amount: amountSchema.optional() }))
+    .array(
+      z.object({
+        id: uuidSchema,
+        amount: amountSchema.optional(),
+        /** ARS per USD, for pending movements in another currency (until phase 6). */
+        exchangeRate: rateSchema.optional(),
+      }),
+    )
     .min(1)
     .max(100),
 });
