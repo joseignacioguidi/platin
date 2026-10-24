@@ -3,13 +3,19 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
+import { AccountsModule } from '../accounts/accounts.module';
 import { AuthModule } from '../auth/auth.module';
+import { CategoriesModule } from '../categories/categories.module';
+import { CommonModule } from '../common/common.module';
 import { OriginSecretMiddleware } from '../common/origin-secret.middleware';
 import { ProblemDetailsFilter } from '../common/problem-details.filter';
 import { AppConfig } from '../config/app-config';
 import { ConfigModule } from '../config/config.module';
 import { HealthModule } from '../health/health.module';
+import { MovementsModule } from '../movements/movements.module';
 import { PrismaModule } from '../prisma/prisma.module';
+import { TransactionsModule } from '../transactions/transactions.module';
+import { TransfersModule } from '../transfers/transfers.module';
 import { UsersModule } from '../users/users.module';
 
 /** Credential endpoints, the target of brute force. Refresh runs on every app open, so it only
@@ -23,6 +29,7 @@ const isCredentialRoute = (context: ExecutionContext): boolean =>
 @Module({
   imports: [
     ConfigModule,
+    CommonModule,
     PrismaModule,
     ThrottlerModule.forRootAsync({
       inject: [AppConfig],
@@ -39,6 +46,11 @@ const isCredentialRoute = (context: ExecutionContext): boolean =>
     HealthModule,
     AuthModule,
     UsersModule,
+    AccountsModule,
+    CategoriesModule,
+    TransactionsModule,
+    TransfersModule,
+    MovementsModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },

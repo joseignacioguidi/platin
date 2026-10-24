@@ -20,6 +20,36 @@ enum RateType {
   BLUE
 }
 
+enum AccountType {
+  CASH
+  BANK
+  WALLET
+  SAVINGS
+  INVESTMENT
+}
+
+enum CategoryKind {
+  INCOME
+  EXPENSE
+}
+
+enum TxType {
+  INCOME
+  EXPENSE
+  ADJUSTMENT
+}
+
+enum TxStatus {
+  PENDING
+  CONFIRMED
+}
+
+enum TxOrigin {
+  MANUAL
+  FIXED
+  ADJUSTMENT
+}
+
 // ---------- User and session ----------
 model User {
   id            String    @id @default(uuid()) @db.Uuid
@@ -33,6 +63,10 @@ model User {
   updatedAt     DateTime  @updatedAt
 
   refreshTokens RefreshToken[]
+  accounts      Account[]
+  categories    Category[]
+  transactions  Transaction[]
+  transfers     Transfer[]
 }
 
 model RefreshToken {
@@ -48,4 +82,94 @@ model RefreshToken {
 
   @@index([userId])
   @@index([family])
+}
+
+// ---------- Accounts and categories ----------
+model Account {
+  id                String      @id @default(uuid()) @db.Uuid
+  userId            String      @db.Uuid
+  name              String
+  type              AccountType
+  currency          Currency
+  initialBalance    Decimal     @default(0) @db.Decimal(18, 2)
+  includeInNetWorth Boolean     @default(true)
+  color             String? // design token name (transfer, savings, ...)
+  archivedAt        DateTime?
+  createdAt         DateTime    @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  transactions Transaction[]
+  transfersOut Transfer[]    @relation("TransferFrom")
+  transfersIn  Transfer[]    @relation("TransferTo")
+
+  @@index([userId])
+}
+
+model Category {
+  id         String       @id @default(uuid()) @db.Uuid
+  userId     String       @db.Uuid
+  name       String
+  kind       CategoryKind
+  icon       String // Lucide icon name
+  color      String // design token name
+  parentId   String?      @db.Uuid
+  archivedAt DateTime?
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  parent       Category?     @relation("CategoryParent", fields: [parentId], references: [id], onDelete: Restrict)
+  children     Category[]    @relation("CategoryParent")
+  transactions Transaction[]
+
+  @@unique([userId, kind, name])
+}
+
+// ---------- Transactions and transfers ----------
+model Transaction {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  accountId   String    @db.Uuid
+  categoryId  String?   @db.Uuid
+  type        TxType
+  status      TxStatus  @default(CONFIRMED)
+  origin      TxOrigin  @default(MANUAL)
+  amount      Decimal   @db.Decimal(18, 2) // account currency; signed only for ADJUSTMENT (ADR 0004)
+  currency    Currency
+  rateToBase  Decimal   @db.Decimal(18, 6) // frozen when recorded
+  baseAmount  Decimal   @db.Decimal(18, 2)
+  date        DateTime  @db.Date
+  description String?
+  fixedId     String?   @db.Uuid
+  fixedPeriod DateTime? @db.Date
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  account  Account   @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@unique([fixedId, fixedPeriod]) // fixed items idempotency
+  @@index([userId, date])
+  @@index([accountId, date])
+}
+
+// Moves money between accounts or pays a card statement: exactly one destination
+// (check constraint in the migration SQL). statementId gets its foreign key in phase 4.
+model Transfer {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @db.Uuid
+  fromAccountId String   @db.Uuid
+  toAccountId   String?  @db.Uuid
+  statementId   String?  @db.Uuid
+  amountOut     Decimal  @db.Decimal(18, 2) // origin account currency
+  amountIn      Decimal  @db.Decimal(18, 2) // destination currency
+  currencyIn    Currency // for a statement payment: which part it pays
+  date          DateTime @db.Date
+  description   String?
+  createdAt     DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  fromAccount Account  @relation("TransferFrom", fields: [fromAccountId], references: [id], onDelete: Restrict)
+  toAccount   Account? @relation("TransferTo", fields: [toAccountId], references: [id], onDelete: Restrict)
+
+  @@index([userId, date])
 }
