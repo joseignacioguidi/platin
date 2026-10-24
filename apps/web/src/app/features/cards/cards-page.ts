@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LucidePlus } from '@lucide/angular';
-import { PlBottomSheet, PlButton, PlEmptyState } from '@platin/web-ui';
+import { PlBottomSheet, PlButton, PlEmptyState, PlErrorState, PlSkeleton } from '@platin/web-ui';
 import { CardFormSheet } from './card-form-sheet';
 import { CardVisual } from './card-visual';
 import { CardsStore } from './cards.store';
@@ -10,7 +10,7 @@ import { CARDS_TEXTS } from './cards.texts';
 /** /app/tarjetas: every card with its open statement. */
 @Component({
   selector: 'pl-cards-page',
-  imports: [RouterLink, PlButton, PlEmptyState, CardVisual, LucidePlus],
+  imports: [PlSkeleton, PlErrorState, RouterLink, PlButton, PlEmptyState, CardVisual, LucidePlus],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
   template: `
@@ -20,7 +20,11 @@ import { CARDS_TEXTS } from './cards.texts';
         <svg lucidePlus [size]="18"></svg>{{ texts.new }}
       </button>
     </header>
-    @if (store.resource.hasValue() && store.cards().length === 0) {
+    @if (store.resource.error() && !store.resource.hasValue()) {
+      <pl-error-state (retry)="store.resource.reload()" />
+    } @else if (!store.resource.hasValue()) {
+      <pl-skeleton [heights]="[200, 200]" />
+    } @else if (store.cards().length === 0) {
       <pl-empty-state
         icon="credit-card"
         [heading]="texts.emptyTitle"

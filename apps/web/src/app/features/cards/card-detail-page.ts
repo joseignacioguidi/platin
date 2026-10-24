@@ -22,6 +22,8 @@ import {
   PlMoney,
   PlSegmented,
   PlSegmentOption,
+  PlErrorState,
+  PlSkeleton,
 } from '@platin/web-ui';
 import { API } from '../../core/api';
 import { RefreshBus, reloadOn } from '../../core/data/refresh-bus';
@@ -67,6 +69,8 @@ const MONTHS_LONG = [
 @Component({
   selector: 'pl-card-detail-page',
   imports: [
+    PlSkeleton,
+    PlErrorState,
     RouterLink,
     PlButton,
     PlMoney,
@@ -81,7 +85,11 @@ const MONTHS_LONG = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
   template: `
-    @if (card(); as card) {
+    @if (cardResource.error() && !cardResource.hasValue()) {
+      <pl-error-state (retry)="cardResource.reload()" />
+    } @else if (!cardResource.hasValue()) {
+      <pl-skeleton [heights]="[56, 220, 48, 240]" />
+    } @else if (card(); as card) {
       <header class="flex items-center justify-between gap-2">
         <div class="flex min-w-0 items-center gap-1">
           <a
@@ -295,7 +303,7 @@ export class CardDetailPage {
   ];
   protected readonly tab = signal<Tab>('summary');
 
-  private readonly cardResource = httpResource<Card>(() => `${API}/cards/${this.id()}`);
+  protected readonly cardResource = httpResource<Card>(() => `${API}/cards/${this.id()}`);
   private readonly statementsResource = httpResource<StatementSummary[]>(
     () => `${API}/cards/${this.id()}/statements`,
   );

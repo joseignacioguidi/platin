@@ -11,7 +11,16 @@ import { Router, RouterLink } from '@angular/router';
 import { LucidePlus } from '@lucide/angular';
 import type { Account } from '@platin/contracts';
 import type { AccountType } from '@platin/domain';
-import { PlBottomSheet, PlButton, PlEmptyState, PlListItem, PlMoney, PlTone } from '@platin/web-ui';
+import {
+  PlBottomSheet,
+  PlButton,
+  PlEmptyState,
+  PlListItem,
+  PlMoney,
+  PlTone,
+  PlErrorState,
+  PlSkeleton,
+} from '@platin/web-ui';
 import { AccountFormSheet } from './account-form-sheet';
 import { AccountsStore } from './accounts.store';
 import { ACCOUNTS_TEXTS } from './accounts.texts';
@@ -27,7 +36,16 @@ export const ACCOUNT_ICONS: Record<AccountType, { icon: string; tone: PlTone }> 
 /** CTA-02: accounts with their balance and the total per currency. */
 @Component({
   selector: 'pl-accounts-page',
-  imports: [RouterLink, PlButton, PlEmptyState, PlListItem, PlMoney, LucidePlus],
+  imports: [
+    PlSkeleton,
+    PlErrorState,
+    RouterLink,
+    PlButton,
+    PlEmptyState,
+    PlListItem,
+    PlMoney,
+    LucidePlus,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
   template: `
@@ -38,7 +56,11 @@ export const ACCOUNT_ICONS: Record<AccountType, { icon: string; tone: PlTone }> 
       </button>
     </header>
 
-    @if (store.resource.hasValue() && visible().length === 0 && !showArchived()) {
+    @if (store.resource.error() && !store.resource.hasValue()) {
+      <pl-error-state (retry)="store.resource.reload()" />
+    } @else if (!store.resource.hasValue()) {
+      <pl-skeleton [heights]="[140, 72, 72]" />
+    } @else if (visible().length === 0 && !showArchived()) {
       <pl-empty-state icon="wallet" [heading]="texts.emptyTitle" [description]="texts.emptyBody">
         <button plButton type="button" (click)="create()">{{ texts.new }}</button>
       </pl-empty-state>

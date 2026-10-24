@@ -12,6 +12,8 @@ import {
   PlProgress,
   PlStackedBar,
   PlStackSegment,
+  PlErrorState,
+  PlSkeleton,
 } from '@platin/web-ui';
 import { GoalFormSheet } from './goal-form-sheet';
 import { SavingsStore } from './savings.store';
@@ -26,7 +28,16 @@ const PACE_CLASS = {
 /** /app/ahorros: total saved in USD, goals and savings accounts (mockup "Ahorros"). */
 @Component({
   selector: 'pl-savings-page',
-  imports: [RouterLink, PlMoney, PlButton, PlEmptyState, PlProgress, PlStackedBar],
+  imports: [
+    PlSkeleton,
+    PlErrorState,
+    RouterLink,
+    PlMoney,
+    PlButton,
+    PlEmptyState,
+    PlProgress,
+    PlStackedBar,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
   template: `
@@ -43,6 +54,11 @@ const PACE_CLASS = {
       </button>
     </header>
 
+    @if (store.savingsResource.error() && !store.savingsResource.hasValue()) {
+      <pl-error-state (retry)="store.savingsResource.reload()" />
+    } @else if (!store.savingsResource.hasValue()) {
+      <pl-skeleton [heights]="[200, 110, 110]" />
+    }
     @if (savings(); as s) {
       <section
         class="flex flex-col gap-4 rounded-card bg-ink p-5 text-on-ink"

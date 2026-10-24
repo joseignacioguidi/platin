@@ -9,6 +9,8 @@ import {
   PlEmptyState,
   PlListItem,
   PlMoney,
+  PlErrorState,
+  PlSkeleton,
 } from '@platin/web-ui';
 import { ChangeAmountSheet } from './change-amount-sheet';
 import { FixedFormSheet } from './fixed-form-sheet';
@@ -18,7 +20,7 @@ import { FIXED_TEXTS } from './fixed.texts';
 /** /app/fijos: fixed expenses and incomes with their next occurrence and amount. */
 @Component({
   selector: 'pl-fixed-page',
-  imports: [PlButton, PlEmptyState, PlListItem, PlMoney, LucidePlus],
+  imports: [PlSkeleton, PlErrorState, PlButton, PlEmptyState, PlListItem, PlMoney, LucidePlus],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
   template: `
@@ -30,7 +32,11 @@ import { FIXED_TEXTS } from './fixed.texts';
     </header>
     <p class="text-[15px] text-muted">{{ texts.intro }}</p>
 
-    @if (store.resource.hasValue() && store.items().length === 0) {
+    @if (store.resource.error() && !store.resource.hasValue()) {
+      <pl-error-state (retry)="store.resource.reload()" />
+    } @else if (!store.resource.hasValue()) {
+      <pl-skeleton [heights]="[72, 72, 72]" />
+    } @else if (store.items().length === 0) {
       <pl-empty-state icon="repeat" [heading]="texts.emptyTitle" [description]="texts.emptyBody">
         <button plButton type="button" (click)="open(null)">{{ texts.new }}</button>
       </pl-empty-state>

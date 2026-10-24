@@ -3,7 +3,14 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { LucideChevronDown } from '@lucide/angular';
 import type { CommitmentsResponse, MonthCommitments } from '@platin/contracts';
 import { parseLocalDate, parsePeriod } from '@platin/domain';
-import { dateBadge, formatPeriod, PlEmptyState, PlMoney } from '@platin/web-ui';
+import {
+  dateBadge,
+  formatPeriod,
+  PlEmptyState,
+  PlMoney,
+  PlErrorState,
+  PlSkeleton,
+} from '@platin/web-ui';
 import { API } from '../../core/api';
 import { RefreshBus, reloadOn } from '../../core/data/refresh-bus';
 import { COMMITMENTS_TEXTS } from './commitments.texts';
@@ -11,7 +18,7 @@ import { COMMITMENTS_TEXTS } from './commitments.texts';
 /** COM-01/02: what is already committed in each of the next 12 months, by currency. */
 @Component({
   selector: 'pl-commitments-page',
-  imports: [PlMoney, PlEmptyState, LucideChevronDown],
+  imports: [PlSkeleton, PlErrorState, PlMoney, PlEmptyState, LucideChevronDown],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
   template: `
@@ -25,7 +32,11 @@ import { COMMITMENTS_TEXTS } from './commitments.texts';
       </p>
     }
 
-    @if (months().length > 0 && empty()) {
+    @if (resource.error() && !resource.hasValue()) {
+      <pl-error-state (retry)="resource.reload()" />
+    } @else if (!resource.hasValue()) {
+      <pl-skeleton [heights]="[72, 72, 72, 72]" />
+    } @else if (empty()) {
       <pl-empty-state
         icon="calendar"
         [heading]="texts.emptyTitle"
@@ -105,7 +116,7 @@ export class CommitmentsPage {
   protected readonly texts = COMMITMENTS_TEXTS;
   private readonly bus = inject(RefreshBus);
 
-  private readonly resource = httpResource<CommitmentsResponse>(
+  protected readonly resource = httpResource<CommitmentsResponse>(
     () => `${API}/commitments?months=12`,
   );
   protected readonly data = computed(() => this.resource.value());

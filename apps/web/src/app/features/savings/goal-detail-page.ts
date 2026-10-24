@@ -12,6 +12,8 @@ import {
   PlButton,
   PlMoney,
   PlProgress,
+  PlErrorState,
+  PlSkeleton,
 } from '@platin/web-ui';
 import { API } from '../../core/api';
 import { RefreshBus, reloadOn } from '../../core/data/refresh-bus';
@@ -24,6 +26,8 @@ import { SAVINGS_TEXTS } from './savings.texts';
 @Component({
   selector: 'pl-goal-detail-page',
   imports: [
+    PlSkeleton,
+    PlErrorState,
     RouterLink,
     PlMoney,
     PlButton,
@@ -51,7 +55,11 @@ import { SAVINGS_TEXTS } from './savings.texts';
       }
     </header>
 
-    @if (goal(); as g) {
+    @if (resource.error() && !resource.hasValue()) {
+      <pl-error-state (retry)="resource.reload()" />
+    } @else if (!resource.hasValue()) {
+      <pl-skeleton [heights]="[80, 220, 130, 180]" />
+    } @else if (goal(); as g) {
       <div class="flex flex-col gap-1">
         <h1 class="text-4xl font-bold">{{ g.name }}</h1>
         <p class="text-[15px] text-muted">
@@ -213,7 +221,7 @@ export class GoalDetailPage {
   private readonly sheet = inject(PlBottomSheet);
   private readonly bus = inject(RefreshBus);
 
-  private readonly resource = httpResource<Goal>(() => `${API}/goals/${this.id()}`);
+  protected readonly resource = httpResource<Goal>(() => `${API}/goals/${this.id()}`);
   protected readonly goal = computed(() => this.resource.value());
   protected readonly percent = computed(() =>
     progressPercent(this.goal()?.projection.progress ?? '0'),

@@ -14,6 +14,8 @@ import {
   PlMonthPicker,
   PlStackedBar,
   PlStackSegment,
+  PlErrorState,
+  PlSkeleton,
 } from '@platin/web-ui';
 import { API } from '../../core/api';
 import { AuthService } from '../../core/auth/auth.service';
@@ -26,6 +28,8 @@ import { DASHBOARD_TEXTS } from './dashboard.texts';
 @Component({
   selector: 'pl-dashboard-page',
   imports: [
+    PlSkeleton,
+    PlErrorState,
     RouterLink,
     PlMoney,
     PlButton,
@@ -65,6 +69,10 @@ import { DASHBOARD_TEXTS } from './dashboard.texts';
           texts.createAccount
         }}</a>
       </pl-empty-state>
+    } @else if (resource.error() && !resource.hasValue()) {
+      <pl-error-state (retry)="resource.reload()" />
+    } @else if (!resource.hasValue()) {
+      <pl-skeleton [heights]="[260, 76, 240]" />
     } @else if (data(); as d) {
       <section
         class="flex flex-col gap-4 rounded-card bg-surface p-5"
@@ -197,7 +205,7 @@ export class DashboardPage {
   private readonly bus = inject(RefreshBus);
 
   protected readonly period = signal<Period>(this.today.period());
-  private readonly resource = httpResource<Dashboard>(() => ({
+  protected readonly resource = httpResource<Dashboard>(() => ({
     url: `${API}/dashboard`,
     params: { period: this.period() },
   }));
