@@ -1,19 +1,24 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { PlEmptyState } from '@platin/web-ui';
+import { RouterLink } from '@angular/router';
+import { PlButton, PlEmptyState } from '@platin/web-ui';
 import { AuthService } from '../../core/auth/auth.service';
 import { DASHBOARD_TEXTS } from './dashboard.texts';
 
 /** Home. Phase 6 replaces the empty state with "Libre este mes". */
 @Component({
   selector: 'pl-dashboard-page',
-  imports: [PlEmptyState],
+  imports: [PlEmptyState, PlButton, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="mb-4 flex flex-col gap-0.5">
       <span class="text-[13px] text-muted">{{ greeting() }}</span>
       <h1 class="text-xl font-bold">{{ texts.title }}</h1>
     </header>
-    <pl-empty-state icon="wallet" [heading]="texts.emptyTitle" [description]="texts.emptyBody" />
+    <pl-empty-state icon="wallet" [heading]="texts.emptyTitle" [description]="texts.emptyBody">
+      <a plButton routerLink="/app/cuentas" [queryParams]="{ nueva: 1 }">{{
+        texts.createAccount
+      }}</a>
+    </pl-empty-state>
   `,
 })
 export class DashboardPage {

@@ -37,6 +37,7 @@ interface MoreLink {
 export class MorePage {
   protected readonly texts = SETTINGS_TEXTS.more;
   protected readonly links: MoreLink[] = [
+    { path: '/app/cuentas', label: SETTINGS_TEXTS.more.accounts, icon: 'wallet' },
     { path: '/app/perfil', label: SETTINGS_TEXTS.more.profile, icon: 'user' },
   ];
 }

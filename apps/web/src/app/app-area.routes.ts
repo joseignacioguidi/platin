@@ -12,8 +12,18 @@ export const appAreaRoutes: Route[] = [
     path: 'movimientos',
     title: 'Movimientos · platin',
     loadComponent: () =>
-      import('./features/placeholder/coming-soon-page').then((m) => m.ComingSoonPage),
-    data: { heading: 'Movimientos' },
+      import('./features/transactions/movements-page').then((m) => m.MovementsPage),
+  },
+  {
+    path: 'cuentas',
+    title: 'Cuentas · platin',
+    loadComponent: () => import('./features/accounts/accounts-page').then((m) => m.AccountsPage),
+  },
+  {
+    path: 'cuentas/:id',
+    title: 'Cuenta · platin',
+    loadComponent: () =>
+      import('./features/accounts/account-detail-page').then((m) => m.AccountDetailPage),
   },
   {
     path: 'tarjetas',

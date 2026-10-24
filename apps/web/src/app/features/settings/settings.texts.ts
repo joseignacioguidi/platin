@@ -1,6 +1,7 @@
 export const SETTINGS_TEXTS = {
   more: {
     title: 'Más',
+    accounts: 'Cuentas',
     profile: 'Perfil y preferencias',
   },
   profile: {
