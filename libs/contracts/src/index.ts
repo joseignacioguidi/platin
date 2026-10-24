@@ -10,3 +10,5 @@ export * from './lib/movements';
 export * from './lib/cards';
 export * from './lib/fixed';
 export * from './lib/commitments';
+export * from './lib/rates';
+export * from './lib/dashboard';
