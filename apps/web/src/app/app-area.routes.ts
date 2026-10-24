@@ -52,6 +52,17 @@ export const appAreaRoutes: Route[] = [
       import('./features/commitments/commitments-page').then((m) => m.CommitmentsPage),
   },
   {
+    path: 'ahorros',
+    title: 'Ahorros · platin',
+    loadComponent: () => import('./features/savings/savings-page').then((m) => m.SavingsPage),
+  },
+  {
+    path: 'metas/:id',
+    title: 'Meta · platin',
+    loadComponent: () =>
+      import('./features/savings/goal-detail-page').then((m) => m.GoalDetailPage),
+  },
+  {
     path: 'mas',
     title: 'Más · platin',
     loadComponent: () => import('./features/settings/more-page').then((m) => m.MorePage),

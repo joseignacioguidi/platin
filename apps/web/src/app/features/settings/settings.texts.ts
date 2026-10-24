@@ -2,6 +2,7 @@ export const SETTINGS_TEXTS = {
   more: {
     title: 'Más',
     accounts: 'Cuentas',
+    savings: 'Ahorros y metas',
     pending: 'Para confirmar',
     fixed: 'Fijos',
     commitments: 'Compromisos',
