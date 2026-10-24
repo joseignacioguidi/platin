@@ -2,3 +2,8 @@ export * from './lib/common';
 export * from './lib/problem';
 export * from './lib/health';
 export * from './lib/auth';
+export * from './lib/accounts';
+export * from './lib/categories';
+export * from './lib/transactions';
+export * from './lib/transfers';
+export * from './lib/movements';
