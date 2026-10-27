@@ -397,15 +397,163 @@ Forma de trabajo:
 - Rama feat/fase-8-landing. Todo en verde antes del PR, con capturas de la landing y los resultados de Lighthouse.
 ```
 
+## Iteración 2: lo que surgió al usar el MVP
+
+Tres fases para resolver lo que apareció en los primeros días de uso: formularios incómodos, consumos que no se podían editar, categorías sin pantalla y un modelo de cuentas que no representaba las reservas. Van antes de la segunda tanda.
+
+**Antes de empezar (vos):** volver a exportar la especificación, la arquitectura y este plan como Markdown y reemplazar los de `docs/` en el repo, en un commit a `main`. Las tres fases dependen de esa versión.
+
+| Fase | Qué se construye | Casos de uso | Terminado cuando |
+| --- | --- | --- | --- |
+| 9 | Formularios y arreglos: selector y fecha propios, editar consumos, pantalla de categorías | TAR-11, CAT-01 a 05 | No queda ningún `<select>` ni `<input type="date">` nativo y la fecha se elige bien en escritorio |
+| 10 | Cuentas con apartados, con la base recreada desde cero | CTA-01 a 07, MOV-02 | Mercado Pago es una sola cuenta con sus reservas en pesos y dólares, y apartar plata son dos toques |
+| 11 | Inversiones como apartados con valuación manual | INV-01 a 05 | Actualizo el valor de todas mis inversiones en una pantalla y veo el rendimiento de cada una |
+
+## Fase 9 — Formularios y arreglos
+
+Los arreglos que se notan todos los días, sin tocar el modelo de cuentas: un selector y un campo de fecha propios en toda la app, editar consumos de tarjeta y una pantalla para gestionar las categorías.
+
+Tareas:
+
+- `pl-date-field`: calendario propio en español con atajos Hoy y Ayer. Reemplaza a todos los `<input type="date">` (hoy fallan en escritorio porque el campo invisible no abre el selector).
+- `pl-select` y `pl-category-select`: combobox con búsqueda, íconos, texto secundario y grupos; hoja inferior en celular. Reemplazan a los 14 `<select>` nativos.
+- Editar y borrar consumos de tarjeta desde el detalle de la tarjeta y desde Movimientos (la API ya existe).
+- Pantalla de categorías: crear, editar ícono y color, subcategorías, archivar y fusionar; categorías de sistema protegidas.
+
+**Terminado cuando:** en escritorio y en celular elijo la fecha de un gasto sin problemas; ningún formulario tiene un `<select>` ni un `<input type="date">` nativo; corrijo el monto de un consumo en cuotas y se rehacen sus cuotas abiertas; creo una categoría propia y fusiono dos.
+
+```
+Leé CLAUDE.md, la sección "Identidad visual y UX > Formularios", TAR-11 y el módulo 11 (CAT-01 a 05) de docs/especificacion.md, y la tabla "Componentes base" de docs/arquitectura.md.
+
+Vamos a hacer la Fase 9 de docs/plan.md: formularios y arreglos de la iteración 2. No toques el modelo de cuentas: eso es la fase 10.
+
+1. pl-date-field en libs/web-ui
+   - Hoy la fecha usa un <input type="date"> invisible encima de una etiqueta, y en escritorio no abre el selector. Reemplazalo por un componente propio: botón con la fecha en español ("Hoy", "Ayer" o "lunes 27 de octubre") que abre un calendario (overlay del CDK en escritorio, pl-bottom-sheet en celular).
+   - Atajos Hoy y Ayer, navegación por mes, límites min y max, manejo completo con teclado.
+   - ControlValueAccessor con LocalDate. Sin librerías de fechas nuevas salvo que me lo justifiques.
+
+2. pl-select en libs/web-ui
+   - Combobox accesible (patrón ARIA combobox + listbox) con búsqueda, ícono y color por opción, texto secundario, grupos y opción vacía opcional.
+   - Overlay del CDK en escritorio y pl-bottom-sheet en celular. ControlValueAccessor.
+   - pl-category-select: pl-select preconfigurado con las categorías activas del tipo indicado, con ícono y color, recientes primero.
+
+3. Reemplazos
+   - Buscá todos los <select> y <input type="date"> de apps/web y reemplazalos. Para cuentas usá pl-select con el saldo como texto secundario (en la fase 10 se cambia por pl-pocket-select).
+   - Agregá una regla de lint o un test que falle si vuelve a aparecer un <select> o un <input type="date">.
+
+4. Editar consumos (TAR-11)
+   - La API ya tiene PATCH y DELETE /charges/:id. Agregá "Editar" y "Borrar" al tocar un consumo en el detalle de la tarjeta y en Movimientos, reutilizando charge-form-sheet en modo edición.
+   - Si alguna cuota está en un resumen cerrado, solo se pueden editar descripción y categoría: la API debe aceptar ese caso parcial y rechazar el resto con CARD_STATEMENT_CLOSED, y la UI deshabilitar los campos con una explicación.
+
+5. Categorías (CAT-01 a 05)
+   - Backend: agregá systemKey a Category (ADJUSTMENT, YIELD) con su migración y creá las de sistema al registrarse; las de sistema no se pueden editar ni archivar. Agregá POST /categories/:id/merge con { targetId }: mueve movimientos, consumos, ajustes de resumen, fijos y presupuestos a la destino (mismo tipo) y archiva la original, en una transacción. Tests e2e, incluido el aislamiento entre usuarios.
+   - Frontend: /app/categorias, accesible desde Más/Perfil. Lista por tipo con ícono, color y cantidad de usos; alta y edición con pl-icon-picker (lista curada de unos 40 íconos de Lucide) y pl-color-picker (tokens de la paleta); categoría padre opcional; archivar; fusionar con confirmación que dice cuántos movimientos se mueven.
+
+Forma de trabajo:
+- Plan primero, esperame. Si te parece grande, dividila en 9a (componentes y reemplazos) y 9b (consumos y categorías).
+- Rama feat/fase-9-formularios. Lint, typecheck, tests y build en verde.
+- En el PR, capturas de pl-select y pl-date-field en escritorio y celular, claro y oscuro.
+```
+
+## Fase 10 — Cuentas con apartados
+
+El cambio de modelo: una cuenta por institución con sus apartados adentro, cada uno con su moneda y su propósito. La base se recrea desde cero y todo lo que hoy apunta a una cuenta pasa a apuntar a un apartado.
+
+**Antes de empezar (vos):** aceptar que se pierden los datos cargados (los vas a volver a cargar con la estructura nueva) y tener a mano las credenciales de Neon para resetear la base.
+
+Tareas:
+
+- Esquema nuevo según la arquitectura: `Account` (institución) + `Pocket` (apartado), `pocketId` en movimientos, fijos y tarjetas, transferencias entre apartados, `GoalPocket` en lugar de `GoalAccount` y `GoalContribution`.
+- Migraciones unificadas en una sola inicial y base reseteada en local y en Neon.
+- `libs/domain`: `pocketBalance` y `accountTotals`, con tests.
+- API: cuentas con apartados, endpoints de apartados, transferencias con intención (apartar, invertir, rescatar, mover) y todos los módulos actualizados.
+- Web: pantalla de cuentas agrupada, detalle de cuenta y de apartado, acciones Apartar / Invertir / Rescatar, `pl-pocket-select` en toda la app.
+
+**Terminado cuando:** cargo Mercado Pago como una sola cuenta con Disponible en pesos, Ahorro en pesos, Ahorro en dólares e Inversión largo plazo; aparto $ 100.000 en dos toques y los saldos cambian; un gasto en la carga rápida sale del Disponible; la meta del auto se vincula al Ahorro en dólares.
+
+```
+Leé CLAUDE.md, el módulo 2 (CTA-01 a 07) y la regla "Cuentas y apartados" de docs/especificacion.md, y las secciones "Modelo de datos" (incluido "Reinicio de la base") y "Backend" de docs/arquitectura.md.
+
+Vamos a hacer la Fase 10 de docs/plan.md: reemplazar las cuentas planas por cuentas con apartados. Es un cambio de esquema grande y la base se recrea desde cero: no hay que migrar datos.
+
+Esquema y base:
+1. Actualizá schema.prisma exactamente como la arquitectura: Account (institución), Pocket (apartado), Transaction.pocketId, Transfer.fromPocketId/toPocketId, CreditCard.defaultPaymentPocketId, FixedItem.pocketId, GoalPocket. Eliminá GoalAccount y GoalContribution. PocketValuation y los tipos YIELD/VALUATION quedan en el esquema pero se usan en la fase 11.
+2. Borrá apps/api/prisma/migrations y generá una única migración inicial. Agregá en SQL las check constraints: Transfer con exactamente un destino, Pocket.instrument solo si kind = INVESTMENT, FixedItem con exactamente uno de pocketId o cardId.
+3. Dejá un ADR que explique el cambio y que las migraciones anteriores se descartaron.
+4. Escribime en el PR los pasos exactos para resetear la base de Neon y desplegar.
+
+Dominio:
+5. pocketBalance(initial, transactions, transfers, at?) y accountTotals(pockets) en libs/domain, con tests (transferencia entre monedas dentro de la misma cuenta, ajuste negativo, apartado archivado).
+
+API:
+6. accounts: GET /accounts devuelve cada cuenta con sus apartados y saldos y los totales por moneda. Al crear una cuenta se crea su apartado "Disponible" en ARS. POST /accounts/:id/pockets, PATCH /pockets/:id, GET /pockets/:id, GET /pockets/:id/transactions, POST /pockets/:id/adjust. Archivar solo con saldo 0 (POCKET_NOT_EMPTY).
+7. transfers: entre apartados de cualquier cuenta, con intent SAVE, INVEST, REDEEM o MOVE (solo informativo, para mostrar "Apartaste", "Invertiste"...). Con monedas distintas exige los dos montos.
+8. Actualizá transactions, cards (pago de resumen desde un apartado), fixed, goals (vincular apartados; acumulado = suma de saldos de los apartados vinculados), dashboard y savings para usar apartados.
+9. Onboarding al registrarse: categorías sugeridas y de sistema, y la cuenta "Efectivo" con su Disponible en ARS.
+10. Tests e2e de todos los módulos afectados, incluido el aislamiento entre usuarios con apartados.
+
+Web:
+11. /app/cuentas: cada cuenta como tarjeta con sus apartados agrupados (ícono según tipo: disponible, ahorro, inversión), saldo de cada uno y total de la cuenta por moneda; arriba el total general.
+12. /app/cuentas/:id: apartados, "+ Apartado" (nombre, moneda, tipo y, si es inversión, instrumento) y acciones rápidas Apartar, Invertir y Rescatar: una hoja con origen, destino (filtrados por tipo) y monto; si las monedas difieren, los dos montos y la cotización resultante.
+13. /app/apartados/:id: movimientos del apartado, evolución del saldo, ajustar saldo, editar, archivar.
+14. pl-pocket-select en libs/web-ui: apartados agrupados por cuenta con moneda y saldo, filtrables por tipo y moneda. Reemplazá con él los selectores de cuenta de la fase 9. En la carga rápida se preselecciona el último apartado usado.
+15. Actualizá onboarding, metas (vincular apartados), ahorros (apartados de ahorro e inversión) y pago de resumen.
+
+Forma de trabajo:
+- Plan primero, esperame. Esta fase conviene dividirla: 10a esquema, dominio y API; 10b web.
+- Rama feat/fase-10-apartados. Todo en verde antes del PR, con capturas de Cuentas y del detalle de una cuenta.
+```
+
+## Fase 11 — Inversiones
+
+Las inversiones como apartados con valuación manual: una pantalla para actualizar todos los valores de una vez (a principio de mes) y el rendimiento de cada una registrado como movimiento.
+
+Tareas:
+
+- `PocketValuation` y movimientos `YIELD` con la categoría de sistema Rendimientos.
+- `libs/domain`: `yieldFromValuation` e `investmentSummary`, con tests.
+- API: módulo `investments` con resumen, carga de valuaciones en lote y borrado de la última.
+- Web: pantalla de Inversiones, pantalla "Actualizar valores" y aviso en el inicio si pasó más de un mes.
+- Los rendimientos no cuentan en "Libre este mes" ni en ingresos; sí en el patrimonio.
+
+**Terminado cuando:** con un apartado de CEDEARs donde invertí $ 500.000, cargo un valor de $ 540.000 y veo un rendimiento de $ 40.000 (8 %); el saldo del apartado pasa a $ 540.000 y "Libre este mes" no cambia.
+
+```
+Leé CLAUDE.md, el módulo 9 (INV-01 a 05) y la regla "Inversiones" de docs/especificacion.md, y las secciones "Modelo de datos" y "Backend" de docs/arquitectura.md. Mirá también el mockup de Inversiones en docs/mockups/, que hay que adaptar a apartados.
+
+Vamos a hacer la Fase 11 de docs/plan.md: inversiones como apartados con valuación manual.
+
+Dominio:
+1. yieldFromValuation(balanceAt, value) e investmentSummary(pocket, transfers, yields) en libs/domain: invertido neto (entradas − salidas), valor actual, rendimiento acumulado (monto y % sobre invertido neto) y rendimiento del último período. Tests con el ejemplo del criterio de terminado, rendimiento negativo y un rescate parcial.
+
+API:
+2. Módulo investments:
+   - GET /investments: apartados de tipo INVESTMENT agrupados por cuenta con su resumen, totales por moneda y valuados en moneda base, y la fecha de la última actualización.
+   - POST /investments/valuations en lote: [{ pocketId, date, value }]. Por cada uno, calcula el saldo a esa fecha, crea la PocketValuation y un Transaction YIELD con la diferencia (con signo; si es 0, no crea movimiento), con la categoría de sistema Rendimientos y origin VALUATION. Todo en una transacción. Una valuación por apartado y fecha.
+   - DELETE /valuations/:id: solo la última de su apartado; borra también su movimiento.
+3. Excluir YIELD de "Libre este mes", de ingresos del mes y de presupuestos; incluirlo en saldos y patrimonio. Agregá tests que lo verifiquen en dashboard.
+4. Tests e2e del módulo, incluido el aislamiento entre usuarios.
+
+Web:
+5. /app/inversiones: adaptá el mockup. Arriba, valor actual total con rendimiento acumulado y composición por instrumento; abajo, los apartados de inversión agrupados por cuenta con invertido, valor y rendimiento. Botón "Actualizar valores".
+6. /app/inversiones/actualizar: lista de todos los apartados de inversión con su último valor y fecha y un campo para el valor actual; muestra en vivo la diferencia; un solo botón guarda todo. Los que se dejan vacíos no se actualizan.
+7. En el detalle de un apartado de inversión, el historial de valuaciones y rendimientos, y "Deshacer última actualización".
+8. En el inicio, si pasó más de un mes desde la última actualización, un aviso discreto que lleva a "Actualizar valores".
+9. Habilitá el link a Inversiones desde Ahorros.
+
+Forma de trabajo:
+- Plan primero, esperame.
+- Rama feat/fase-11-inversiones. Todo en verde antes del PR, con capturas de Inversiones y de Actualizar valores.
+```
+
 ## Después del MVP
 
 La segunda tanda de la especificación, en fases chicas que se pueden hacer en cualquier orden. Los prompts siguen el mismo molde que las fases anteriores: leer `CLAUDE.md` y la sección de la especificación, plan primero, rama propia, PR con todo en verde.
 
 | Fase | Qué incluye | Casos de uso |
 | --- | --- | --- |
-| 9 | Presupuestos por categoría con alertas | PRE-01 a 03 |
-| 10 | Inversiones con valuación manual | INV-01 a 03 |
-| 11 | Reportes y evolución del patrimonio | DAS-02, 03 |
-| 12 | Tarjetas avanzado: corregir fechas, fijos en tarjeta, límite disponible | TAR-06, 09, 10 |
-| 13 | Recuperar contraseña, exportar CSV, simulador y cierre de metas, liberación de cuotas | AUTH-03, MOV-06, MET-04, 05, COM-03 |
-| 14 | Mudanza a VPS (opcional): Caddy, compose de producción, backups, deploy por SSH | Sección "Docker y VPS" de la arquitectura |
+| 12 | Presupuestos por categoría con alertas | PRE-01 a 03 |
+| 13 | Reportes y evolución del patrimonio | DAS-02, 03 |
+| 14 | Tarjetas avanzado: corregir fechas, fijos en tarjeta, límite disponible | TAR-06, 09, 10 |
+| 15 | Recuperar contraseña, exportar CSV, simulador y cierre de metas, liberación de cuotas | AUTH-03, MOV-06, MET-04, 05, COM-03 |
+| 16 | Mudanza a VPS (opcional): Caddy, compose de producción, backups, deploy por SSH | Sección "Docker y VPS" de la arquitectura |

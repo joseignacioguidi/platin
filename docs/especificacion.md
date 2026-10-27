@@ -22,34 +22,35 @@ Principios de diseño:
 
 ## Modelo de dominio
 
-Todo dinero vive en una **cuenta** o en una **tarjeta**; los movimientos los mueven y todo lo demás (saldos, compromisos, avance de metas) se calcula. Cada entidad pertenece a un usuario.
+Todo dinero vive en un apartado de una **cuenta** o en una **tarjeta**; los movimientos los mueven y todo lo demás (saldos, compromisos, avance de metas) se calcula. Cada entidad pertenece a un usuario.
 
 | Entidad | Qué representa | Campos clave |
 | --- | --- | --- |
 | Usuario | Persona con su espacio de datos | email, contraseña, moneda base, cotización preferida para valuar (oficial, MEP, blue) |
-| Cuenta | Donde está la plata: efectivo, banco, billetera virtual, ahorro, inversión | nombre, tipo, moneda, saldo inicial, archivada, cuenta para patrimonio |
-| Categoría | Clasificación de ingresos y gastos | nombre, tipo (ingreso/gasto), ícono, color, categoría padre opcional |
-| Movimiento | Ingreso o gasto sobre una cuenta | cuenta, categoría, monto, moneda, fecha, descripción, estado (pendiente/confirmado), tipo de cambio, monto en moneda base, origen |
-| Transferencia | Plata que pasa de una cuenta a otra, incluida la compra de dólares | cuenta origen, cuenta destino, monto que sale, monto que entra, cotización implícita, fecha |
-| Tarjeta de crédito | Una tarjeta con su ciclo | nombre, emisor, últimos 4, límite, día de cierre, día de vencimiento, cuenta de pago por defecto |
+| Cuenta | La institución o el lugar donde está la plata: Mercado Pago, Santander, Ualá, efectivo, un broker | nombre, tipo (banco, billetera, efectivo, broker), color, archivada |
+| Apartado | Plata separada dentro de una cuenta, con su moneda y su propósito: el disponible, una reserva, una inversión | cuenta, nombre, moneda, tipo (disponible, ahorro, inversión), instrumento (solo inversión), saldo inicial, cuenta para patrimonio, archivado |
+| Categoría | Clasificación de ingresos y gastos, propia de cada usuario | nombre, tipo (ingreso/gasto), ícono, color, categoría padre opcional, de sistema, archivada |
+| Movimiento | Ingreso, gasto, ajuste o rendimiento sobre un apartado | apartado, categoría, monto, moneda, fecha, descripción, estado (pendiente/confirmado), tipo de cambio, monto en moneda base, origen |
+| Transferencia | Plata que pasa de un apartado a otro: apartar, invertir, rescatar, mover entre cuentas o comprar dólares | apartado origen, apartado destino, monto que sale, monto que entra, cotización implícita, fecha |
+| Tarjeta de crédito | Una tarjeta con su ciclo | nombre, emisor, últimos 4, límite, día de cierre, día de vencimiento, apartado de pago por defecto |
 | Resumen | Un ciclo de la tarjeta | tarjeta, período, fecha de cierre, fecha de vencimiento, total ARS, total USD, estado (abierto, cerrado, pagado, pagado parcial) |
 | Consumo | Una compra con tarjeta, en 1 o N cuotas | tarjeta, fecha, descripción, categoría, monto total, moneda, cantidad de cuotas, primer resumen |
 | Cuota | Una parte del consumo que cae en un resumen | consumo, número (3 de 12), monto, resumen al que pertenece |
-| Fijo | Gasto o ingreso que se repite: alquiler, sueldo, suscripciones | tipo, categoría, cuenta o tarjeta, monto, moneda, frecuencia, día, desde, hasta opcional |
+| Fijo | Gasto o ingreso que se repite: alquiler, sueldo, suscripciones | tipo, categoría, apartado o tarjeta, monto, moneda, frecuencia, día, desde, hasta opcional |
 | Presupuesto | Tope de gasto por categoría | categoría, monto mensual, moneda, vigente desde, vigente hasta opcional |
-| Meta | Objetivo de ahorro | nombre, monto objetivo, moneda, fecha objetivo, cuentas vinculadas o aportes asignados |
-| Inversión | Una posición en una cuenta de inversión | cuenta, instrumento (dólares, plazo fijo, FCI, CEDEAR, cripto, otro), monto invertido, valor actual cargado a mano, fecha de valuación |
+| Meta | Objetivo de ahorro | nombre, monto objetivo, moneda, fecha objetivo, apartados vinculados |
+| Valuación | El valor de un apartado de inversión en una fecha, cargado a mano | apartado, fecha, valor, rendimiento generado |
 | Cotización | Tipo de cambio de un día | fecha, par de monedas, tipo (oficial, MEP, blue), valor, fuente |
 
 &#91;embedded content: relaciones del dominio · 11 entidades\]
 
-La cuenta es el centro: movimientos, transferencias, metas e inversiones la afectan o la miden. Del lado de la tarjeta, cada consumo se parte en cuotas que caen en resúmenes mensuales.
+El apartado es el centro: movimientos, transferencias y metas lo afectan o lo miden, y cada apartado pertenece a una cuenta. Del lado de la tarjeta, cada consumo se parte en cuotas que caen en resúmenes mensuales.
 
-Pagar un resumen es una transferencia de una cuenta a la tarjeta; por eso el gasto se registra una sola vez (en el consumo) y el pago no lo duplica.
+Pagar un resumen es una transferencia de un apartado a la tarjeta; por eso el gasto se registra una sola vez (en el consumo) y el pago no lo duplica. Lo mismo vale para invertir o apartar: es mover plata entre apartados, no un gasto.
 
 ## Módulos y casos de uso
 
-Diez módulos; cada caso de uso tiene un código para referenciarlo en el plan de implementación.
+Once módulos; cada caso de uso tiene un código para referenciarlo en el plan de implementación.
 
 ### 1. Autenticación y perfil
 
@@ -59,17 +60,20 @@ Diez módulos; cada caso de uso tiene un código para referenciarlo en el plan d
 - **AUTH-04** Configurar moneda base y cotización preferida para valuar dólares.
 - **AUTH-05** Onboarding inicial: crear primeras cuentas, tarjetas y categorías sugeridas.
 
-### 2. Cuentas
+### 2. Cuentas y apartados
 
-- **CTA-01** Crear, editar y archivar cuentas (efectivo, banco, billetera, ahorro, inversión).
-- **CTA-02** Ver saldo actual de cada cuenta y el total por moneda.
-- **CTA-03** Ver el detalle de una cuenta con sus movimientos y la evolución del saldo.
-- **CTA-04** Ajustar saldo: si el saldo real difiere, se crea un movimiento de ajuste por la diferencia.
+- **CTA-01** Crear, editar y archivar cuentas: una por institución o lugar (Mercado Pago, Santander, efectivo, un broker), con su tipo (banco, billetera, efectivo, broker).
+- **CTA-02** Crear apartados dentro de una cuenta con nombre, moneda y tipo: disponible, ahorro o inversión. Toda cuenta nace con un apartado "Disponible" en pesos.
+- **CTA-03** Ver cada cuenta con sus apartados agrupados, el saldo de cada uno y el total de la cuenta por moneda; arriba, el total general por moneda.
+- **CTA-04** Ver el detalle de un apartado con sus movimientos y la evolución del saldo.
+- **CTA-05** Mover plata entre apartados de la misma cuenta en dos toques, con acciones con nombre: Apartar (a un ahorro), Invertir (a una inversión) y Rescatar (de vuelta al disponible).
+- **CTA-06** Ajustar el saldo de un apartado: se crea un movimiento de ajuste por la diferencia.
+- **CTA-07** Archivar un apartado o una cuenta cuando su saldo es 0; el histórico se conserva.
 
 ### 3. Movimientos
 
 - **MOV-01** Cargar ingreso o gasto con cuenta, categoría, monto, fecha y nota. Carga rápida desde un botón siempre visible.
-- **MOV-02** Cargar una transferencia entre cuentas, incluida la compra o venta de dólares con su cotización.
+- **MOV-02** Cargar una transferencia entre apartados, de la misma cuenta o de otra, incluida la compra o venta de dólares con su cotización.
 - **MOV-03** Listar, filtrar (fecha, cuenta, categoría, tipo, texto) y buscar movimientos.
 - **MOV-04** Editar y eliminar movimientos.
 - **MOV-05** Confirmar movimientos pendientes generados por fijos, en lote.
@@ -87,6 +91,8 @@ Diez módulos; cada caso de uso tiene un código para referenciarlo en el plan d
 - **TAR-08** Pagar un resumen total o parcialmente desde una cuenta, en pesos y en dólares por separado.
 - **TAR-09** Cargar fijos en la tarjeta (suscripciones) que se suman a cada resumen.
 - **TAR-10** Ver el límite disponible: límite menos lo consumido y cuotas pendientes.
+
+* **TAR-11** Editar o borrar un consumo desde el detalle de la tarjeta o desde Movimientos. Si alguna cuota ya está en un resumen cerrado, solo se puede editar la descripción y la categoría.
 
 ### 5. Fijos
 
@@ -117,9 +123,11 @@ Diez módulos; cada caso de uso tiene un código para referenciarlo en el plan d
 
 ### 9. Inversiones (simple)
 
-- **INV-01** Registrar posiciones en cuentas de inversión: instrumento, monto invertido, moneda.
-- **INV-02** Actualizar a mano el valor actual de una posición; queda historial de valuaciones.
-- **INV-03** Ver rendimiento simple por posición y total invertido valuado en moneda base.
+- **INV-01** Una inversión es un apartado de tipo inversión dentro de una cuenta, con su instrumento (CEDEAR, acción, FCI —incluidos los Superfondos—, plazo fijo, cripto u otro) y su moneda. Si se quieren seguir por separado, cada instrumento tiene su propio apartado.
+- **INV-02** Invertir y rescatar son transferencias entre el disponible y el apartado de inversión, sin cargar un gasto.
+- **INV-03** Actualizar valores: una pantalla lista todos los apartados de inversión con su último valor y permite cargar el actual de todos en una sola pasada. Pensada para hacerse a principio de mes; el inicio la sugiere si pasó más de un mes desde la última.
+- **INV-04** Cada actualización registra un movimiento de rendimiento por la diferencia entre el valor cargado y el saldo calculado, positivo o negativo.
+- **INV-05** Ver por apartado y en total: invertido neto, valor actual, rendimiento acumulado y rendimiento del último período, en la moneda de cada uno y valuado en moneda base.
 
 ### 10. Dashboard, reportes y landing
 
@@ -129,9 +137,28 @@ Diez módulos; cada caso de uso tiene un código para referenciarlo en el plan d
 - **LAN-01** Landing pública con propuesta de valor, capturas, funcionalidades y llamado a registrarse.
 - **LAN-02** Páginas de login y registro con la misma identidad visual.
 
+### 11. Categorías
+
+- **CAT-01** Ver las categorías de ingreso y de gasto con su ícono y color. Las sugeridas se crean al registrarse y se editan como cualquier otra: cada usuario tiene las suyas.
+- **CAT-02** Crear y editar una categoría: nombre, tipo, ícono (de una lista), color (de la paleta) y categoría padre opcional.
+- **CAT-03** Archivar una categoría: deja de ofrecerse al cargar y el histórico se conserva.
+- **CAT-04** Fusionar una categoría en otra: pasa todos sus movimientos, consumos, fijos y presupuestos a la otra y la archiva.
+- **CAT-05** Las categorías de sistema (Ajustes, Rendimientos) no se pueden editar ni archivar.
+
 ## Reglas de negocio
 
 Estas reglas son las que más errores generan si se dejan implícitas; cada una debe tener tests unitarios.
+
+### Cuentas y apartados
+
+- Cada apartado tiene una sola moneda; una cuenta puede tener apartados en pesos y en dólares.
+- Saldo de un apartado = saldo inicial + ingresos confirmados − gastos confirmados ± ajustes ± rendimientos − transferencias que salen + transferencias que entran. Se calcula, no se guarda.
+- Saldo de una cuenta = suma de sus apartados, separada por moneda.
+- Todo movimiento se carga sobre un apartado. La carga rápida preselecciona el último apartado usado; al elegir una cuenta se usa su Disponible en la moneda del monto.
+- Mover entre apartados de la misma moneda pide un monto; entre monedas distintas pide los dos montos y muestra la cotización resultante (comprar dólares dentro de Mercado Pago).
+- El tipo del apartado define dónde aparece: Disponible en el uso diario, Ahorro en la pantalla de ahorros, Inversión en ahorros e inversiones. No cambia cómo se calcula el saldo.
+- Los fijos y los pagos de tarjeta salen de un apartado; las metas se vinculan a apartados.
+- El patrimonio suma los apartados marcados como "cuenta para patrimonio", valuados en moneda base.
 
 ### Dinero y monedas
 
@@ -176,7 +203,7 @@ Comprometido del mes M = cuotas de resúmenes que vencen en M + fijos de gasto a
 
 ### Metas
 
-- Acumulado = suma de saldos de las cuentas vinculadas convertidos a la moneda de la meta, o suma de aportes asignados si la meta no tiene cuentas.
+- Acumulado = suma de saldos de los apartados vinculados convertidos a la moneda de la meta.
 - Meses restantes = meses entre el mes siguiente al actual y el mes objetivo, ambos incluidos (mínimo 1).
 
 ```latex
@@ -189,9 +216,11 @@ Comprometido del mes M = cuotas de resúmenes que vencen en M + fijos de gasto a
 
 ### Inversiones
 
-- Valor de una posición = último valor cargado a mano; si no hay, el monto invertido.
-- Rendimiento = (valor actual − invertido) / invertido, en la moneda de la posición.
-- El patrimonio suma las posiciones valuadas, no el saldo contable de la cuenta de inversión.
+- Un apartado de inversión calcula su saldo igual que cualquier otro: aportes − rescates + rendimientos.
+- Actualizar valor con un valor V en la fecha F: rendimiento = V − saldo calculado a F. Se guarda la valuación y un movimiento de tipo rendimiento por esa diferencia, con la categoría de sistema Rendimientos. Después de eso, el saldo del apartado es exactamente V.
+- Invertido neto = transferencias que entraron − transferencias que salieron del apartado. Rendimiento acumulado = suma de sus rendimientos; en porcentaje, sobre el invertido neto.
+- Los rendimientos no cuentan como ingreso en "Libre este mes" ni en presupuestos; sí suman al patrimonio y aparecen en el detalle del apartado.
+- Borrar la última valuación borra su movimiento de rendimiento; las anteriores no se pueden borrar mientras exista una posterior.
 
 ## Alcance: MVP, backlog y fuera de alcance
 
@@ -219,6 +248,17 @@ Fuera de alcance por ahora:
 - App móvil nativa o modo offline; la web es responsive.
 - Cobro, planes pagos o cualquier aspecto comercial.
 - Migración de datos desde la versión actual: se cargan a mano.
+
+### Iteración 2 (octubre 2026)
+
+Después de usar el MVP, el modelo de cuentas planas no representaba cómo está organizada la plata: una institución con reservas en pesos y dólares terminaba partida en varias cuentas. Esta iteración agrega:
+
+- Apartados dentro de las cuentas (CTA-01 a 07) e inversiones como apartados con valuación manual (INV-01 a 05).
+- Gestión de categorías por usuario (CAT-01 a 05).
+- Edición de consumos de tarjeta (TAR-11).
+- Selectores y campos de fecha propios en todos los formularios.
+
+La base de datos se recrea desde cero: no se migran los datos cargados durante el MVP.
 
 ## Identidad visual y UX
 
@@ -259,6 +299,12 @@ Coral pasa de acento a color funcional porque las finanzas necesitan un "negativ
 9. **Estados vacíos con guía**: cada pantalla sin datos explica qué cargar primero, ya que todo se carga a mano.
 
 Antes de implementar conviene bajar estas pantallas a mockups: Inicio, Carga rápida, Tarjeta con cuotas y Meta.
+
+### Formularios
+
+- **Selectores propios** en lugar de las listas nativas del navegador: con búsqueda, ícono y color de cada opción, y un dato secundario (saldo y moneda de un apartado, tipo de una categoría). Agrupan opciones (apartados por cuenta) y se manejan con teclado. En celular se abren como hoja inferior.
+- **Campo de fecha propio**: un calendario que funciona igual en escritorio y celular, con atajos Hoy y Ayer, y la fecha escrita en español ("lunes 27 de octubre").
+- Ningún formulario usa `<select>` ni `<input type="date">` nativos.
 
 ## Stack, arquitectura y preguntas abiertas
 

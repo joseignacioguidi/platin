@@ -58,7 +58,7 @@ platin/
 
 ## Modelo de datos
 
-El esquema tiene 20 tablas; toda tabla de primer nivel lleva `userId` y sus índices empiezan por él; las tablas hijas (cuotas, valuaciones, montos de fijos) se acceden siempre a través de su padre. Los saldos, totales de resumen y compromisos no se guardan: se calculan.
+El esquema tiene 19 tablas (iteración 2: cuentas con apartados); toda tabla de primer nivel lleva `userId` y sus índices empiezan por él; las tablas hijas (cuotas, valuaciones, montos de fijos) se acceden siempre a través de su padre. Los saldos, totales de resumen y compromisos no se guardan: se calculan.
 
 Reglas del esquema:
 
@@ -70,8 +70,9 @@ Reglas del esquema:
 
 ```prisma
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"   // ADR 0001
 }
 
 datasource db {
@@ -81,15 +82,16 @@ datasource db {
 // ---------- Enums ----------
 enum Currency        { ARS USD }
 enum RateType        { OFICIAL MEP BLUE }
-enum AccountType     { CASH BANK WALLET SAVINGS INVESTMENT }
+enum AccountKind     { BANK WALLET CASH BROKER }
+enum PocketKind      { AVAILABLE SAVINGS INVESTMENT }
+enum InstrumentType  { CEDEAR STOCK MUTUAL_FUND TERM_DEPOSIT CRYPTO OTHER }  // MUTUAL_FUND incluye Superfondos
 enum CategoryKind    { INCOME EXPENSE }
-enum TxType          { INCOME EXPENSE ADJUSTMENT }
+enum TxType          { INCOME EXPENSE ADJUSTMENT YIELD }
 enum TxStatus        { PENDING CONFIRMED }
-enum TxOrigin        { MANUAL FIXED ADJUSTMENT }
+enum TxOrigin        { MANUAL FIXED ADJUSTMENT VALUATION }
 enum StatementStatus { OPEN CLOSED PARTIALLY_PAID PAID }
 enum FixedKind       { INCOME EXPENSE }
 enum GoalStatus      { ACTIVE ACHIEVED CANCELLED }
-enum InstrumentType  { USD_CASH TERM_DEPOSIT MUTUAL_FUND CEDEAR STOCK CRYPTO OTHER }
 
 // ---------- Usuario y sesión ----------
 model User {
@@ -108,26 +110,56 @@ model RefreshToken {
   id        String    @id @default(uuid()) @db.Uuid
   userId    String    @db.Uuid
   tokenHash String    @unique
-  family    String    @db.Uuid   // para detectar reuso de un token rotado
+  family    String    @db.Uuid
   expiresAt DateTime
   revokedAt DateTime?
   createdAt DateTime  @default(now())
   @@index([userId])
+  @@index([family])
 }
 
-// ---------- Cuentas y categorías ----------
+// ---------- Cuentas y apartados ----------
+// La institución o el lugar: Mercado Pago, Santander, efectivo, un broker.
 model Account {
-  id                String      @id @default(uuid()) @db.Uuid
-  userId            String      @db.Uuid
-  name              String
-  type              AccountType
-  currency          Currency
-  initialBalance    Decimal     @default(0) @db.Decimal(18, 2)
-  includeInNetWorth Boolean     @default(true)
-  color             String?
-  archivedAt        DateTime?
-  createdAt         DateTime    @default(now())
+  id         String      @id @default(uuid()) @db.Uuid
+  userId     String      @db.Uuid
+  name       String
+  kind       AccountKind
+  color      String?     // nombre de token de diseño
+  sortOrder  Int         @default(0)
+  archivedAt DateTime?
+  createdAt  DateTime    @default(now())
+  @@unique([userId, name])
   @@index([userId])
+}
+
+// Plata separada dentro de una cuenta, con una sola moneda.
+model Pocket {
+  id                String          @id @default(uuid()) @db.Uuid
+  userId            String          @db.Uuid    // denormalizado para filtrar sin join
+  accountId         String          @db.Uuid
+  name              String          // "Disponible", "Auto", "CEDEARs"
+  kind              PocketKind
+  currency          Currency
+  instrument        InstrumentType? // solo si kind = INVESTMENT (check constraint)
+  initialBalance    Decimal         @default(0) @db.Decimal(18, 2)
+  includeInNetWorth Boolean         @default(true)
+  sortOrder         Int             @default(0)
+  archivedAt        DateTime?
+  createdAt         DateTime        @default(now())
+  @@unique([accountId, name, currency])
+  @@index([userId])
+}
+
+// Valor de un apartado de inversión cargado a mano; genera un movimiento YIELD.
+model PocketValuation {
+  id            String   @id @default(uuid()) @db.Uuid
+  pocketId      String   @db.Uuid
+  date          DateTime @db.Date
+  value         Decimal  @db.Decimal(18, 2)
+  transactionId String?  @unique @db.Uuid  // el YIELD que generó (null si la diferencia fue 0)
+  createdAt     DateTime @default(now())
+  @@unique([pocketId, date])
 }
 
 model Category {
@@ -136,24 +168,26 @@ model Category {
   name       String
   kind       CategoryKind
   icon       String       // nombre de ícono de Lucide
-  color      String
+  color      String       // nombre de token de diseño
   parentId   String?      @db.Uuid
+  systemKey  String?      // "ADJUSTMENT" | "YIELD": no editable ni archivable
   archivedAt DateTime?
   @@unique([userId, kind, name])
+  @@unique([userId, systemKey])
 }
 
 // ---------- Movimientos y transferencias ----------
 model Transaction {
   id          String    @id @default(uuid()) @db.Uuid
   userId      String    @db.Uuid
-  accountId   String    @db.Uuid
+  pocketId    String    @db.Uuid
   categoryId  String?   @db.Uuid
   type        TxType
   status      TxStatus  @default(CONFIRMED)
   origin      TxOrigin  @default(MANUAL)
-  amount      Decimal   @db.Decimal(18, 2)   // en la moneda de la cuenta
-  currency    Currency
-  rateToBase  Decimal   @db.Decimal(18, 6)   // congelada al registrar
+  amount      Decimal   @db.Decimal(18, 2)  // con signo solo para ADJUSTMENT y YIELD (ADR 0004)
+  currency    Currency                       // = moneda del apartado
+  rateToBase  Decimal   @db.Decimal(18, 6)
   baseAmount  Decimal   @db.Decimal(18, 2)
   date        DateTime  @db.Date
   description String?
@@ -161,97 +195,47 @@ model Transaction {
   fixedPeriod DateTime? @db.Date
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  @@unique([fixedId, fixedPeriod])          // idempotencia de fijos
+  @@unique([fixedId, fixedPeriod])
   @@index([userId, date])
-  @@index([accountId, date])
+  @@index([pocketId, date])
 }
 
-// Mueve plata entre cuentas o paga un resumen (exactamente uno de los dos destinos;
-// check constraint agregado en SQL en la migración).
+// Mueve plata entre apartados (apartar, invertir, rescatar, entre cuentas, comprar
+// dólares) o paga un resumen: exactamente un destino (check constraint en SQL).
 model Transfer {
-  id             String    @id @default(uuid()) @db.Uuid
-  userId         String    @db.Uuid
-  fromAccountId  String    @db.Uuid
-  toAccountId    String?   @db.Uuid
-  statementId    String?   @db.Uuid
-  amountOut      Decimal   @db.Decimal(18, 2)  // moneda de la cuenta origen
-  amountIn       Decimal   @db.Decimal(18, 2)  // moneda del destino
-  currencyIn     Currency                       // en un pago de resumen: qué parte paga
-  date           DateTime  @db.Date
-  description    String?
-  createdAt      DateTime  @default(now())
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @db.Uuid
+  fromPocketId String   @db.Uuid
+  toPocketId   String?  @db.Uuid
+  statementId  String?  @db.Uuid
+  amountOut    Decimal  @db.Decimal(18, 2)  // moneda del apartado origen
+  amountIn     Decimal  @db.Decimal(18, 2)  // moneda del destino
+  currencyIn   Currency
+  date         DateTime @db.Date
+  description  String?
+  createdAt    DateTime @default(now())
   @@index([userId, date])
+  @@index([fromPocketId])
+  @@index([toPocketId])
 }
 
 // ---------- Tarjetas ----------
 model CreditCard {
-  id                      String    @id @default(uuid()) @db.Uuid
-  userId                  String    @db.Uuid
-  name                    String
-  issuer                  String?
-  last4                   String?   @db.Char(4)
-  creditLimit             Decimal?  @db.Decimal(18, 2)
-  closingDay              Int       // 1-31
-  dueDay                  Int       // 1-31
-  defaultPaymentAccountId String?   @db.Uuid
-  archivedAt              DateTime?
-  createdAt               DateTime  @default(now())
+  id                     String    @id @default(uuid()) @db.Uuid
+  userId                 String    @db.Uuid
+  name                   String
+  issuer                 String?
+  last4                  String?   @db.Char(4)
+  creditLimit            Decimal?  @db.Decimal(18, 2)
+  closingDay             Int
+  dueDay                 Int
+  defaultPaymentPocketId String?   @db.Uuid
+  archivedAt             DateTime?
+  createdAt              DateTime  @default(now())
   @@index([userId])
 }
 
-model CardStatement {
-  id              String          @id @default(uuid()) @db.Uuid
-  userId          String          @db.Uuid
-  cardId          String          @db.Uuid
-  period          DateTime        @db.Date   // mes del cierre
-  closingDate     DateTime        @db.Date
-  dueDate         DateTime        @db.Date
-  datesOverridden Boolean         @default(false)
-  status          StatementStatus @default(OPEN)
-  bankTotalArs    Decimal?        @db.Decimal(18, 2)  // cargado al cerrar
-  bankTotalUsd    Decimal?        @db.Decimal(18, 2)
-  @@unique([cardId, period])
-  @@index([userId, dueDate])
-}
-
-model CardCharge {
-  id                String   @id @default(uuid()) @db.Uuid
-  userId            String   @db.Uuid
-  cardId            String   @db.Uuid
-  categoryId        String   @db.Uuid
-  date              DateTime @db.Date
-  description       String
-  totalAmount       Decimal  @db.Decimal(18, 2)
-  currency          Currency
-  installmentsCount Int      @default(1)
-  startInstallment  Int      @default(1)  // "voy por la k de N"
-  fixedId           String?  @db.Uuid     // suscripción en tarjeta (TAR-09)
-  fixedPeriod       DateTime? @db.Date
-  createdAt         DateTime @default(now())
-  @@unique([fixedId, fixedPeriod])
-  @@index([userId, date])
-}
-
-model Installment {
-  id          String   @id @default(uuid()) @db.Uuid
-  chargeId    String   @db.Uuid
-  statementId String   @db.Uuid
-  number      Int
-  amount      Decimal  @db.Decimal(18, 2)
-  currency    Currency
-  @@unique([chargeId, number])
-  @@index([statementId])
-}
-
-// Diferencia entre el total calculado y el del banco: intereses, impuestos, sellos.
-model StatementAdjustment {
-  id          String   @id @default(uuid()) @db.Uuid
-  statementId String   @db.Uuid
-  categoryId  String   @db.Uuid
-  amount      Decimal  @db.Decimal(18, 2)   // puede ser negativo (bonificación)
-  currency    Currency
-  description String?
-}
+// CardStatement, CardCharge, Installment y StatementAdjustment: sin cambios.
 
 // ---------- Fijos ----------
 model FixedItem {
@@ -260,10 +244,10 @@ model FixedItem {
   kind                FixedKind
   name                String
   categoryId          String    @db.Uuid
-  accountId           String?   @db.Uuid   // uno de los dos
+  pocketId            String?   @db.Uuid   // uno de los dos (check constraint)
   cardId              String?   @db.Uuid
   currency            Currency
-  intervalMonths      Int       @default(1) // 1 mensual, 12 anual
+  intervalMonths      Int       @default(1)
   dayOfMonth          Int
   startPeriod         DateTime  @db.Date
   endPeriod           DateTime? @db.Date
@@ -272,26 +256,9 @@ model FixedItem {
   @@index([userId])
 }
 
-model FixedAmount {
-  id            String   @id @default(uuid()) @db.Uuid
-  fixedId       String   @db.Uuid
-  amount        Decimal  @db.Decimal(18, 2)
-  effectiveFrom DateTime @db.Date   // período desde el que rige
-  @@unique([fixedId, effectiveFrom])
-}
+// FixedAmount: sin cambios.
 
-// ---------- Presupuestos y metas ----------
-model Budget {
-  id         String    @id @default(uuid()) @db.Uuid
-  userId     String    @db.Uuid
-  categoryId String    @db.Uuid
-  amount     Decimal   @db.Decimal(18, 2)
-  currency   Currency
-  validFrom  DateTime  @db.Date
-  validTo    DateTime? @db.Date
-  @@index([userId, categoryId])
-}
-
+// ---------- Metas ----------
 model Goal {
   id           String     @id @default(uuid()) @db.Uuid
   userId       String     @db.Uuid
@@ -304,61 +271,24 @@ model Goal {
   @@index([userId])
 }
 
-// Una cuenta entera aporta a la meta...
-model GoalAccount {
-  goalId    String @db.Uuid
-  accountId String @db.Uuid
-  @@id([goalId, accountId])
+// Los apartados que miden la meta. GoalContribution se elimina: para repartir
+// plata entre metas se crea un apartado por meta.
+model GoalPocket {
+  goalId   String @db.Uuid
+  pocketId String @db.Uuid
+  @@id([goalId, pocketId])
 }
 
-// ...o aportes asignados, para repartir una cuenta entre varias metas.
-model GoalContribution {
-  id         String   @id @default(uuid()) @db.Uuid
-  goalId     String   @db.Uuid
-  amount     Decimal  @db.Decimal(18, 2)   // negativo = retiro
-  date       DateTime @db.Date
-  transferId String?  @db.Uuid
-  @@index([goalId])
-}
-
-// ---------- Inversiones ----------
-model InvestmentPosition {
-  id             String         @id @default(uuid()) @db.Uuid
-  userId         String         @db.Uuid
-  accountId      String         @db.Uuid
-  name           String
-  instrument     InstrumentType
-  currency       Currency
-  investedAmount Decimal        @db.Decimal(18, 2)
-  archivedAt     DateTime?
-  createdAt      DateTime       @default(now())
-  @@index([userId])
-}
-
-model PositionValuation {
-  id         String   @id @default(uuid()) @db.Uuid
-  positionId String   @db.Uuid
-  value      Decimal  @db.Decimal(18, 2)
-  valuedAt   DateTime @db.Date
-  @@index([positionId, valuedAt])
-}
-
-// ---------- Cotizaciones (globales, sin userId) ----------
-model ExchangeRate {
-  id        String   @id @default(uuid()) @db.Uuid
-  date      DateTime @db.Date
-  type      RateType
-  buy       Decimal  @db.Decimal(18, 6)   // ARS por 1 USD
-  sell      Decimal  @db.Decimal(18, 6)
-  source    String
-  fetchedAt DateTime @default(now())
-  @@unique([date, type])
-}
+// ExchangeRate: sin cambios. Budget (segunda tanda): sin cambios.
 ```
 
-Las relaciones (`@relation`) se omiten arriba para que el esquema se lea de un vistazo; en el archivo real cada `xxxId` lleva su relación con `onDelete: Restrict`, salvo `Installment`, `StatementAdjustment`, `FixedAmount`, `GoalAccount`, `GoalContribution` y `PositionValuation`, que se borran en cascada con su padre.
+Las relaciones (`@relation`) se omiten arriba para que el esquema se lea de un vistazo; en el archivo real cada `xxxId` lleva su relación con `onDelete: Restrict`, salvo `Installment`, `StatementAdjustment`, `FixedAmount`, `GoalPocket` y `PocketValuation`, que se borran en cascada con su padre.
 
-Saldo de una cuenta = saldo inicial + ingresos confirmados − gastos confirmados ± ajustes − transferencias que salen + transferencias que entran. Se calcula con una consulta agregada por cuenta; si con el tiempo se vuelve lenta, se agrega una tabla de saldos materializados.
+Saldo de un apartado = saldo inicial + ingresos confirmados − gastos confirmados ± ajustes ± rendimientos − transferencias que salen + transferencias que entran. El saldo de una cuenta es la suma de sus apartados por moneda. Se calcula con una consulta agregada por apartado; si con el tiempo se vuelve lenta, se agrega una tabla de saldos materializados.
+
+### Reinicio de la base (iteración 2)
+
+No se migran los datos del MVP. Se borran las migraciones de `apps/api/prisma/migrations`, se genera una única migración inicial con el esquema nuevo (incluidas las check constraints de `Transfer`, `Pocket` y `FixedItem` escritas en SQL) y se resetea la base de Neon. Al registrarse, un usuario recibe las categorías sugeridas, las de sistema (Ajustes y Rendimientos) y una cuenta "Efectivo" con su apartado "Disponible" en pesos.
 
 ## Backend
 
@@ -370,16 +300,16 @@ Un módulo de Nest por dominio; los controladores son finos, los servicios orque
 | --- | --- | --- |
 | `auth` | Registro, login, refresh, logout | — |
 | `users` | Perfil y preferencias | — |
-| `accounts` | CRUD de cuentas, saldos, ajuste de saldo | cálculo de saldo |
-| `categories` | CRUD y categorías sugeridas | — |
+| `accounts` | Cuentas y sus apartados: CRUD, saldos, ajuste de saldo, archivar | saldo de apartado y totales por moneda |
+| `categories` | CRUD, archivar, fusionar, categorías sugeridas y de sistema | — |
 | `transactions` | Ingresos, gastos, pendientes, confirmación en lote | conversión a moneda base |
-| `transfers` | Transferencias y compra de dólares | cotización implícita |
-| `cards` | Tarjetas, resúmenes, consumos, cuotas, pagos, cierre | ciclo de tarjeta, reparto de cuotas |
+| `transfers` | Transferencias entre apartados: apartar, invertir, rescatar, entre cuentas, compra de dólares | cotización implícita |
+| `investments` | Apartados de inversión: valuaciones, rendimientos y resumen | rendimiento por valuación |
+| `cards` | Tarjetas, resúmenes, consumos (alta, edición y borrado), cuotas, pagos, cierre | ciclo de tarjeta, reparto de cuotas |
 | `fixed` | Fijos y generación de pendientes | períodos que corresponden |
 | `commitments` | Línea de tiempo de compromisos (solo lectura) | compromisos por mes |
 | `budgets` | Presupuestos y consumo del mes | — |
-| `goals` | Metas, cuentas vinculadas, aportes, simulación | cálculo de metas |
-| `investments` | Posiciones y valuaciones | rendimiento |
+| `goals` | Metas y apartados vinculados, simulación | cálculo de metas |
 | `rates` | Cotizaciones: lectura, caché y descarga | — |
 | `dashboard` | Agrega "libre este mes", próximos 30 días y alertas | varias |
 | `sync` | Al abrir la app: genera pendientes de fijos y resúmenes faltantes | — |
@@ -401,17 +331,22 @@ Un módulo de Nest por dominio; los controladores son finos, los servicios orque
 | `POST /auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout` | AUTH-01, 02 |
 | `POST /sync` | Genera pendientes y resúmenes; se llama al abrir la app |
 | `GET /dashboard?period=` | DAS-01 |
-| `GET /accounts`, `GET /accounts/:id/transactions` | CTA-02, 03 |
-| `POST /accounts/:id/adjust` | CTA-04 |
+| `GET/POST /accounts`, `PATCH /accounts/:id` | CTA-01, 03 (cada cuenta trae sus apartados con saldo) |
+| `POST /accounts/:id/pockets`, `PATCH /pockets/:id` | CTA-02, 07 |
+| `GET /pockets/:id`, `GET /pockets/:id/transactions` | CTA-04 |
+| `POST /pockets/:id/adjust` | CTA-06 |
 | `GET/POST /transactions`, `PATCH/DELETE /transactions/:id` | MOV-01, 03, 04 |
 | `POST /transactions/confirm` | MOV-05 (lote) |
-| `POST /transfers` | MOV-02 |
+| `POST /transfers` (con `intent`: `SAVE`, `INVEST`, `REDEEM`, `MOVE`) | MOV-02, CTA-05, INV-02 |
+| `GET/POST /categories`, `PATCH /categories/:id`, `POST /categories/:id/merge` | CAT-01 a 05 |
 | `GET /cards/:id/statements?from=&to=` | TAR-04 |
-| `POST /cards/:id/charges` | TAR-02, 03 |
+| `POST /cards/:id/charges`, `PATCH/DELETE /charges/:id` | TAR-02, 03, 11 |
 | `GET /cards/:id/installments?active=true` | TAR-05 |
 | `POST /statements/:id/close`, `POST /statements/:id/payments` | TAR-07, 08 |
 | `GET/POST /fixed`, `POST /fixed/:id/amounts` | FIJ-01, 02 |
 | `GET /commitments?months=12` | COM-01, 02 |
+| `GET /investments` | INV-05 |
+| `POST /investments/valuations` (lote), `DELETE /valuations/:id` | INV-03, 04 |
 | `GET/POST /goals`, `GET /goals/:id/projection?monthly=` | MET-01 a 04 |
 | `GET /rates/latest` | Cotización vigente por tipo |
 | `GET /health` | Despertar el servidor y monitoreo |
@@ -426,6 +361,9 @@ Todo lo que tiene una regla de la especificación es una función pura en `libs/
 - `duePeriods(fixed, from, to)`: períodos que un fijo debe generar.
 - `commitmentsByMonth(input, months)`: compromisos por mes y moneda.
 - `goalProjection(goal, accumulated, today, monthly?)`: faltante, aporte mensual, ritmo y fecha estimada.
+- `pocketBalance(initial, transactions, transfers, at?)` y `accountTotals(pockets)`: saldo de un apartado a una fecha y totales de la cuenta por moneda.
+- `yieldFromValuation(balanceAt, value)`: rendimiento que genera una valuación.
+- `investmentSummary(pocket, transfers, yields)`: invertido neto, valor actual, rendimiento acumulado y del último período.
 - `Money`: suma, resta, conversión y redondeo sobre decimal.js; nunca `number` para montos.
 
 ## Frontend
@@ -442,8 +380,8 @@ Angular en su última versión estable al iniciar (hoy, la [22](https://www.gitc
 | `/app/movimientos` | Lista, filtros y búsqueda | Cliente |
 | `/app/tarjetas`, `/app/tarjetas/:id` | Tarjetas, resumen, cuotas | Cliente |
 | `/app/ahorros`, `/app/metas/:id` | Ahorros y detalle de meta | Cliente |
-| `/app/inversiones` | Posiciones y valuaciones | Cliente |
-| `/app/compromisos`, `/app/fijos`, `/app/cuentas`, `/app/perfil` | Resto de las pantallas | Cliente |
+| `/app/inversiones` | Apartados de inversión, rendimientos y "Actualizar valores" (`/app/inversiones/actualizar`) | Cliente |
+| `/app/compromisos`, `/app/fijos`, `/app/cuentas`, `/app/cuentas/:id`, `/app/apartados/:id`, `/app/categorias`, `/app/perfil` | Resto de las pantallas | Cliente |
 
 La carga rápida no es una ruta: es una hoja inferior global que se abre desde el botón + o con Ctrl+K.
 
@@ -496,9 +434,14 @@ Cada feature tiene sus rutas (carga diferida), sus componentes de página y un s
 | `pl-amount-keypad` | Teclado numérico de la carga rápida |
 | `pl-bottom-sheet` | Hoja inferior sobre el CDK |
 | `pl-segmented` | Selector tipo Gasto / Ingreso / Transferencia |
+| `pl-select` | Reemplaza a todo `<select>`: combobox con búsqueda, ícono y color por opción, texto secundario, grupos, teclado y ARIA de combobox; overlay del CDK en escritorio y hoja inferior en celular; integra con Reactive Forms (`ControlValueAccessor`) |
+| `pl-pocket-select` | `pl-select` preconfigurado: apartados agrupados por cuenta, con moneda y saldo |
+| `pl-category-select` | `pl-select` preconfigurado: categorías con ícono y color, filtradas por tipo |
+| `pl-date-field` | Reemplaza a todo `<input type="date">`: calendario propio en español, atajos Hoy y Ayer, límites mínimo y máximo, teclado; `ControlValueAccessor` con `LocalDate` |
+| `pl-icon-picker`, `pl-color-picker` | Elección de ícono (lista curada de Lucide) y color (tokens de la paleta) para categorías y cuentas |
 | `pl-progress` | Barra y anillo de progreso |
 | `pl-stacked-bar` | Barra de reparto (gastado, comprometido, libre) |
-| `pl-list-item` | Fila de movimiento, compromiso o cuenta |
+| `pl-list-item` | Fila de movimiento, compromiso o apartado |
 | `pl-empty-state` | Pantalla vacía con guía de qué cargar |
 
 ## Auth y seguridad
