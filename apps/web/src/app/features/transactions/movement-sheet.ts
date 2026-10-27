@@ -1,16 +1,21 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import type { Movement } from '@platin/contracts';
-import { parseLocalDate } from '@platin/domain';
+import { CategoryKind, LocalDate, parseLocalDate } from '@platin/domain';
 import {
   displayAmount,
   formatDate,
   parseTypedAmount,
+  PlBottomSheet,
   PlButton,
+  PlCategorySelect,
+  PlDateField,
   PlMoney,
   PlSheet,
 } from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
+import { FormField } from '../../core/forms/form-field';
+import { ChargeFormData, ChargeFormSheet } from '../cards/charge-form-sheet';
 import { CardsStore } from '../cards/cards.store';
 import { CategoriesStore } from '../categories/categories.store';
 import { MovementRow } from './movement-row';
@@ -23,7 +28,7 @@ const INPUT =
 /** MOV-04: see, edit, confirm or delete one movement. */
 @Component({
   selector: 'pl-movement-sheet',
-  imports: [PlSheet, PlButton, PlMoney, MovementRow],
+  imports: [PlSheet, PlButton, PlMoney, PlCategorySelect, PlDateField, FormField, MovementRow],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet>
@@ -41,14 +46,19 @@ const INPUT =
               (input)="amountText.set(value($event))"
             />
           </label>
-          <label class="flex flex-col gap-1">
-            <span class="text-sm font-medium">{{ texts.category }}</span>
-            <select [class]="input" [value]="categoryId()" (change)="categoryId.set(value($event))">
-              @for (category of categories(); track category.id) {
-                <option [value]="category.id">{{ category.name }}</option>
-              }
-            </select>
-          </label>
+          @if (categoryKind(); as kind) {
+            <pl-form-field [label]="texts.category" controlId="movement-category">
+              <pl-category-select
+                inputId="movement-category"
+                [kind]="kind"
+                [label]="texts.category"
+                [categories]="categoriesStore.categories()"
+                [recentIds]="categoriesStore.recentIds()"
+                [value]="categoryId() || null"
+                (valueChange)="categoryId.set($event ?? '')"
+              />
+            </pl-form-field>
+          }
           <label class="flex flex-col gap-1">
             <span class="text-sm font-medium">{{ texts.description }}</span>
             <input
@@ -59,15 +69,14 @@ const INPUT =
               (input)="description.set(value($event))"
             />
           </label>
-          <label class="flex flex-col gap-1">
-            <span class="text-sm font-medium">{{ texts.date }}</span>
-            <input
-              type="date"
-              [class]="input"
+          <pl-form-field [label]="texts.date" controlId="movement-date">
+            <pl-date-field
+              inputId="movement-date"
+              [label]="texts.date"
               [value]="date()"
-              (change)="date.set(value($event))"
+              (valueChange)="setDate($event)"
             />
-          </label>
+          </pl-form-field>
         </div>
       } @else {
         <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[15px]">
@@ -107,6 +116,11 @@ const INPUT =
             {{ texts.save }}
           </button>
         }
+        @if (movement.kind === 'CARD_CHARGE') {
+          <button plButton size="lg" type="button" [disabled]="busy()" (click)="editCharge()">
+            {{ texts.editCharge }}
+          </button>
+        }
         <div class="grid grid-cols-2 gap-2">
           <button plButton="secondary" type="button" (click)="ref.close()">
             {{ texts.close }}
@@ -127,7 +141,8 @@ export class MovementSheet {
   protected readonly ref = inject(DialogRef);
   protected readonly movement = inject<Movement>(DIALOG_DATA);
   private readonly store = inject(TransactionsStore);
-  private readonly categoriesStore = inject(CategoriesStore);
+  protected readonly categoriesStore = inject(CategoriesStore);
+  private readonly sheet = inject(PlBottomSheet);
   private readonly cardsStore = inject(CardsStore);
 
   /** Statement payments are undone from the card, not from the list. */
@@ -147,19 +162,44 @@ export class MovementSheet {
     this.movement.kind === 'TRANSACTION' ? (this.movement.category?.id ?? '') : '',
   );
   protected readonly description = signal(this.movement.description ?? '');
-  protected readonly date = signal(this.movement.date);
+  protected readonly date = signal<LocalDate>(parseLocalDate(this.movement.date));
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly confirmingDelete = signal(false);
 
-  protected readonly categories = computed(() =>
-    this.movement.kind === 'TRANSACTION' && this.movement.type !== 'ADJUSTMENT'
-      ? this.categoriesStore.ofKind(this.movement.type)
-      : [],
+  protected readonly categoryKind = computed<CategoryKind | null>(() =>
+    this.movement.kind === 'TRANSACTION' &&
+    (this.movement.type === 'INCOME' || this.movement.type === 'EXPENSE')
+      ? this.movement.type
+      : null,
   );
 
   protected value(event: Event): string {
     return (event.target as HTMLInputElement).value;
+  }
+
+  protected setDate(date: LocalDate | null): void {
+    if (date) this.date.set(date);
+  }
+
+  /** TAR-11: a card purchase is edited in its own form (it has installments). */
+  protected async editCharge(): Promise<void> {
+    if (this.movement.kind !== 'CARD_CHARGE') return;
+    const card = this.cardsStore.byId(this.movement.card.id);
+    this.busy.set(true);
+    try {
+      const charge = await this.cardsStore.getCharge(this.movement.id);
+      if (!card) throw new Error('Card not loaded');
+      this.ref.close();
+      this.sheet.open(ChargeFormSheet, {
+        data: { card, charge } satisfies ChargeFormData,
+        ariaLabel: this.texts.editCharge,
+      });
+    } catch {
+      this.error.set(this.texts.chargeLoadError);
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   protected async save(): Promise<void> {
@@ -173,7 +213,7 @@ export class MovementSheet {
         amount,
         categoryId: this.categoryId() || undefined,
         description: this.description().trim() || null,
-        date: parseLocalDate(this.date()),
+        date: this.date(),
       }),
     );
   }

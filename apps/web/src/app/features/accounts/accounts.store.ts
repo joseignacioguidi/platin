@@ -8,6 +8,7 @@ import type {
   CreateAccountRequest,
   UpdateAccountRequest,
 } from '@platin/contracts';
+import { HideAmounts, moneyText, PlSelectOption } from '@platin/web-ui';
 import { firstValueFrom } from 'rxjs';
 import { API } from '../../core/api';
 import { RefreshBus, reloadOn } from '../../core/data/refresh-bus';
@@ -23,6 +24,20 @@ export class AccountsStore {
   readonly resource = httpResource<AccountsResponse>(() => `${API}/accounts`);
   readonly accounts = computed(() => this.resource.value()?.items ?? []);
   readonly totals = computed(() => this.resource.value()?.totals ?? { ARS: '0.00', USD: '0.00' });
+  private readonly hideAmounts = inject(HideAmounts);
+
+  /** Active accounts as select options, with the balance as secondary text. */
+  readonly options = computed<PlSelectOption[]>(() =>
+    this.accounts()
+      .filter((account) => !account.archived)
+      .map((account) => ({
+        value: account.id,
+        label: account.name,
+        hint: moneyText(account.balance, account.currency, this.hideAmounts.hidden()),
+        tone: 'transfer',
+        keywords: account.currency,
+      })),
+  );
 
   constructor() {
     reloadOn(this.bus, ['accounts'], () => this.resource.reload());

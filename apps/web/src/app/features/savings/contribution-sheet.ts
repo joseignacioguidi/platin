@@ -1,10 +1,10 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import type { Goal } from '@platin/contracts';
-import { LocalDate, parseLocalDate } from '@platin/domain';
-import { parseTypedAmount, PlButton, PlSheet } from '@platin/web-ui';
+import { LocalDate } from '@platin/domain';
+import { parseTypedAmount, PlButton, PlDateField, PlSheet } from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
-import { INPUT_CLASS } from '../../core/forms/form-field';
+import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { Today } from '../../core/today';
 import { SavingsStore } from './savings.store';
 import { SAVINGS_TEXTS } from './savings.texts';
@@ -12,7 +12,7 @@ import { SAVINGS_TEXTS } from './savings.texts';
 /** MET-02: assign a contribution (or a withdrawal) to a goal without linked accounts. */
 @Component({
   selector: 'pl-contribution-sheet',
-  imports: [PlSheet, PlButton],
+  imports: [PlSheet, PlButton, PlDateField, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="t.title + ' · ' + goal.name">
@@ -26,10 +26,14 @@ import { SAVINGS_TEXTS } from './savings.texts';
           (input)="amount.set(value($event))"
         />
       </label>
-      <label class="flex flex-col gap-1">
-        <span class="text-sm font-medium">{{ t.date }}</span>
-        <input type="date" [class]="input" [value]="date()" (change)="setDate($event)" />
-      </label>
+      <pl-form-field [label]="t.date" controlId="contribution-date">
+        <pl-date-field
+          inputId="contribution-date"
+          [label]="t.date"
+          [value]="date()"
+          (valueChange)="setDate($event)"
+        />
+      </pl-form-field>
       @if (error()) {
         <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">{{ error() }}</p>
       }
@@ -55,9 +59,8 @@ export class ContributionSheet {
     return (event.target as HTMLInputElement).value;
   }
 
-  protected setDate(event: Event): void {
-    const value = this.value(event);
-    if (value) this.date.set(parseLocalDate(value));
+  protected setDate(date: LocalDate | null): void {
+    if (date) this.date.set(date);
   }
 
   protected async save(): Promise<void> {

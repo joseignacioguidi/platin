@@ -1,10 +1,20 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import type { FixedItem } from '@platin/contracts';
-import { FixedKind, parsePeriod } from '@platin/domain';
-import { parseTypedAmount, PlButton, PlSegmented, PlSegmentOption, PlSheet } from '@platin/web-ui';
+import { FixedKind, parsePeriod, Period } from '@platin/domain';
+import {
+  parseTypedAmount,
+  periodOptions,
+  PlButton,
+  PlCategorySelect,
+  PlSegmented,
+  PlSegmentOption,
+  PlSelect,
+  PlSelectOption,
+  PlSheet,
+} from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
-import { INPUT_CLASS } from '../../core/forms/form-field';
+import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { Today } from '../../core/today';
 import { AccountsStore } from '../accounts/accounts.store';
 import { CategoriesStore } from '../categories/categories.store';
@@ -16,7 +26,7 @@ const FREQUENCIES = [1, 2, 3, 6, 12] as const;
 /** FIJ-01 and FIJ-03: create, edit, pause, finish or delete a fixed item. */
 @Component({
   selector: 'pl-fixed-form-sheet',
-  imports: [PlSheet, PlButton, PlSegmented],
+  imports: [PlSheet, PlButton, PlSegmented, PlSelect, PlCategorySelect, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="fixed ? texts.edit : texts.new">
@@ -46,36 +56,37 @@ const FREQUENCIES = [1, 2, 3, 6, 12] as const;
           />
         </label>
       }
-      <div class="grid grid-cols-2 gap-3">
-        <label class="flex flex-col gap-1">
-          <span class="text-sm font-medium">{{ f.category }}</span>
-          <select [class]="input" [value]="categoryId()" (change)="categoryId.set(value($event))">
-            <option value="" disabled>—</option>
-            @for (category of categories(); track category.id) {
-              <option [value]="category.id">{{ category.name }}</option>
-            }
-          </select>
-        </label>
-        <label class="flex flex-col gap-1">
-          <span class="text-sm font-medium">{{ f.account }}</span>
-          <select [class]="input" [value]="accountId()" (change)="accountId.set(value($event))">
-            <option value="" disabled>—</option>
-            @for (account of accounts.accounts(); track account.id) {
-              <option [value]="account.id">{{ account.name }} · {{ account.currency }}</option>
-            }
-          </select>
-        </label>
-      </div>
+      <pl-form-field [label]="f.category" controlId="fixed-category">
+        <pl-category-select
+          inputId="fixed-category"
+          [label]="f.category"
+          [kind]="kind()"
+          [categories]="categoriesStore.categories()"
+          [recentIds]="categoriesStore.recentIds()"
+          [value]="categoryId() || null"
+          (valueChange)="categoryId.set($event ?? '')"
+        />
+      </pl-form-field>
+      <pl-form-field [label]="f.account" controlId="fixed-account">
+        <pl-select
+          inputId="fixed-account"
+          [label]="f.account"
+          [options]="accounts.options()"
+          [value]="accountId() || null"
+          (valueChange)="accountId.set($event ?? '')"
+        />
+      </pl-form-field>
       <div class="grid grid-cols-2 gap-3">
         @if (!fixed) {
-          <label class="flex flex-col gap-1">
-            <span class="text-sm font-medium">{{ f.frequency }}</span>
-            <select [class]="input" [value]="interval()" (change)="interval.set(+value($event))">
-              @for (n of frequencies; track n) {
-                <option [value]="n">{{ f.frequencies[n] }}</option>
-              }
-            </select>
-          </label>
+          <pl-form-field [label]="f.frequency" controlId="fixed-frequency">
+            <pl-select
+              inputId="fixed-frequency"
+              [label]="f.frequency"
+              [options]="frequencyOptions"
+              [value]="interval()"
+              (valueChange)="interval.set($event ?? 1)"
+            />
+          </pl-form-field>
         }
         <label class="flex flex-col gap-1">
           <span class="text-sm font-medium">{{ f.day }}</span>
@@ -92,20 +103,26 @@ const FREQUENCIES = [1, 2, 3, 6, 12] as const;
       </div>
       <div class="grid grid-cols-2 gap-3">
         @if (!fixed) {
-          <label class="flex flex-col gap-1">
-            <span class="text-sm font-medium">{{ f.start }}</span>
-            <input
-              type="month"
-              [class]="input"
+          <pl-form-field [label]="f.start" controlId="fixed-start">
+            <pl-select
+              inputId="fixed-start"
+              [label]="f.start"
+              [options]="months"
               [value]="start()"
-              (change)="start.set(value($event))"
+              (valueChange)="start.set($event ?? today.period())"
             />
-          </label>
+          </pl-form-field>
         }
-        <label class="flex flex-col gap-1">
-          <span class="text-sm font-medium">{{ f.end }}</span>
-          <input type="month" [class]="input" [value]="end()" (change)="end.set(value($event))" />
-        </label>
+        <pl-form-field [label]="f.end" controlId="fixed-end">
+          <pl-select
+            inputId="fixed-end"
+            [label]="f.end"
+            [options]="months"
+            [emptyLabel]="f.noEnd"
+            [value]="end()"
+            (valueChange)="end.set($event)"
+          />
+        </pl-form-field>
       </div>
 
       @if (error()) {
@@ -134,12 +151,11 @@ export class FixedFormSheet {
   protected readonly texts = FIXED_TEXTS;
   protected readonly f = FIXED_TEXTS.form;
   protected readonly input = INPUT_CLASS;
-  protected readonly frequencies = FREQUENCIES;
   protected readonly fixed = inject<FixedItem | null>(DIALOG_DATA);
   protected readonly accounts = inject(AccountsStore);
-  private readonly categoriesStore = inject(CategoriesStore);
+  protected readonly categoriesStore = inject(CategoriesStore);
   private readonly store = inject(FixedStore);
-  private readonly today = inject(Today);
+  protected readonly today = inject(Today);
   private readonly ref = inject(DialogRef);
 
   protected readonly kinds: PlSegmentOption<FixedKind>[] = [
@@ -155,12 +171,19 @@ export class FixedFormSheet {
   );
   protected readonly interval = signal<number>(this.fixed?.intervalMonths ?? 1);
   protected readonly day = signal(this.fixed?.dayOfMonth ?? 10);
-  protected readonly start = signal<string>(this.fixed?.startPeriod ?? this.today.period());
-  protected readonly end = signal<string>(this.fixed?.endPeriod ?? '');
+  protected readonly start = signal<Period>(
+    this.fixed ? parsePeriod(this.fixed.startPeriod) : this.today.period(),
+  );
+  protected readonly end = signal<Period | null>(
+    this.fixed?.endPeriod ? parsePeriod(this.fixed.endPeriod) : null,
+  );
+  protected readonly frequencyOptions: PlSelectOption<number>[] = FREQUENCIES.map((n) => ({
+    value: n,
+    label: FIXED_TEXTS.form.frequencies[n],
+  }));
+  protected readonly months = periodOptions(this.today.period(), 24, 60);
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
-
-  protected readonly categories = computed(() => this.categoriesStore.ofKind(this.kind()));
 
   protected value(event: Event): string {
     return (event.target as HTMLInputElement).value;
@@ -177,7 +200,7 @@ export class FixedFormSheet {
           categoryId: this.categoryId(),
           accountId: this.accountId(),
           dayOfMonth: this.day(),
-          endPeriod: this.end() ? parsePeriod(this.end()) : null,
+          endPeriod: this.end(),
         }),
       );
       return;
@@ -194,7 +217,7 @@ export class FixedFormSheet {
         intervalMonths: this.interval(),
         dayOfMonth: this.day(),
         startPeriod: this.start(),
-        endPeriod: this.end() || null,
+        endPeriod: this.end(),
       }),
     );
   }

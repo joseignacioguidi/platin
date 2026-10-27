@@ -1,10 +1,18 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import type { Card, StatementSummary } from '@platin/contracts';
-import { Currency, LocalDate, parseLocalDate } from '@platin/domain';
-import { parseTypedAmount, PlButton, PlSegmented, PlSegmentOption, PlSheet } from '@platin/web-ui';
+import { Currency, LocalDate } from '@platin/domain';
+import {
+  parseTypedAmount,
+  PlButton,
+  PlDateField,
+  PlSegmented,
+  PlSegmentOption,
+  PlSelect,
+  PlSheet,
+} from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
-import { INPUT_CLASS } from '../../core/forms/form-field';
+import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { Today } from '../../core/today';
 import { AccountsStore } from '../accounts/accounts.store';
 import { CardsStore } from './cards.store';
@@ -18,7 +26,7 @@ export interface PayStatementData {
 /** TAR-08: pay the pesos or the dollars part (total or partial) from an account. */
 @Component({
   selector: 'pl-pay-statement-sheet',
-  imports: [PlSheet, PlButton, PlSegmented],
+  imports: [PlSheet, PlButton, PlSegmented, PlSelect, PlDateField, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="t.title">
@@ -31,14 +39,15 @@ export interface PayStatementData {
           (valueChange)="setCurrency($event)"
         />
       </div>
-      <label class="flex flex-col gap-1">
-        <span class="text-sm font-medium">{{ t.account }}</span>
-        <select [class]="input" [value]="accountId()" (change)="accountId.set(value($event))">
-          @for (account of accounts.accounts(); track account.id) {
-            <option [value]="account.id">{{ account.name }} · {{ account.currency }}</option>
-          }
-        </select>
-      </label>
+      <pl-form-field [label]="t.account" controlId="pay-account">
+        <pl-select
+          inputId="pay-account"
+          [label]="t.account"
+          [options]="accounts.options()"
+          [value]="accountId()"
+          (valueChange)="accountId.set($event ?? '')"
+        />
+      </pl-form-field>
       <label class="flex flex-col gap-1">
         <span class="text-sm font-medium">{{ t.amount }} ({{ currency() }})</span>
         <input
@@ -62,16 +71,15 @@ export interface PayStatementData {
           <span class="text-xs text-muted">{{ t.amountOutHint }}</span>
         </label>
       }
-      <label class="flex flex-col gap-1">
-        <span class="text-sm font-medium">{{ t.date }}</span>
-        <input
-          type="date"
-          [class]="input"
-          [value]="date()"
+      <pl-form-field [label]="t.date" controlId="pay-date">
+        <pl-date-field
+          inputId="pay-date"
+          [label]="t.date"
           [max]="today.date()"
-          (change)="setDate($event)"
+          [value]="date()"
+          (valueChange)="setDate($event)"
         />
-      </label>
+      </pl-form-field>
       @if (error()) {
         <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">{{ error() }}</p>
       }
@@ -122,9 +130,8 @@ export class PayStatementSheet {
     this.amount.set(this.pendingText(currency));
   }
 
-  protected setDate(event: Event): void {
-    const value = this.value(event);
-    if (value) this.date.set(parseLocalDate(value));
+  protected setDate(date: LocalDate | null): void {
+    if (date) this.date.set(date);
   }
 
   protected async save(): Promise<void> {

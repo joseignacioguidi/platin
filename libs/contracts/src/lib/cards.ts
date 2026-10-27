@@ -179,6 +179,8 @@ export const chargeSchema = z.object({
   currency: currencySchema,
   installmentsCount: z.number().int(),
   startInstallment: z.number().int(),
+  /** Some installment is in a closed statement: only description and category can change. */
+  locked: z.boolean(),
   installments: z.array(
     z.object({
       number: z.number().int(),

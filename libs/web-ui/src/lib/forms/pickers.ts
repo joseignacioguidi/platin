@@ -81,7 +81,11 @@ function moveFocus(
           type="button"
           role="radio"
           class="flex size-11 items-center justify-center rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-          [class]="icon.name === value() ? toneClass() + ' ring-2 ring-ink' : 'bg-field text-ink hover:bg-line-soft'"
+          [class]="
+            icon.name === value()
+              ? toneClass() + ' ring-2 ring-ink'
+              : 'bg-field text-ink hover:bg-line-soft'
+          "
           [attr.aria-checked]="icon.name === value()"
           [attr.aria-label]="icon.label"
           [title]="icon.label"
@@ -117,9 +121,7 @@ export class PlIconPicker extends PlFormControl<string | null> {
   protected onKeydown(event: KeyboardEvent, index: number): void {
     const columns = Math.max(
       1,
-      Math.round(
-        (this.choices()[0]?.nativeElement.parentElement?.clientWidth ?? 44) / 50,
-      ),
+      Math.round((this.choices()[0]?.nativeElement.parentElement?.clientWidth ?? 44) / 50),
     );
     const next = moveFocus(event, index, this.icons().length, columns);
     if (next === null) return;

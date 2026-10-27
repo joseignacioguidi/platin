@@ -62,7 +62,9 @@ export class PlPopover {
 
   private sheetOverlay(): OverlayRef {
     return createOverlayRef(this.injector, {
-      positionStrategy: createGlobalPositionStrategy(this.injector).centerHorizontally().bottom('0'),
+      positionStrategy: createGlobalPositionStrategy(this.injector)
+        .centerHorizontally()
+        .bottom('0'),
       scrollStrategy: createBlockScrollStrategy(this.injector),
       hasBackdrop: true,
       backdropClass: 'pl-bottom-sheet-backdrop',

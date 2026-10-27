@@ -23,6 +23,7 @@ export const FIXED_TEXTS = {
     amount: 'Monto',
     frequency: 'Frecuencia',
     frequencies: { 1: 'Mensual', 2: 'Bimestral', 3: 'Trimestral', 6: 'Semestral', 12: 'Anual' },
+    noEnd: 'Sin fin',
     day: 'Día del mes',
     start: 'Desde',
     end: 'Hasta (opcional)',

@@ -1,10 +1,18 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import type { Goal } from '@platin/contracts';
-import { addMonths, Currency, isPeriod, parsePeriod } from '@platin/domain';
-import { parseTypedAmount, PlButton, PlSegmented, PlSegmentOption, PlSheet } from '@platin/web-ui';
+import { addMonths, Currency, parsePeriod, Period } from '@platin/domain';
+import {
+  parseTypedAmount,
+  periodOptions,
+  PlButton,
+  PlSegmented,
+  PlSegmentOption,
+  PlSelect,
+  PlSheet,
+} from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
-import { INPUT_CLASS } from '../../core/forms/form-field';
+import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { Today } from '../../core/today';
 import { AccountsStore } from '../accounts/accounts.store';
 import { SavingsStore } from './savings.store';
@@ -13,7 +21,7 @@ import { SAVINGS_TEXTS } from './savings.texts';
 /** MET-01/02: create or edit a goal and choose the accounts that count for it. */
 @Component({
   selector: 'pl-goal-form-sheet',
-  imports: [PlSheet, PlButton, PlSegmented],
+  imports: [PlSheet, PlButton, PlSegmented, PlSelect, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="goal ? f.edit : f.new">
@@ -46,16 +54,15 @@ import { SAVINGS_TEXTS } from './savings.texts';
           </div>
         }
       </div>
-      <label class="flex flex-col gap-1">
-        <span class="text-sm font-medium">{{ f.target }}</span>
-        <input
-          type="month"
-          [class]="input"
-          [min]="minPeriod"
+      <pl-form-field [label]="f.target" controlId="goal-target">
+        <pl-select
+          inputId="goal-target"
+          [label]="f.target"
+          [options]="months"
           [value]="target()"
-          (change)="target.set(value($event))"
+          (valueChange)="target.set($event)"
         />
-      </label>
+      </pl-form-field>
       <fieldset class="flex flex-col gap-1">
         <legend class="mb-1 text-sm font-medium">{{ f.accounts }}</legend>
         @for (account of accounts.accounts(); track account.id) {
@@ -97,8 +104,15 @@ export class GoalFormSheet {
   protected readonly name = signal(this.goal?.name ?? '');
   protected readonly amount = signal(this.goal?.targetAmount.replace(/\.00$/, '') ?? '');
   protected readonly currency = signal<Currency>(this.goal?.currency ?? 'USD');
-  protected readonly target = signal<string>(
-    this.goal?.targetPeriod ?? addMonths(this.minPeriod, 11),
+  private readonly goalTarget = this.goal ? parsePeriod(this.goal.targetPeriod) : null;
+  protected readonly target = signal<Period | null>(
+    this.goalTarget ?? addMonths(this.minPeriod, 11),
+  );
+  /** Up to ten years ahead; an older target of an existing goal stays selectable. */
+  protected readonly months = periodOptions(
+    this.goalTarget && this.goalTarget < this.minPeriod ? this.goalTarget : this.minPeriod,
+    0,
+    120,
   );
   protected readonly selected = signal<string[]>(this.goal?.accounts.map((a) => a.id) ?? []);
   protected readonly saving = signal(false);
@@ -116,7 +130,8 @@ export class GoalFormSheet {
     const amount = parseTypedAmount(this.amount());
     if (!this.name().trim()) return this.error.set('Ingresá un nombre.');
     if (!amount) return this.error.set('Ingresá el monto objetivo.');
-    if (!isPeriod(this.target())) return this.error.set('Elegí el mes objetivo.');
+    const target = this.target();
+    if (!target) return this.error.set('Elegí el mes objetivo.');
     this.saving.set(true);
     this.error.set(null);
     try {
@@ -125,14 +140,14 @@ export class GoalFormSheet {
         ? await this.store.update(goal.id, {
             name: this.name().trim(),
             targetAmount: amount,
-            targetPeriod: parsePeriod(this.target()),
+            targetPeriod: target,
             accountIds: this.selected(),
           })
         : await this.store.create({
             name: this.name().trim(),
             targetAmount: amount,
             currency: this.currency(),
-            targetPeriod: this.target(),
+            targetPeriod: target,
             accountIds: this.selected(),
           });
       this.ref.close(result);

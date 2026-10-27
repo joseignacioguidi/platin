@@ -69,9 +69,7 @@ interface Group<T> {
   selector: 'pl-select',
   imports: [NgTemplateOutlet, LucideDynamicIcon, LucideChevronDown, LucideCheck, LucideSearch],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  providers: [
-    { provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => PlSelect), multi: true },
-  ],
+  providers: [{ provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => PlSelect), multi: true }],
   host: { class: 'block min-w-0' },
   template: `
     <button
@@ -334,7 +332,11 @@ export class PlSelect<T = string> extends PlFormControl<T | null> {
       'flex w-full items-center gap-2 rounded-2xl border bg-surface px-4 text-base text-ink ' +
       'transition-colors focus:outline-none focus-visible:border-brand focus-visible:ring-2 ' +
       'focus-visible:ring-brand/30 disabled:cursor-not-allowed disabled:opacity-60';
-    const border = this.invalid() ? 'border-expense' : this.isOpen() ? 'border-brand' : 'border-line';
+    const border = this.invalid()
+      ? 'border-expense'
+      : this.isOpen()
+        ? 'border-brand'
+        : 'border-line';
     return this.appearance() === 'tile'
       ? `${base} ${border} min-h-[60px] py-2`
       : `${base} ${border} min-h-12`;

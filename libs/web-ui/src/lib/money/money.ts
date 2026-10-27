@@ -50,3 +50,12 @@ export class PlMoney {
   );
   protected readonly toneClass = computed(() => TONES[this.tone()]);
 }
+
+/**
+ * Plain-text amount for places that can't host pl-money (secondary text of a select option).
+ * Honors "ocultar montos" when `hidden` comes from HideAmounts.
+ */
+export function moneyText(amount: string, currency: Currency, hidden: boolean): string {
+  if (hidden) return `${currency === 'USD' ? 'USD' : '$'} •••••`;
+  return formatMoney(Money.of(amount, currency), { decimals: 'auto', signDisplay: 'auto' });
+}

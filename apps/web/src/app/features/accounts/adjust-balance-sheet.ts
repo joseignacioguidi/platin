@@ -1,11 +1,11 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import type { Account } from '@platin/contracts';
-import { LocalDate, parseLocalDate } from '@platin/domain';
-import { parseTypedAmount, PlButton, PlMoney, PlSheet } from '@platin/web-ui';
+import { LocalDate } from '@platin/domain';
+import { parseTypedAmount, PlButton, PlDateField, PlMoney, PlSheet } from '@platin/web-ui';
 import { AuthService } from '../../core/auth/auth.service';
 import { errorMessage } from '../../core/errors';
-import { INPUT_CLASS } from '../../core/forms/form-field';
+import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { Today } from '../../core/today';
 import { AccountsStore } from './accounts.store';
 import { ACCOUNTS_TEXTS } from './accounts.texts';
@@ -13,7 +13,7 @@ import { ACCOUNTS_TEXTS } from './accounts.texts';
 /** CTA-04: type the real balance; the difference is recorded as an adjustment. */
 @Component({
   selector: 'pl-adjust-balance-sheet',
-  imports: [PlSheet, PlButton, PlMoney],
+  imports: [PlSheet, PlButton, PlMoney, PlDateField, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="texts.title">
@@ -32,16 +32,15 @@ import { ACCOUNTS_TEXTS } from './accounts.texts';
           (input)="real.set(value($event))"
         />
       </label>
-      <label class="flex flex-col gap-1">
-        <span class="text-sm font-medium">{{ texts.date }}</span>
-        <input
-          type="date"
-          [class]="inputClass"
-          [value]="date()"
+      <pl-form-field [label]="texts.date" controlId="adjust-date">
+        <pl-date-field
+          inputId="adjust-date"
+          [label]="texts.date"
           [max]="today.date()"
-          (change)="setDate($event)"
+          [value]="date()"
+          (valueChange)="setDate($event)"
         />
-      </label>
+      </pl-form-field>
       @if (needsRate()) {
         <label class="flex flex-col gap-1">
           <span class="text-sm font-medium">{{ texts.rate }}</span>
@@ -90,9 +89,8 @@ export class AdjustBalanceSheet {
     return (event.target as HTMLInputElement).value;
   }
 
-  protected setDate(event: Event): void {
-    const value = this.value(event);
-    if (value) this.date.set(parseLocalDate(value));
+  protected setDate(date: LocalDate | null): void {
+    if (date) this.date.set(date);
   }
 
   protected async save(): Promise<void> {

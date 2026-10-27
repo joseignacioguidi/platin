@@ -1,10 +1,10 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import type { FixedItem } from '@platin/contracts';
-import { addMonths, isPeriod, parsePeriod } from '@platin/domain';
-import { parseTypedAmount, PlButton, PlSheet } from '@platin/web-ui';
+import { addMonths, Period } from '@platin/domain';
+import { parseTypedAmount, periodOptions, PlButton, PlSelect, PlSheet } from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
-import { INPUT_CLASS } from '../../core/forms/form-field';
+import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { Today } from '../../core/today';
 import { FixedStore } from './fixed.store';
 import { FIXED_TEXTS } from './fixed.texts';
@@ -12,7 +12,7 @@ import { FIXED_TEXTS } from './fixed.texts';
 /** FIJ-02: a raise from a month on, without touching earlier months. */
 @Component({
   selector: 'pl-change-amount-sheet',
-  imports: [PlSheet, PlButton],
+  imports: [PlSheet, PlButton, PlSelect, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="t.title + ' · ' + fixed.name">
@@ -27,10 +27,15 @@ import { FIXED_TEXTS } from './fixed.texts';
           (input)="amount.set(value($event))"
         />
       </label>
-      <label class="flex flex-col gap-1">
-        <span class="text-sm font-medium">{{ t.from }}</span>
-        <input type="month" [class]="input" [value]="from()" (change)="from.set(value($event))" />
-      </label>
+      <pl-form-field [label]="t.from" controlId="amount-from">
+        <pl-select
+          inputId="amount-from"
+          [label]="t.from"
+          [options]="months"
+          [value]="from()"
+          (valueChange)="from.set($event)"
+        />
+      </pl-form-field>
       @if (error()) {
         <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">{{ error() }}</p>
       }
@@ -48,7 +53,9 @@ export class ChangeAmountSheet {
   private readonly ref = inject(DialogRef);
 
   protected readonly amount = signal('');
-  protected readonly from = signal<string>(addMonths(inject(Today).period(), 1));
+  private readonly today = inject(Today);
+  protected readonly from = signal<Period | null>(addMonths(this.today.period(), 1));
+  protected readonly months = periodOptions(this.today.period(), 12, 36);
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
 
@@ -59,13 +66,14 @@ export class ChangeAmountSheet {
   protected async save(): Promise<void> {
     const amount = parseTypedAmount(this.amount());
     if (!amount) return this.error.set('Ingresá el nuevo monto.');
-    if (!isPeriod(this.from())) return this.error.set('Elegí el mes.');
+    const from = this.from();
+    if (!from) return this.error.set('Elegí el mes.');
     this.saving.set(true);
     this.error.set(null);
     try {
       await this.store.changeAmount(this.fixed.id, {
         amount,
-        effectiveFrom: parsePeriod(this.from()),
+        effectiveFrom: from,
       });
       this.ref.close(true);
     } catch (error) {

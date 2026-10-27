@@ -13,6 +13,7 @@ export const CARDS_TEXTS = {
   limit: 'Límite',
   addCharge: 'Consumo',
   addChargeLabel: 'Cargar consumo',
+  editChargeLabel: (description: string) => 'Editar consumo ' + description,
   tabs: { summary: 'Resumen', upcoming: 'Próximos', installments: 'Cuotas' },
   tabsLabel: 'Vista de la tarjeta',
   installmentsByStatement: 'Cuotas por resumen',
@@ -58,6 +59,20 @@ export const CARDS_TEXTS = {
     startAt: 'Voy por la cuota',
     preview: 'Así se reparte',
     save: 'Guardar consumo',
+    editTitle: 'Editar consumo',
+    saveChanges: 'Guardar cambios',
+    locked:
+      'Este consumo tiene cuotas en un resumen cerrado: solo podés cambiar la descripción y la categoría.',
+    remove: 'Borrar consumo',
+    confirmRemove: '¿Borrar este consumo y todas sus cuotas?',
+    confirmRemoveYes: 'Sí, borrar',
+    cancel: 'Cancelar',
+    loadError: 'No pudimos abrir el consumo. Probá de nuevo.',
+    errors: {
+      description: 'Ingresá una descripción.',
+      amount: 'Ingresá el monto total.',
+      category: 'Elegí una categoría.',
+    },
   },
   close: {
     title: 'Cerrar resumen',

@@ -19,6 +19,7 @@ import {
   PlEmptyState,
   PlMoney,
   PlMonthPicker,
+  PlSelect,
 } from '@platin/web-ui';
 import { API } from '../../core/api';
 import { AuthService } from '../../core/auth/auth.service';
@@ -37,6 +38,7 @@ type Chip = 'ALL' | 'EXPENSE' | 'INCOME' | 'TRANSFER' | 'CARD' | 'PENDING';
   selector: 'pl-movements-page',
   imports: [
     PlMonthPicker,
+    PlSelect,
     PlChip,
     PlMoney,
     PlButton,
@@ -91,17 +93,13 @@ type Chip = 'ALL' | 'EXPENSE' | 'INCOME' | 'TRANSFER' | 'CARD' | 'PENDING';
       />
     }
     @if (showFilters()) {
-      <select
-        class="min-h-12 rounded-2xl border border-line bg-surface px-4"
-        [attr.aria-label]="texts.filters"
-        [value]="accountId()"
-        (change)="accountId.set(selectValue($event))"
-      >
-        <option value="">{{ texts.allAccounts }}</option>
-        @for (account of accounts.accounts(); track account.id) {
-          <option [value]="account.id">{{ account.name }}</option>
-        }
-      </select>
+      <pl-select
+        [label]="texts.accountFilter"
+        [options]="accounts.options()"
+        [emptyLabel]="texts.allAccounts"
+        [value]="accountId() || null"
+        (valueChange)="accountId.set($event ?? '')"
+      />
     }
 
     <pl-month-picker [(value)]="period" [max]="today.period()" />
@@ -242,10 +240,6 @@ export class MovementsPage {
     const value = (event.target as HTMLInputElement).value.trim();
     clearTimeout(this.searchTimer);
     this.searchTimer = setTimeout(() => this.search.set(value), 300);
-  }
-
-  protected selectValue(event: Event): string {
-    return (event.target as HTMLSelectElement).value;
   }
 
   protected reload(): void {

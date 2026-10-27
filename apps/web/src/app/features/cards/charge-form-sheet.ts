@@ -1,6 +1,6 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import type { Card } from '@platin/contracts';
+import type { Card, Charge, UpdateChargeRequest } from '@platin/contracts';
 import {
   Currency,
   LocalDate,
@@ -13,17 +13,20 @@ import {
   statementPeriodFor,
 } from '@platin/domain';
 import {
+  displayAmount,
   formatPeriodShort,
   parseTypedAmount,
   PlButton,
+  PlCategorySelect,
   PlChip,
+  PlDateField,
   PlMoney,
   PlSegmented,
   PlSegmentOption,
   PlSheet,
 } from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
-import { INPUT_CLASS } from '../../core/forms/form-field';
+import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { Today } from '../../core/today';
 import { CategoriesStore } from '../categories/categories.store';
 import { CardsStore } from './cards.store';
@@ -31,16 +34,36 @@ import { CARDS_TEXTS } from './cards.texts';
 
 const COUNTS = [1, 3, 6, 12, 18, 24];
 
-/** TAR-02/03 with a live preview of how the installments are spread over statements. */
+export interface ChargeFormData {
+  card: Card;
+  /** Editing an existing charge (TAR-11); without it, a new one (TAR-02/03). */
+  charge?: Charge;
+}
+
+/** TAR-02/03/11: a card purchase, with a live preview of how its installments are spread. */
 @Component({
   selector: 'pl-charge-form-sheet',
-  imports: [PlSheet, PlButton, PlChip, PlMoney, PlSegmented],
+  imports: [
+    PlSheet,
+    PlButton,
+    PlChip,
+    PlMoney,
+    PlSegmented,
+    PlCategorySelect,
+    PlDateField,
+    FormField,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <pl-sheet [heading]="t.title + ' · ' + card.name">
-      <label class="flex flex-col gap-1">
-        <span class="text-sm font-medium">{{ t.description }}</span>
+    <pl-sheet [heading]="(charge ? t.editTitle : t.title) + ' · ' + card.name">
+      @if (locked) {
+        <p class="rounded-2xl bg-pending-soft px-4 py-3 text-sm text-pending-ink" role="note">
+          {{ t.locked }}
+        </p>
+      }
+      <pl-form-field [label]="t.description" controlId="charge-description">
         <input
+          id="charge-description"
           type="text"
           maxlength="120"
           [class]="input"
@@ -48,48 +71,58 @@ const COUNTS = [1, 3, 6, 12, 18, 24];
           [value]="description()"
           (input)="description.set(value($event))"
         />
-      </label>
+      </pl-form-field>
       <div class="grid grid-cols-[1fr_auto] gap-3">
-        <label class="flex flex-col gap-1">
-          <span class="text-sm font-medium">{{ t.amount }}</span>
+        <pl-form-field [label]="t.amount" controlId="charge-amount">
           <input
+            id="charge-amount"
             type="text"
             inputmode="decimal"
-            [class]="input + ' font-amount'"
+            [class]="input + ' font-amount disabled:opacity-60'"
+            [disabled]="locked"
             [value]="amountText()"
             (input)="amountText.set(value($event))"
           />
-        </label>
-        <div class="flex flex-col gap-1">
+        </pl-form-field>
+        <div class="flex flex-col gap-1.5">
           <span class="text-sm font-medium">{{ t.currency }}</span>
-          <pl-segmented [label]="t.currency" [options]="currencyOptions" [(value)]="currency" />
+          @if (charge) {
+            <span
+              class="font-amount flex min-h-12 items-center rounded-2xl bg-field px-4 text-muted"
+              >{{ currency() }}</span
+            >
+          } @else {
+            <pl-segmented [label]="t.currency" [options]="currencyOptions" [(value)]="currency" />
+          }
         </div>
       </div>
-      <div class="grid grid-cols-2 gap-3">
-        <label class="flex flex-col gap-1">
-          <span class="text-sm font-medium">{{ t.category }}</span>
-          <select [class]="input" [value]="categoryId()" (change)="categoryId.set(value($event))">
-            <option value="" disabled>—</option>
-            @for (category of categories(); track category.id) {
-              <option [value]="category.id">{{ category.name }}</option>
-            }
-          </select>
-        </label>
-        <label class="flex flex-col gap-1">
-          <span class="text-sm font-medium">{{ t.date }}</span>
-          <input
-            type="date"
-            [class]="input"
-            [value]="date()"
-            [max]="today.date()"
-            (change)="setDate($event)"
+      <div class="grid gap-3 sm:grid-cols-2">
+        <pl-form-field [label]="t.category" controlId="charge-category">
+          <pl-category-select
+            inputId="charge-category"
+            kind="EXPENSE"
+            [label]="t.category"
+            [categories]="categoriesStore.categories()"
+            [recentIds]="categoriesStore.recentIds()"
+            [value]="categoryId() || null"
+            (valueChange)="categoryId.set($event ?? '')"
           />
-        </label>
+        </pl-form-field>
+        <pl-form-field [label]="t.date" controlId="charge-date">
+          <pl-date-field
+            inputId="charge-date"
+            [label]="t.date"
+            [max]="today.date()"
+            [disabled]="locked"
+            [value]="date()"
+            (valueChange)="setDate($event)"
+          />
+        </pl-form-field>
       </div>
 
-      <fieldset class="flex flex-col gap-2">
+      <fieldset class="flex flex-col gap-2" [disabled]="locked">
         <legend class="mb-2 text-sm font-medium">{{ t.installments }}</legend>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2" [class.opacity-60]="locked">
           @for (n of counts; track n) {
             <button plChip tone="ink" [selected]="count() === n" (click)="setCount(n)">
               {{ n === 1 ? t.oneInstallment : n }}
@@ -108,7 +141,7 @@ const COUNTS = [1, 3, 6, 12, 18, 24];
         </div>
       </fieldset>
 
-      @if (count() > 1) {
+      @if (count() > 1 && !charge) {
         <label class="flex min-h-11 items-center gap-3">
           <input
             type="checkbox"
@@ -153,9 +186,27 @@ const COUNTS = [1, 3, 6, 12, 18, 24];
       @if (error()) {
         <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">{{ error() }}</p>
       }
-      <button plButton size="lg" type="button" [disabled]="saving()" (click)="save()">
-        {{ t.save }}
-      </button>
+
+      @if (confirmingRemove()) {
+        <p class="text-[15px] font-semibold">{{ t.confirmRemove }}</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button plButton="secondary" type="button" (click)="confirmingRemove.set(false)">
+            {{ t.cancel }}
+          </button>
+          <button plButton="danger" type="button" [disabled]="saving()" (click)="remove()">
+            {{ t.confirmRemoveYes }}
+          </button>
+        </div>
+      } @else {
+        <button plButton size="lg" type="button" [disabled]="saving()" (click)="save()">
+          {{ charge ? t.saveChanges : t.save }}
+        </button>
+        @if (charge && !locked) {
+          <button plButton="danger" type="button" (click)="confirmingRemove.set(true)">
+            {{ t.remove }}
+          </button>
+        }
+      }
     </pl-sheet>
   `,
 })
@@ -164,33 +215,50 @@ export class ChargeFormSheet {
   protected readonly t = CARDS_TEXTS.charge;
   protected readonly input = INPUT_CLASS;
   protected readonly counts = COUNTS;
-  protected readonly card = inject<Card>(DIALOG_DATA);
+  private readonly data = inject<ChargeFormData>(DIALOG_DATA);
+  protected readonly card = this.data.card;
+  protected readonly charge = this.data.charge;
+  protected readonly locked = this.charge?.locked ?? false;
   protected readonly today = inject(Today);
+  protected readonly categoriesStore = inject(CategoriesStore);
   private readonly store = inject(CardsStore);
-  private readonly categoriesStore = inject(CategoriesStore);
   private readonly ref = inject(DialogRef);
 
   protected readonly currencyOptions: PlSegmentOption<Currency>[] = [
     { value: 'ARS', label: 'ARS' },
     { value: 'USD', label: 'USD' },
   ];
-  protected readonly description = signal('');
-  protected readonly amountText = signal('');
-  protected readonly currency = signal<Currency>('ARS');
-  protected readonly categoryId = signal('');
-  protected readonly date = signal<LocalDate>(this.today.date());
-  protected readonly count = signal(1);
+  protected readonly description = signal(this.charge?.description ?? '');
+  protected readonly amountText = signal(
+    this.charge
+      ? displayAmount(this.charge.totalAmount.replace(/\.00$/, '').replace('.', ','))
+      : '',
+  );
+  protected readonly currency = signal<Currency>(this.charge?.currency ?? 'ARS');
+  protected readonly categoryId = signal(this.charge?.categoryId ?? '');
+  protected readonly date = signal<LocalDate>(
+    this.charge ? parseLocalDate(this.charge.date) : this.today.date(),
+  );
+  protected readonly count = signal(this.charge?.installmentsCount ?? 1);
   protected readonly started = signal(false);
   protected readonly startAt = signal(2);
   protected readonly saving = signal(false);
+  protected readonly confirmingRemove = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  protected readonly categories = computed(() => this.categoriesStore.ofKind('EXPENSE'));
+  /** First installment of the plan: an existing charge keeps its own. */
+  private readonly start = computed(() =>
+    this.charge
+      ? this.charge.startInstallment
+      : this.started() && this.count() > 1
+        ? this.startAt()
+        : 1,
+  );
 
   /** Same rules as the API: first statement by date (or today's open one for a started plan). */
   protected readonly preview = computed(() => {
     const amount = parseTypedAmount(this.amountText());
-    const start = this.started() && this.count() > 1 ? this.startAt() : 1;
+    const start = this.start();
     if (!amount || start > this.count()) return [];
     const open = this.card.openStatement?.period;
     const first: Period =
@@ -217,31 +285,62 @@ export class ChargeFormSheet {
   }
 
   protected setCount(n: number): void {
-    this.count.set(Math.min(60, Math.max(1, n)));
+    if (!this.locked) this.count.set(Math.min(60, Math.max(1, n)));
   }
 
-  protected setDate(event: Event): void {
-    const value = this.value(event);
-    if (value) this.date.set(parseLocalDate(value));
+  protected setDate(date: LocalDate | null): void {
+    if (date) this.date.set(date);
   }
 
   protected async save(): Promise<void> {
     const amount = parseTypedAmount(this.amountText());
-    if (!this.description().trim()) return this.error.set('Ingresá una descripción.');
-    if (!amount) return this.error.set('Ingresá el monto total.');
-    if (!this.categoryId()) return this.error.set('Elegí una categoría.');
+    const errors = this.t.errors;
+    if (!this.description().trim()) return this.error.set(errors.description);
+    if (!amount) return this.error.set(errors.amount);
+    if (!this.categoryId()) return this.error.set(errors.category);
+    const charge = this.charge;
+    await this.run(async () => {
+      if (charge) {
+        await this.store.updateCharge(charge.id, this.changes(charge, amount));
+      } else {
+        await this.store.createCharge(this.card.id, {
+          description: this.description().trim(),
+          totalAmount: amount,
+          currency: this.currency(),
+          categoryId: this.categoryId(),
+          date: this.date(),
+          installmentsCount: this.count(),
+          startInstallment: this.start(),
+        });
+      }
+      this.categoriesStore.markUsed(this.categoryId());
+    });
+  }
+
+  protected async remove(): Promise<void> {
+    const charge = this.charge;
+    if (charge) await this.run(() => this.store.removeCharge(charge.id));
+  }
+
+  /** Only what changed: a locked charge can't touch amount, date or installments (TAR-11). */
+  private changes(charge: Charge, amount: string): UpdateChargeRequest {
+    const changes: UpdateChargeRequest = {
+      description: this.description().trim(),
+      categoryId: this.categoryId(),
+    };
+    if (this.locked) return changes;
+    if (!Money.of(amount, charge.currency).equals(Money.of(charge.totalAmount, charge.currency)))
+      changes.totalAmount = amount;
+    if (this.date() !== charge.date) changes.date = this.date();
+    if (this.count() !== charge.installmentsCount) changes.installmentsCount = this.count();
+    return changes;
+  }
+
+  private async run(action: () => Promise<unknown>): Promise<void> {
     this.saving.set(true);
     this.error.set(null);
     try {
-      await this.store.createCharge(this.card.id, {
-        description: this.description().trim(),
-        totalAmount: amount,
-        currency: this.currency(),
-        categoryId: this.categoryId(),
-        date: this.date(),
-        installmentsCount: this.count(),
-        startInstallment: this.started() && this.count() > 1 ? this.startAt() : 1,
-      });
+      await action();
       this.ref.close(true);
     } catch (error) {
       this.error.set(errorMessage(error));

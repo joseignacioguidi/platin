@@ -39,8 +39,14 @@ export class CategoriesStore {
     reloadOn(this.bus, ['categories'], () => this.resource.reload());
   }
 
+  /** Categories of a kind the user can choose (system ones are used by the app itself). */
   ofKind(kind: CategoryKind): Category[] {
-    return this.categories().filter((category) => category.kind === kind);
+    return this.categories().filter((category) => category.kind === kind && !category.systemKey);
+  }
+
+  /** Recently used category ids, most recent first (for pl-category-select). */
+  recentIds(): string[] {
+    return this.readRecent();
   }
 
   byId(id: string | null | undefined): Category | undefined {

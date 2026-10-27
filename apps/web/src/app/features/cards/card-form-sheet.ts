@@ -8,7 +8,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { type Card, createCardRequestSchema } from '@platin/contracts';
-import { parseTypedAmount, PlButton, PlSheet } from '@platin/web-ui';
+import { parseTypedAmount, PlButton, PlSelect, PlSheet } from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
 import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { fieldError, zodValidator } from '../../core/forms/zod-validator';
@@ -25,7 +25,7 @@ function optionalAmount(control: AbstractControl<string>): ValidationErrors | nu
 /** TAR-01: card with its closing and due days. */
 @Component({
   selector: 'pl-card-form-sheet',
-  imports: [PlSheet, PlButton, ReactiveFormsModule, FormField],
+  imports: [PlSheet, PlButton, PlSelect, ReactiveFormsModule, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="card ? texts.edit : texts.new">
@@ -108,12 +108,13 @@ function optionalAmount(control: AbstractControl<string>): ValidationErrors | nu
           </pl-form-field>
         </div>
         <pl-form-field [label]="f.defaultAccount" controlId="card-account">
-          <select id="card-account" [class]="inputClass" formControlName="defaultPaymentAccountId">
-            <option value="">{{ f.none }}</option>
-            @for (account of accounts.accounts(); track account.id) {
-              <option [value]="account.id">{{ account.name }}</option>
-            }
-          </select>
+          <pl-select
+            inputId="card-account"
+            [label]="f.defaultAccount"
+            [options]="accounts.options()"
+            [emptyLabel]="f.none"
+            formControlName="defaultPaymentAccountId"
+          />
         </pl-form-field>
         @if (error()) {
           <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">{{ error() }}</p>

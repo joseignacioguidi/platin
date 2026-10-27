@@ -2,9 +2,9 @@ import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import type { StatementSummary } from '@platin/contracts';
 import { Money } from '@platin/domain';
-import { parseTypedAmount, PlButton, PlMoney, PlSheet } from '@platin/web-ui';
+import { parseTypedAmount, PlButton, PlCategorySelect, PlMoney, PlSheet } from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
-import { INPUT_CLASS } from '../../core/forms/form-field';
+import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { CategoriesStore } from '../categories/categories.store';
 import { CardsStore } from './cards.store';
 import { CARDS_TEXTS } from './cards.texts';
@@ -12,7 +12,7 @@ import { CARDS_TEXTS } from './cards.texts';
 /** TAR-07: close with the bank's totals; the difference becomes an adjustment. */
 @Component({
   selector: 'pl-close-statement-sheet',
-  imports: [PlSheet, PlButton, PlMoney],
+  imports: [PlSheet, PlButton, PlMoney, PlCategorySelect, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="t.title">
@@ -45,14 +45,16 @@ import { CARDS_TEXTS } from './cards.texts';
         />
       </label>
       @if (hasDifference()) {
-        <label class="flex flex-col gap-1">
-          <span class="text-sm font-medium">{{ t.category }}</span>
-          <select [class]="input" [value]="categoryId()" (change)="categoryId.set(value($event))">
-            @for (category of categories(); track category.id) {
-              <option [value]="category.id">{{ category.name }}</option>
-            }
-          </select>
-        </label>
+        <pl-form-field [label]="t.category" controlId="close-category">
+          <pl-category-select
+            inputId="close-category"
+            kind="EXPENSE"
+            [label]="t.category"
+            [categories]="categoriesStore.categories()"
+            [value]="categoryId()"
+            (valueChange)="categoryId.set($event ?? '')"
+          />
+        </pl-form-field>
       }
       @if (error()) {
         <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">{{ error() }}</p>
@@ -68,12 +70,11 @@ export class CloseStatementSheet {
   protected readonly input = INPUT_CLASS;
   protected readonly statement = inject<StatementSummary>(DIALOG_DATA);
   private readonly store = inject(CardsStore);
-  private readonly categoriesStore = inject(CategoriesStore);
+  protected readonly categoriesStore = inject(CategoriesStore);
   private readonly ref = inject(DialogRef);
 
   protected readonly ars = signal(this.statement.totals.ARS.replace(/\.00$/, '').replace('.', ','));
   protected readonly usd = signal(this.statement.totals.USD.replace(/\.00$/, '').replace('.', ','));
-  protected readonly categories = computed(() => this.categoriesStore.ofKind('EXPENSE'));
   protected readonly categoryId = signal(
     this.categoriesStore.ofKind('EXPENSE').find((c) => c.name.startsWith('Impuestos'))?.id ?? '',
   );

@@ -12,7 +12,15 @@ import {
   nonNegativeAmountSchema,
 } from '@platin/contracts';
 import type { AccountType, Currency } from '@platin/domain';
-import { parseTypedAmount, PlButton, PlSegmented, PlSegmentOption, PlSheet } from '@platin/web-ui';
+import {
+  parseTypedAmount,
+  PlButton,
+  PlSegmented,
+  PlSegmentOption,
+  PlSelect,
+  PlSelectOption,
+  PlSheet,
+} from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
 import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { fieldError, zodValidator } from '../../core/forms/zod-validator';
@@ -32,7 +40,7 @@ const TYPES: AccountType[] = ['CASH', 'BANK', 'WALLET', 'SAVINGS', 'INVESTMENT']
 /** CTA-01: create or edit an account (currency and initial balance only on creation). */
 @Component({
   selector: 'pl-account-form-sheet',
-  imports: [PlSheet, PlButton, PlSegmented, ReactiveFormsModule, FormField],
+  imports: [PlSheet, PlButton, PlSegmented, PlSelect, ReactiveFormsModule, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="account ? texts.edit : texts.new">
@@ -52,11 +60,12 @@ const TYPES: AccountType[] = ['CASH', 'BANK', 'WALLET', 'SAVINGS', 'INVESTMENT']
           />
         </pl-form-field>
         <pl-form-field [label]="f.type" controlId="account-type">
-          <select id="account-type" [class]="inputClass" formControlName="type">
-            @for (type of types; track type) {
-              <option [value]="type">{{ texts.types[type] }}</option>
-            }
-          </select>
+          <pl-select
+            inputId="account-type"
+            [label]="f.type"
+            [options]="typeOptions"
+            formControlName="type"
+          />
         </pl-form-field>
 
         @if (!account) {
@@ -105,7 +114,10 @@ export class AccountFormSheet {
   protected readonly f = ACCOUNTS_TEXTS.form;
   protected readonly inputClass = INPUT_CLASS;
   protected readonly fieldError = fieldError;
-  protected readonly types = TYPES;
+  protected readonly typeOptions: PlSelectOption<AccountType>[] = TYPES.map((type) => ({
+    value: type,
+    label: ACCOUNTS_TEXTS.types[type],
+  }));
   protected readonly account = inject<Account | null>(DIALOG_DATA);
   private readonly ref = inject(DialogRef);
   private readonly store = inject(AccountsStore);

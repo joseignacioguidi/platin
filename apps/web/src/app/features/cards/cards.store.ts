@@ -46,6 +46,10 @@ export class CardsStore {
     return this.write(this.http.post<Charge>(`${API}/cards/${cardId}/charges`, request));
   }
 
+  getCharge(id: string): Promise<Charge> {
+    return firstValueFrom(this.http.get<Charge>(`${API}/charges/${id}`));
+  }
+
   updateCharge(id: string, changes: UpdateChargeRequest): Promise<Charge> {
     return this.write(this.http.patch<Charge>(`${API}/charges/${id}`, changes));
   }

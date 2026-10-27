@@ -1,10 +1,17 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import type { AccountType, Currency } from '@platin/domain';
-import { parseTypedAmount, PlButton, PlSegmented, PlSegmentOption } from '@platin/web-ui';
+import {
+  parseTypedAmount,
+  PlButton,
+  PlSegmented,
+  PlSegmentOption,
+  PlSelect,
+  PlSelectOption,
+} from '@platin/web-ui';
 import { AuthService } from '../../core/auth/auth.service';
 import { errorMessage } from '../../core/errors';
-import { INPUT_CLASS } from '../../core/forms/form-field';
+import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { AccountsStore } from '../accounts/accounts.store';
 import { ACCOUNTS_TEXTS } from '../accounts/accounts.texts';
 import { CardsStore } from '../cards/cards.store';
@@ -20,7 +27,7 @@ const TYPES: AccountType[] = ['BANK', 'WALLET', 'CASH', 'SAVINGS'];
  */
 @Component({
   selector: 'pl-welcome-page',
-  imports: [PlButton, PlSegmented],
+  imports: [PlButton, PlSegmented, PlSelect, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-5' },
   template: `
@@ -47,14 +54,15 @@ const TYPES: AccountType[] = ['BANK', 'WALLET', 'CASH', 'SAVINGS'];
             (input)="accountName.set(value($event))"
           />
         </label>
-        <label class="flex flex-col gap-1">
-          <span class="text-sm font-medium">{{ t.type }}</span>
-          <select [class]="input" [value]="type()" (change)="setType(value($event))">
-            @for (option of types; track option) {
-              <option [value]="option">{{ typeNames[option] }}</option>
-            }
-          </select>
-        </label>
+        <pl-form-field [label]="t.type" controlId="welcome-type">
+          <pl-select
+            inputId="welcome-type"
+            [label]="t.type"
+            [options]="typeOptions"
+            [value]="type()"
+            (valueChange)="type.set($event ?? 'BANK')"
+          />
+        </pl-form-field>
         <div class="flex flex-col gap-1">
           <span class="text-sm font-medium">{{ t.currency }}</span>
           <pl-segmented [label]="t.currency" [options]="currencies" [(value)]="currency" />
@@ -128,8 +136,10 @@ const TYPES: AccountType[] = ['BANK', 'WALLET', 'CASH', 'SAVINGS'];
 export class WelcomePage {
   protected readonly t = ONBOARDING_TEXTS;
   protected readonly input = INPUT_CLASS;
-  protected readonly types = TYPES;
-  protected readonly typeNames = ACCOUNTS_TEXTS.types;
+  protected readonly typeOptions: PlSelectOption<AccountType>[] = TYPES.map((type) => ({
+    value: type,
+    label: ACCOUNTS_TEXTS.types[type],
+  }));
   private readonly accounts = inject(AccountsStore);
   private readonly cards = inject(CardsStore);
   private readonly auth = inject(AuthService);
@@ -153,11 +163,6 @@ export class WelcomePage {
 
   protected name(): string {
     return this.auth.user()?.name ?? '';
-  }
-
-  protected setType(value: string): void {
-    const type = TYPES.find((t) => t === value);
-    if (type) this.type.set(type);
   }
 
   protected value(event: Event): string {

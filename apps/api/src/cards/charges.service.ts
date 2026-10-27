@@ -95,6 +95,7 @@ export class ChargesService {
       currency: row.currency,
       installmentsCount: row.installmentsCount,
       startInstallment: row.startInstallment,
+      locked: row.installments.some((i) => i.statement.status !== 'OPEN'),
       installments: row.installments.map((i) => ({
         number: i.number,
         amount: money(i.amount),

@@ -108,7 +108,11 @@ describe('pl-select and pl-date-field', () => {
       'Vieja',
     ]);
     expect(options[0].getAttribute('aria-selected')).toBe('true');
-    expect([...document.querySelectorAll('[role=group] > [role=presentation]')].map((g) => g.textContent?.trim())).toEqual(['Billeteras', 'Efectivo']);
+    expect(
+      [...document.querySelectorAll('[role=group] > [role=presentation]')].map((g) =>
+        g.textContent?.trim(),
+      ),
+    ).toEqual(['Billeteras', 'Efectivo']);
     expect(button.getAttribute('aria-expanded')).toBe('true');
   });
 

@@ -78,7 +78,11 @@ export function monthGrid(year: number, month: number): LocalDate[][] {
 function shiftMonths(date: LocalDate, months: number): LocalDate {
   const { year, month, day } = dateParts(date);
   const target = periodParts(addMonths(makePeriod(year, month), months));
-  return makeLocalDate(target.year, target.month, Math.min(day, daysInMonth(target.year, target.month)));
+  return makeLocalDate(
+    target.year,
+    target.month,
+    Math.min(day, daysInMonth(target.year, target.month)),
+  );
 }
 
 /**
@@ -113,7 +117,9 @@ function shiftMonths(date: LocalDate, months: number): LocalDate {
           <span class="truncate font-semibold">{{ display() }}</span>
         </span>
       } @else {
-        <span class="min-w-0 flex-1 truncate text-left first-letter:uppercase">{{ display() }}</span>
+        <span class="min-w-0 flex-1 truncate text-left first-letter:uppercase">{{
+          display()
+        }}</span>
         <svg lucideCalendar [size]="18" class="shrink-0 text-muted" aria-hidden="true"></svg>
       }
     </button>
@@ -171,7 +177,11 @@ function shiftMonths(date: LocalDate, months: number): LocalDate {
             <svg lucideChevronRight [size]="20"></svg>
           </button>
         </div>
-        <table role="grid" class="w-full table-fixed border-collapse" [attr.aria-labelledby]="titleId">
+        <table
+          role="grid"
+          class="w-full table-fixed border-collapse"
+          [attr.aria-labelledby]="titleId"
+        >
           <thead>
             <tr>
               @for (weekday of weekdays; track $index) {
@@ -187,7 +197,11 @@ function shiftMonths(date: LocalDate, months: number): LocalDate {
             @for (week of weeks(); track $index) {
               <tr>
                 @for (day of week; track day.date) {
-                  <td role="gridcell" class="p-0.5 text-center" [attr.aria-selected]="day.date === value()">
+                  <td
+                    role="gridcell"
+                    class="p-0.5 text-center"
+                    [attr.aria-selected]="day.date === value()"
+                  >
                     <button
                       type="button"
                       class="font-amount mx-auto flex size-10 items-center justify-center rounded-full text-[15px] tabular-nums transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-30"

@@ -5,6 +5,7 @@ export const TRANSACTIONS_TEXTS = {
   closeSearch: 'Cerrar búsqueda',
   filters: 'Filtros',
   allAccounts: 'Todas las cuentas',
+  accountFilter: 'Cuenta',
   income: 'Ingresos',
   expense: 'Gastos',
   chips: {
@@ -38,6 +39,8 @@ export const TRANSACTIONS_TEXTS = {
     category: 'Categoría',
     account: 'Cuenta',
     save: 'Guardar cambios',
+    editCharge: 'Editar consumo',
+    chargeLoadError: 'No pudimos abrir el consumo. Probá de nuevo.',
     delete: 'Eliminar',
     confirmDelete: '¿Eliminar este movimiento?',
     confirmDeleteYes: 'Sí, eliminar',

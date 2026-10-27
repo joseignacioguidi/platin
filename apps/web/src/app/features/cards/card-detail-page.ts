@@ -29,7 +29,8 @@ import { API } from '../../core/api';
 import { RefreshBus, reloadOn } from '../../core/data/refresh-bus';
 import { CardFormSheet } from './card-form-sheet';
 import { CardVisual } from './card-visual';
-import { ChargeFormSheet } from './charge-form-sheet';
+import { ChargeFormData, ChargeFormSheet } from './charge-form-sheet';
+import { CardsStore } from './cards.store';
 import { CARDS_TEXTS } from './cards.texts';
 import { CloseStatementSheet } from './close-statement-sheet';
 import { PayStatementSheet } from './pay-statement-sheet';
@@ -171,16 +172,25 @@ const MONTHS_LONG = [
           }
           <section class="flex flex-col gap-1 rounded-tile bg-surface px-4 py-2">
             @for (item of openDetail()?.installments ?? []; track item.id) {
-              <pl-list-item
-                [heading]="item.description"
-                [subtitle]="
-                  item.count > 1 ? texts.installmentOf(item.number, item.count) : item.category.name
-                "
-                [icon]="item.category.icon"
-                tone="card"
+              <button
+                type="button"
+                class="-mx-2 rounded-2xl px-2 text-left hover:bg-field"
+                [attr.aria-label]="texts.editChargeLabel(item.description)"
+                (click)="editCharge(card, item.chargeId)"
               >
-                <pl-money class="text-[17px]" [amount]="item.amount" [currency]="item.currency" />
-              </pl-list-item>
+                <pl-list-item
+                  [heading]="item.description"
+                  [subtitle]="
+                    item.count > 1
+                      ? texts.installmentOf(item.number, item.count)
+                      : item.category.name
+                  "
+                  [icon]="item.category.icon"
+                  tone="card"
+                >
+                  <pl-money class="text-[17px]" [amount]="item.amount" [currency]="item.currency" />
+                </pl-list-item>
+              </button>
             } @empty {
               <p class="py-4 text-center text-[15px] text-muted">{{ texts.noCharges }}</p>
             }
@@ -195,6 +205,11 @@ const MONTHS_LONG = [
               </pl-list-item>
             }
           </section>
+          @if (chargeError()) {
+            <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">
+              {{ chargeError() }}
+            </p>
+          }
           @if (card.openStatement; as open) {
             <button plButton="secondary" type="button" (click)="close(open)">
               {{ texts.closeStatement }}
@@ -295,6 +310,8 @@ export class CardDetailPage {
   protected readonly texts = CARDS_TEXTS;
   private readonly sheet = inject(PlBottomSheet);
   private readonly bus = inject(RefreshBus);
+  private readonly store = inject(CardsStore);
+  protected readonly chargeError = signal<string | null>(null);
 
   protected readonly tabs: PlSegmentOption<Tab>[] = [
     { value: 'summary', label: CARDS_TEXTS.tabs.summary },
@@ -396,7 +413,24 @@ export class CardDetailPage {
   }
 
   protected addCharge(card: Card): void {
-    this.sheet.open(ChargeFormSheet, { data: card, ariaLabel: this.texts.addChargeLabel });
+    this.sheet.open(ChargeFormSheet, {
+      data: { card } satisfies ChargeFormData,
+      ariaLabel: this.texts.addChargeLabel,
+    });
+  }
+
+  /** TAR-11: opens the charge behind an installment to edit or delete it. */
+  protected async editCharge(card: Card, chargeId: string): Promise<void> {
+    this.chargeError.set(null);
+    try {
+      const charge = await this.store.getCharge(chargeId);
+      this.sheet.open(ChargeFormSheet, {
+        data: { card, charge } satisfies ChargeFormData,
+        ariaLabel: this.texts.charge.editTitle,
+      });
+    } catch {
+      this.chargeError.set(this.texts.charge.loadError);
+    }
   }
 
   protected edit(card: Card): void {

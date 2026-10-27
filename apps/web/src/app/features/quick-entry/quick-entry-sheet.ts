@@ -4,17 +4,17 @@ import {
   Component,
   computed,
   effect,
+  ElementRef,
   HostListener,
   inject,
   signal,
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { LucidePencil } from '@lucide/angular';
-import { addDays, impliedRate, LocalDate, Money, parseLocalDate, toDecimal } from '@platin/domain';
+import { impliedRate, LocalDate, Money, toDecimal } from '@platin/domain';
 import {
   applyKey,
   displayAmount,
-  formatDate,
   isValidAmount,
   KeypadKey,
   parseTypedAmount,
@@ -23,7 +23,10 @@ import {
   PlChip,
   PlEmptyState,
   PlSegmented,
+  PlDateField,
   PlSegmentOption,
+  PlSelect,
+  PlSelectOption,
   PlSheet,
 } from '@platin/web-ui';
 import { AuthService } from '../../core/auth/auth.service';
@@ -38,17 +41,23 @@ import { QUICK_ENTRY_TEXTS } from './quick-entry.texts';
 
 type Mode = 'EXPENSE' | 'INCOME' | 'TRANSFER';
 
-const FIELD_BOX =
-  'relative flex min-h-[60px] flex-col justify-center rounded-2xl border border-line px-4 focus-within:border-brand';
-const OVERLAY_INPUT = 'absolute inset-0 h-full w-full cursor-pointer opacity-0';
-
 /**
  * MOV-01/02 in three taps: amount on the keypad, a recent category, save. The account used
  * last is preselected and the date defaults to today.
  */
 @Component({
   selector: 'pl-quick-entry-sheet',
-  imports: [PlSheet, PlButton, PlSegmented, PlChip, PlAmountKeypad, PlEmptyState, LucidePencil],
+  imports: [
+    PlSheet,
+    PlButton,
+    PlSegmented,
+    PlChip,
+    PlAmountKeypad,
+    PlEmptyState,
+    PlSelect,
+    PlDateField,
+    LucidePencil,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet>
@@ -115,47 +124,21 @@ const OVERLAY_INPUT = 'absolute inset-0 h-full w-full cursor-pointer opacity-0';
           </section>
 
           <div class="grid grid-cols-[1fr_auto] gap-2">
-            <label [class]="fieldBox">
-              <span class="text-xs text-muted">{{ card() ? texts.card : texts.account }}</span>
-              <span class="flex items-center gap-2 truncate font-semibold">
-                <span
-                  class="size-2.5 rounded-full"
-                  [class.bg-transfer]="!card()"
-                  [class.bg-card]="!!card()"
-                  aria-hidden="true"
-                ></span>
-                {{ card()?.name ?? account()?.name }}
-              </span>
-              <select
-                [class]="overlayInput"
-                [value]="paymentValue()"
-                (change)="setPayment(selectValue($event))"
-              >
-                <optgroup [label]="texts.accountsGroup">
-                  @for (option of accounts(); track option.id) {
-                    <option [value]="option.id">{{ option.name }} · {{ option.currency }}</option>
-                  }
-                </optgroup>
-                @if (mode() === 'EXPENSE' && cards().length > 0) {
-                  <optgroup [label]="texts.cardsGroup">
-                    @for (option of cards(); track option.id) {
-                      <option [value]="'card:' + option.id">{{ option.name }}</option>
-                    }
-                  </optgroup>
-                }
-              </select>
-            </label>
-            <label [class]="fieldBox + ' min-w-28'">
-              <span class="text-xs text-muted">{{ texts.date }}</span>
-              <span class="font-semibold">{{ dateLabel() }}</span>
-              <input
-                type="date"
-                [class]="overlayInput"
-                [value]="date()"
-                [max]="today.date()"
-                (change)="setDate($event)"
-              />
-            </label>
+            <pl-select
+              appearance="tile"
+              [label]="card() ? texts.card : texts.account"
+              [options]="paymentOptions()"
+              [value]="paymentValue()"
+              (valueChange)="setPayment($event)"
+            />
+            <pl-date-field
+              class="min-w-32"
+              appearance="tile"
+              [label]="texts.date"
+              [max]="today.date()"
+              [value]="date()"
+              (valueChange)="setDate($event)"
+            />
           </div>
 
           @if (card()) {
@@ -192,33 +175,21 @@ const OVERLAY_INPUT = 'absolute inset-0 h-full w-full cursor-pointer opacity-0';
         } @else {
           <!-- Transfer -->
           <div class="grid grid-cols-2 gap-2">
-            <label [class]="fieldBox">
-              <span class="text-xs text-muted">{{ texts.from }}</span>
-              <span class="truncate font-semibold">{{ account()?.name }}</span>
-              <select
-                [class]="overlayInput"
-                [value]="accountId()"
-                (change)="accountId.set(selectValue($event))"
-              >
-                @for (option of accounts(); track option.id) {
-                  <option [value]="option.id">{{ option.name }} · {{ option.currency }}</option>
-                }
-              </select>
-            </label>
-            <label [class]="fieldBox">
-              <span class="text-xs text-muted">{{ texts.to }}</span>
-              <span class="truncate font-semibold">{{ toAccount()?.name ?? '—' }}</span>
-              <select
-                [class]="overlayInput"
-                [value]="toAccountId() ?? ''"
-                (change)="toAccountId.set(selectValue($event))"
-              >
-                <option value="" disabled>—</option>
-                @for (option of accounts(); track option.id) {
-                  <option [value]="option.id">{{ option.name }} · {{ option.currency }}</option>
-                }
-              </select>
-            </label>
+            <pl-select
+              appearance="tile"
+              [label]="texts.from"
+              [options]="accountsStore.options()"
+              [value]="accountId()"
+              (valueChange)="accountId.set($event)"
+            />
+            <pl-select
+              appearance="tile"
+              [label]="texts.to"
+              placeholder="—"
+              [options]="accountsStore.options()"
+              [value]="toAccountId()"
+              (valueChange)="toAccountId.set($event)"
+            />
           </div>
           @if (crossCurrency()) {
             <label class="flex flex-col gap-1">
@@ -237,17 +208,13 @@ const OVERLAY_INPUT = 'absolute inset-0 h-full w-full cursor-pointer opacity-0';
               }
             </label>
           }
-          <label [class]="fieldBox">
-            <span class="text-xs text-muted">{{ texts.date }}</span>
-            <span class="font-semibold">{{ dateLabel() }}</span>
-            <input
-              type="date"
-              [class]="overlayInput"
-              [value]="date()"
-              [max]="today.date()"
-              (change)="setDate($event)"
-            />
-          </label>
+          <pl-date-field
+            appearance="tile"
+            [label]="texts.date"
+            [max]="today.date()"
+            [value]="date()"
+            (valueChange)="setDate($event)"
+          />
         }
 
         @if (showNote()) {
@@ -292,9 +259,8 @@ const OVERLAY_INPUT = 'absolute inset-0 h-full w-full cursor-pointer opacity-0';
 })
 export class QuickEntrySheet {
   protected readonly texts = QUICK_ENTRY_TEXTS;
-  protected readonly fieldBox = FIELD_BOX;
-  protected readonly overlayInput = OVERLAY_INPUT;
   protected readonly ref = inject(DialogRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   protected readonly today = inject(Today);
   protected readonly accountsStore = inject(AccountsStore);
   private readonly categoriesStore = inject(CategoriesStore);
@@ -332,8 +298,22 @@ export class QuickEntrySheet {
     this.mode() === 'EXPENSE' ? this.cardsStore.byId(this.cardId()) : undefined,
   );
   protected readonly paymentValue = computed(() =>
-    this.card() ? `card:${this.cardId()}` : (this.accountId() ?? ''),
+    this.card() ? `card:${this.cardId()}` : this.accountId(),
   );
+  /** Accounts and, for an expense, the cards (value "card:<id>"), in two groups. */
+  protected readonly paymentOptions = computed<PlSelectOption[]>(() => [
+    ...this.accountsStore
+      .options()
+      .map((option) => ({ ...option, group: this.texts.accountsGroup })),
+    ...(this.mode() === 'EXPENSE'
+      ? this.cards().map((card) => ({
+          value: `card:${card.id}`,
+          label: card.name,
+          tone: 'card' as const,
+          group: this.texts.cardsGroup,
+        }))
+      : []),
+  ]);
 
   protected readonly accounts = computed(() =>
     this.accountsStore.accounts().filter((account) => !account.archived),
@@ -390,13 +370,6 @@ export class QuickEntrySheet {
     return this.texts.impliedRate(displayAmount(value));
   });
 
-  protected readonly dateLabel = computed(() => {
-    const date = this.date();
-    if (date === this.today.date()) return this.texts.today;
-    if (date === addDays(this.today.date(), -1)) return this.texts.yesterday;
-    return formatDate(date);
-  });
-
   constructor() {
     // Preselect the last used account (or the first) once accounts load.
     effect(() => {
@@ -417,7 +390,11 @@ export class QuickEntrySheet {
   @HostListener('document:keydown', ['$event'])
   protected onKeydown(event: KeyboardEvent): void {
     const target = event.target as HTMLElement | null;
+    if (event.defaultPrevented) return;
     if (target && ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) return;
+    // Keys inside an open picker (select or calendar panel) belong to it.
+    const pane = target?.closest?.('.cdk-overlay-pane');
+    if (pane && pane !== this.host.nativeElement.closest('.cdk-overlay-pane')) return;
     const key: KeypadKey | null = /^[0-9]$/.test(event.key)
       ? (event.key as KeypadKey)
       : event.key === ',' || event.key === '.'
@@ -428,26 +405,22 @@ export class QuickEntrySheet {
     if (key) {
       event.preventDefault();
       this.amount.update((raw) => applyKey(raw, key));
-    } else if (event.key === 'Enter') {
+    } else if (event.key === 'Enter' && target?.tagName !== 'BUTTON') {
       event.preventDefault();
       void this.save();
     }
-  }
-
-  protected selectValue(event: Event): string {
-    return (event.target as HTMLSelectElement).value;
   }
 
   protected inputValue(event: Event): string {
     return (event.target as HTMLInputElement).value;
   }
 
-  protected setDate(event: Event): void {
-    const value = this.inputValue(event);
-    if (value) this.date.set(parseLocalDate(value));
+  protected setDate(date: LocalDate | null): void {
+    if (date) this.date.set(date);
   }
 
-  protected setPayment(value: string): void {
+  protected setPayment(value: string | null): void {
+    if (!value) return;
     if (value.startsWith('card:')) {
       this.cardId.set(value.slice(5));
     } else {
