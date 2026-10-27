@@ -57,3 +57,17 @@ export function formatDate(date: LocalDate): string {
   const { day, month, year } = dateParts(date);
   return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
 }
+
+/** Field text of a date: "Hoy", "Ayer", "lunes 27 de octubre" (year added when it isn't this year's). */
+export function formatLongDate(date: LocalDate, today: LocalDate): string {
+  if (date === today) return 'Hoy';
+  if (date === addDays(today, -1)) return 'Ayer';
+  const { day, month, year } = dateParts(date);
+  const sameYear = year === dateParts(today).year;
+  return `${weekday(date)} ${day} de ${MONTHS[month - 1]}${sameYear ? '' : ` de ${year}`}`;
+}
+
+/** "Octubre 2026" for a year and month (1-12). */
+export function formatMonthYear(year: number, month: number): string {
+  return `${capitalize(MONTHS[month - 1])} ${year}`;
+}

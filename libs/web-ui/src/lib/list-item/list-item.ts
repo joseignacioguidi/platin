@@ -3,7 +3,8 @@ import { LucideDynamicIcon, LucideIconInput } from '@lucide/angular';
 
 export type PlTone = 'brand' | 'expense' | 'pending' | 'transfer' | 'card' | 'savings' | 'muted';
 
-const TONES: Record<PlTone, string> = {
+/** Tinted background + text of an icon badge, per tone. */
+export const PL_TONE_CLASSES: Record<PlTone, string> = {
   brand: 'bg-brand-soft text-brand-strong',
   expense: 'bg-expense-soft text-ink',
   pending: 'bg-pending-soft text-ink',
@@ -52,5 +53,5 @@ export class PlListItem {
   readonly icon = input<LucideIconInput | null>();
   readonly tone = input<PlTone>('muted');
 
-  protected readonly toneClass = computed(() => TONES[this.tone()]);
+  protected readonly toneClass = computed(() => PL_TONE_CLASSES[this.tone()]);
 }
