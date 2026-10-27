@@ -8,7 +8,7 @@ interface SuggestedCategory {
   color: ColorToken;
 }
 
-/** Categories every new account starts with (they can be edited or archived). */
+/** Categories every new user starts with (they can be edited or archived). */
 export const SUGGESTED_CATEGORIES: readonly SuggestedCategory[] = [
   { name: 'Supermercado', kind: 'EXPENSE', icon: 'shopping-cart', color: 'expense' },
   { name: 'Delivery', kind: 'EXPENSE', icon: 'bike', color: 'expense' },
@@ -32,11 +32,28 @@ export const SUGGESTED_CATEGORIES: readonly SuggestedCategory[] = [
   { name: 'Otros ingresos', kind: 'INCOME', icon: 'plus', color: 'brand' },
 ];
 
+/** Categories the app uses itself (CAT-05): balance and statement adjustments, yields. */
+export const SYSTEM_CATEGORIES: readonly (SuggestedCategory & {
+  systemKey: 'ADJUSTMENT' | 'YIELD';
+})[] = [
+  { name: 'Ajustes', kind: 'EXPENSE', icon: 'scale', color: 'muted', systemKey: 'ADJUSTMENT' },
+  {
+    name: 'Rendimientos',
+    kind: 'INCOME',
+    icon: 'trending-up',
+    color: 'savings',
+    systemKey: 'YIELD',
+  },
+];
+
 export async function seedSuggestedCategories(
   tx: Prisma.TransactionClient,
   userId: string,
 ): Promise<void> {
   await tx.category.createMany({
-    data: SUGGESTED_CATEGORIES.map((category) => ({ ...category, userId })),
+    data: [...SUGGESTED_CATEGORIES, ...SYSTEM_CATEGORIES].map((category) => ({
+      ...category,
+      userId,
+    })),
   });
 }

@@ -111,10 +111,15 @@ export class ChargesService {
   async update(userId: string, id: string, changes: UpdateChargeRequest): Promise<Charge> {
     const row = await this.getOwnedWithInstallments(userId, id);
     if (changes.categoryId) await this.categories.getOwned(userId, changes.categoryId, 'EXPENSE');
+    // Values equal to the current ones are not a change (the edit form sends the whole charge).
     const replan =
-      changes.totalAmount !== undefined ||
-      changes.date !== undefined ||
-      changes.installmentsCount !== undefined;
+      (changes.totalAmount !== undefined &&
+        !Money.of(changes.totalAmount, row.currency).equals(
+          Money.of(row.totalAmount.toFixed(2), row.currency),
+        )) ||
+      (changes.date !== undefined && changes.date !== utcToLocalDate(row.date)) ||
+      (changes.installmentsCount !== undefined &&
+        changes.installmentsCount !== row.installmentsCount);
     if (replan) this.assertNothingClosed(row.installments);
     if (
       changes.installmentsCount !== undefined &&

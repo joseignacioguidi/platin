@@ -110,10 +110,15 @@ export class AccountsService {
         ? undefined
         : ((await this.rates.sellFor(userId, request.date)) ?? undefined));
     const frozen = freezeBase(difference, user.baseCurrency, rate);
+    const category = await this.prisma.category.findUnique({
+      where: { userId_systemKey: { userId, systemKey: 'ADJUSTMENT' } },
+      select: { id: true },
+    });
     const row = await this.prisma.transaction.create({
       data: {
         userId,
         accountId: account.id,
+        categoryId: category?.id ?? null,
         type: 'ADJUSTMENT',
         origin: 'ADJUSTMENT',
         status: 'CONFIRMED',

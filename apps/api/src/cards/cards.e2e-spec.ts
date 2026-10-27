@@ -248,11 +248,18 @@ describe('cards', () => {
       .expect(409);
     expect(rejected.body.code).toBe('CARD_STATEMENT_CLOSED');
     await api().delete(`/api/v1/charges/${created.id}`).expect(409);
-    // The description can still change.
-    await api()
+    // The description and category can still change, even if the unchanged amount, date and
+    // installments come along (TAR-11: the edit form sends the whole charge).
+    const renamed = await api()
       .patch(`/api/v1/charges/${created.id}`)
-      .send({ description: 'Notebook' })
+      .send({
+        description: 'Notebook',
+        totalAmount: '90000.00',
+        date: '2026-10-29',
+        installmentsCount: 6,
+      })
       .expect(200);
+    expect(renamed.body.description).toBe('Notebook');
 
     const plans = (await api().get(`/api/v1/cards/${visa.id}/installments`).expect(200)).body;
     expect(plans[0]).toMatchObject({ current: 1, remainingCount: 5, remainingAmount: '75000.00' });

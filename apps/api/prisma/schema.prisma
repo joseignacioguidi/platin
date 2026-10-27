@@ -139,6 +139,7 @@ model Category {
   icon       String // Lucide icon name
   color      String // design token name
   parentId   String?      @db.Uuid
+  systemKey  String? // "ADJUSTMENT" | "YIELD": not editable nor archivable
   archivedAt DateTime?
 
   user         User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -150,6 +151,7 @@ model Category {
   fixedItems   FixedItem[]
 
   @@unique([userId, kind, name])
+  @@unique([userId, systemKey])
 }
 
 // ---------- Transactions and transfers ----------
