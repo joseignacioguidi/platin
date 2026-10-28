@@ -1,6 +1,5 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
 import {
-  createContributionRequestSchema,
   createGoalRequestSchema,
   goalProjectionQuerySchema,
   goalProjectionSchema,
@@ -19,7 +18,6 @@ import { GoalsService } from './goals.service';
 class GoalDto extends createZodDto(goalSchema) {}
 class CreateGoalDto extends createZodDto(createGoalRequestSchema) {}
 class UpdateGoalDto extends createZodDto(updateGoalRequestSchema) {}
-class ContributionDto extends createZodDto(createContributionRequestSchema) {}
 class ProjectionQueryDto extends createZodDto(goalProjectionQuerySchema) {}
 class ProjectionDto extends createZodDto(goalProjectionSchema) {}
 class SavingsDto extends createZodDto(savingsSchema) {}
@@ -61,16 +59,6 @@ export class GoalsController {
   @HttpCode(204)
   remove(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<void> {
     return this.goals.remove(user.id, params.id);
-  }
-
-  @Post(':id/contributions')
-  @ZodSerializerDto(GoalDto)
-  contribute(
-    @CurrentUser() user: AuthUser,
-    @Param() params: IdParamDto,
-    @Body() body: ContributionDto,
-  ): Promise<Goal> {
-    return this.goals.addContribution(user.id, params.id, body);
   }
 
   @Get(':id/projection')

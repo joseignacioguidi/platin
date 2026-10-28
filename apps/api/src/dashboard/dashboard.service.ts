@@ -81,7 +81,7 @@ export class DashboardService {
         }),
         this.prisma.cardCharge.findMany({ where: { userId, date: range } }),
         this.prisma.fixedItem.findMany({
-          where: { userId, accountId: { not: null } },
+          where: { userId, pocketId: { not: null } },
           include: FIXED_INCLUDE,
         }),
         this.prisma.transaction.findMany({
@@ -212,7 +212,8 @@ export class DashboardService {
           fixedId: fixed.id,
           kind: fixed.kind,
           name: fixed.name,
-          accountName: fixed.account?.name ?? '',
+          pocketName: fixed.pocket?.name ?? '',
+          accountName: fixed.pocket?.account.name ?? '',
           amount: due.amount.toString(),
           currency: fixed.currency as Currency,
         });

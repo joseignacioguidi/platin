@@ -19,7 +19,7 @@ import {
   utcToLocalDate,
   utcToPeriod,
 } from '@platin/domain';
-import { AccountsService } from '../accounts/accounts.service';
+import { PocketsService } from '../accounts/pockets.service';
 import { CategoriesService } from '../categories/categories.service';
 import { AppException } from '../common/app-exception';
 import { date, money, toDbDate, toDbPeriod } from '../common/serialize';
@@ -42,7 +42,7 @@ type Db = Prisma.TransactionClient | PrismaService;
 export class StatementsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly accounts: AccountsService,
+    private readonly pockets: PocketsService,
     private readonly categories: CategoriesService,
   ) {}
 
@@ -133,7 +133,11 @@ export class StatementsService {
           include: { category: { select: { id: true, name: true, icon: true, color: true } } },
         },
         payments: {
-          include: { fromAccount: { select: { name: true, currency: true } } },
+          include: {
+            fromPocket: {
+              select: { name: true, currency: true, account: { select: { name: true } } },
+            },
+          },
           orderBy: { date: 'asc' },
         },
       },
@@ -164,9 +168,10 @@ export class StatementsService {
       payments: row.payments.map((p) => ({
         id: p.id,
         date: date(p.date),
-        accountName: p.fromAccount.name,
+        pocketName: p.fromPocket.name,
+        accountName: p.fromPocket.account.name,
         amountOut: money(p.amountOut),
-        currencyOut: p.fromAccount.currency,
+        currencyOut: p.fromPocket.currency,
         amountIn: money(p.amountIn),
         currencyIn: p.currencyIn,
       })),
@@ -242,7 +247,7 @@ export class StatementsService {
   }
 
   /**
-   * TAR-08: pays the pesos or the dollars part from an account, as a Transfer to the statement.
+   * TAR-08: pays the pesos or the dollars part from a pocket, as a Transfer to the statement.
    * The expense was already recorded with the purchase; the payment doesn't duplicate it.
    */
   async pay(userId: string, id: string, request: PayStatementRequest): Promise<StatementSummary> {
@@ -254,14 +259,14 @@ export class StatementsService {
         'Close the statement before paying it',
       );
     }
-    const account = await this.accounts.getActive(userId, request.accountId);
+    const pocket = await this.pockets.getActive(userId, request.pocketId);
     let amountOut = request.amount;
-    if (account.currency !== request.currency) {
+    if (pocket.currency !== request.currency) {
       if (!request.amountOut) {
         throw new AppException(
           'PAYMENT_AMOUNT_OUT_REQUIRED',
           HttpStatus.UNPROCESSABLE_ENTITY,
-          'Paying in another currency needs the amount that leaves the account',
+          'Paying in another currency needs the amount that leaves the pocket',
         );
       }
       amountOut = request.amountOut;
@@ -271,9 +276,9 @@ export class StatementsService {
       await tx.transfer.create({
         data: {
           userId,
-          fromAccountId: account.id,
+          fromPocketId: pocket.id,
           statementId: row.id,
-          amountOut: Money.of(amountOut, account.currency).toString(),
+          amountOut: Money.of(amountOut, pocket.currency).toString(),
           amountIn: Money.of(request.amount, request.currency).toString(),
           currencyIn: request.currency,
           date: toDbDate(request.date),

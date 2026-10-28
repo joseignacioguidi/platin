@@ -1,5 +1,5 @@
 import { as, registerUser, TestUser } from '../../test/auth-helpers';
-import { category, createAccount } from '../../test/fixtures';
+import { category, createPocket } from '../../test/fixtures';
 import { createTestApp, resetDatabase, TestContext } from '../../test/test-app';
 
 describe('dashboard', () => {
@@ -27,7 +27,7 @@ describe('dashboard', () => {
    */
   async function scenario() {
     const api = as(ctx.app, user);
-    const galicia = await createAccount(ctx.app, user, { name: 'Galicia', initialBalance: '0' });
+    const galicia = await createPocket(ctx.app, user, { name: 'Galicia', initialBalance: '0' });
     const ids = {
       salary: (await category(ctx.app, user, 'Sueldo')).id,
       rent: (await category(ctx.app, user, 'Alquiler')).id,
@@ -37,7 +37,7 @@ describe('dashboard', () => {
     const fixed = (body: Record<string, unknown>) =>
       api
         .post('/api/v1/fixed')
-        .send({ accountId: galicia.id, startPeriod: '2026-10', ...body })
+        .send({ pocketId: galicia.id, startPeriod: '2026-10', ...body })
         .expect(201);
     await fixed({
       kind: 'INCOME',
@@ -57,7 +57,7 @@ describe('dashboard', () => {
       .post('/api/v1/transactions')
       .send({
         type: 'EXPENSE',
-        accountId: galicia.id,
+        pocketId: galicia.id,
         categoryId: ids.food,
         amount: '18500',
         date: '2026-10-22',

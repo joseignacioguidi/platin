@@ -6,7 +6,7 @@ import type {
   UpdateTransactionRequest,
 } from '@platin/contracts';
 import { Currency, Decimal, LocalDate, Money, utcToLocalDate } from '@platin/domain';
-import { AccountsService } from '../accounts/accounts.service';
+import { PocketsService } from '../accounts/pockets.service';
 import { CategoriesService } from '../categories/categories.service';
 import { AppException } from '../common/app-exception';
 import { freezeBase } from '../common/base-conversion';
@@ -20,7 +20,7 @@ import { toTransactionDto } from './transaction.mapper';
 export class TransactionsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly accounts: AccountsService,
+    private readonly pockets: PocketsService,
     private readonly categories: CategoriesService,
     private readonly rates: UserRates,
   ) {}
@@ -29,12 +29,12 @@ export class TransactionsService {
     return toTransactionDto(await this.getOwned(userId, id));
   }
 
-  /** MOV-01. The amount is in the account currency; its base value is frozen now. */
+  /** MOV-01. The amount is in the pocket currency; its base value is frozen now. */
   async create(userId: string, request: CreateTransactionRequest): Promise<Transaction> {
-    const account = await this.accounts.getActive(userId, request.accountId);
+    const pocket = await this.pockets.getActive(userId, request.pocketId);
     await this.categories.getOwned(userId, request.categoryId, request.type);
     const baseCurrency = await this.baseCurrency(userId);
-    const amount = Money.of(request.amount, account.currency);
+    const amount = Money.of(request.amount, pocket.currency);
     const rate =
       request.exchangeRate ?? (await this.rateOfDay(userId, amount, baseCurrency, request.date));
     const frozen = freezeBase(amount, baseCurrency, rate);
@@ -42,11 +42,11 @@ export class TransactionsService {
     const row = await this.prisma.transaction.create({
       data: {
         userId,
-        accountId: account.id,
+        pocketId: pocket.id,
         categoryId: request.categoryId,
         type: request.type,
         amount: amount.toString(),
-        currency: account.currency,
+        currency: pocket.currency,
         rateToBase: frozen.rateToBase,
         baseAmount: frozen.baseAmount,
         date: toDbDate(request.date),
@@ -57,7 +57,7 @@ export class TransactionsService {
   }
 
   /**
-   * MOV-04. Changing the amount, account or rate re-freezes the base value; otherwise the
+   * MOV-04. Changing the amount, pocket or rate re-freezes the base value; otherwise the
    * frozen rate is kept (history is not recalculated).
    */
   async update(
@@ -73,17 +73,22 @@ export class TransactionsService {
         'Balance adjustments can only be deleted',
       );
     }
-    const account = changes.accountId
-      ? await this.accounts.getActive(userId, changes.accountId)
-      : await this.accounts.getOwned(userId, current.accountId);
+    this.assertNotYield(current);
+    const pocket = changes.pocketId
+      ? await this.pockets.getActive(userId, changes.pocketId)
+      : await this.pockets.getOwned(userId, current.pocketId);
     if (changes.categoryId)
-      await this.categories.getOwned(userId, changes.categoryId, current.type);
+      await this.categories.getOwned(
+        userId,
+        changes.categoryId,
+        current.type as 'INCOME' | 'EXPENSE',
+      );
 
-    const amount = Money.of(changes.amount ?? current.amount.toFixed(2), account.currency);
+    const amount = Money.of(changes.amount ?? current.amount.toFixed(2), pocket.currency);
     const needsRefreeze =
       changes.amount !== undefined ||
       changes.exchangeRate !== undefined ||
-      account.currency !== current.currency;
+      pocket.currency !== current.currency;
     const baseCurrency = await this.baseCurrency(userId);
     const date = changes.date ?? utcToLocalDate(current.date);
     const frozen = needsRefreeze
@@ -91,7 +96,7 @@ export class TransactionsService {
           amount,
           baseCurrency,
           changes.exchangeRate ??
-            (account.currency === current.currency ? this.storedRate(current) : undefined) ??
+            (pocket.currency === current.currency ? this.storedRate(current) : undefined) ??
             (await this.rateOfDay(userId, amount, baseCurrency, date)),
         )
       : undefined;
@@ -99,8 +104,8 @@ export class TransactionsService {
     const row = await this.prisma.transaction.update({
       where: { id },
       data: {
-        accountId: account.id,
-        currency: account.currency,
+        pocketId: pocket.id,
+        currency: pocket.currency,
         amount: amount.toString(),
         ...(changes.categoryId ? { categoryId: changes.categoryId } : {}),
         ...(changes.date ? { date: toDbDate(changes.date) } : {}),
@@ -112,8 +117,19 @@ export class TransactionsService {
   }
 
   async remove(userId: string, id: string): Promise<void> {
-    await this.getOwned(userId, id);
+    this.assertNotYield(await this.getOwned(userId, id));
     await this.prisma.transaction.delete({ where: { id } });
+  }
+
+  /** INV-04: yields come from valuations and are undone by deleting the valuation. */
+  private assertNotYield(row: TransactionRow): void {
+    if (row.type === 'YIELD') {
+      throw new AppException(
+        'YIELD_FROM_VALUATION',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'Yields change through the valuations of the investment',
+      );
+    }
   }
 
   /**

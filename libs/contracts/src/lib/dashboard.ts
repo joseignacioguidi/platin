@@ -19,6 +19,7 @@ export const upcomingItemSchema = z.discriminatedUnion('type', [
     fixedId: uuidSchema,
     kind: z.enum(['INCOME', 'EXPENSE']),
     name: z.string(),
+    pocketName: z.string(),
     accountName: z.string(),
     amount: z.string(),
     currency: currencySchema,

@@ -20,12 +20,27 @@ enum RateType {
   BLUE
 }
 
-enum AccountType {
-  CASH
+enum AccountKind {
   BANK
   WALLET
+  CASH
+  BROKER
+}
+
+enum PocketKind {
+  AVAILABLE
   SAVINGS
   INVESTMENT
+}
+
+// MUTUAL_FUND includes Superfondos
+enum InstrumentType {
+  CEDEAR
+  STOCK
+  MUTUAL_FUND
+  TERM_DEPOSIT
+  CRYPTO
+  OTHER
 }
 
 enum CategoryKind {
@@ -37,6 +52,7 @@ enum TxType {
   INCOME
   EXPENSE
   ADJUSTMENT
+  YIELD
 }
 
 enum TxStatus {
@@ -48,6 +64,7 @@ enum TxOrigin {
   MANUAL
   FIXED
   ADJUSTMENT
+  VALUATION
 }
 
 enum FixedKind {
@@ -82,6 +99,7 @@ model User {
 
   refreshTokens RefreshToken[]
   accounts      Account[]
+  pockets       Pocket[]
   categories    Category[]
   transactions  Transaction[]
   transfers     Transfer[]
@@ -107,28 +125,67 @@ model RefreshToken {
   @@index([family])
 }
 
-// ---------- Accounts and categories ----------
+// ---------- Accounts and pockets ----------
+// The institution or place: Mercado Pago, Santander, cash, a broker.
 model Account {
-  id                String      @id @default(uuid()) @db.Uuid
-  userId            String      @db.Uuid
-  name              String
-  type              AccountType
-  currency          Currency
-  initialBalance    Decimal     @default(0) @db.Decimal(18, 2)
-  includeInNetWorth Boolean     @default(true)
-  color             String? // design token name (transfer, savings, ...)
-  archivedAt        DateTime?
-  createdAt         DateTime    @default(now())
+  id         String      @id @default(uuid()) @db.Uuid
+  userId     String      @db.Uuid
+  name       String
+  kind       AccountKind
+  color      String? // design token name
+  sortOrder  Int         @default(0)
+  archivedAt DateTime?
+  createdAt  DateTime    @default(now())
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  pockets Pocket[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+// Money set apart inside an account, in a single currency.
+model Pocket {
+  id                String          @id @default(uuid()) @db.Uuid
+  userId            String          @db.Uuid // denormalized to filter without a join
+  accountId         String          @db.Uuid
+  name              String // "Disponible", "Auto", "CEDEARs"
+  kind              PocketKind
+  currency          Currency
+  instrument        InstrumentType? // only when kind = INVESTMENT (check constraint)
+  initialBalance    Decimal         @default(0) @db.Decimal(18, 2)
+  includeInNetWorth Boolean         @default(true)
+  sortOrder         Int             @default(0)
+  archivedAt        DateTime?
+  createdAt         DateTime        @default(now())
+
+  user         User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  account      Account           @relation(fields: [accountId], references: [id], onDelete: Restrict)
   transactions Transaction[]
-  transfersOut Transfer[]    @relation("TransferFrom")
-  transfersIn  Transfer[]    @relation("TransferTo")
+  transfersOut Transfer[]        @relation("TransferFrom")
+  transfersIn  Transfer[]        @relation("TransferTo")
   defaultFor   CreditCard[]
   fixedItems   FixedItem[]
-  goalLinks    GoalAccount[]
+  goalLinks    GoalPocket[]
+  valuations   PocketValuation[]
 
+  @@unique([accountId, name, currency])
   @@index([userId])
+}
+
+// Value of an investment pocket entered by hand; it creates a YIELD movement.
+model PocketValuation {
+  id            String   @id @default(uuid()) @db.Uuid
+  pocketId      String   @db.Uuid
+  date          DateTime @db.Date
+  value         Decimal  @db.Decimal(18, 2)
+  transactionId String?  @unique @db.Uuid // the YIELD it created (null when the difference was 0)
+  createdAt     DateTime @default(now())
+
+  pocket      Pocket       @relation(fields: [pocketId], references: [id], onDelete: Cascade)
+  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+
+  @@unique([pocketId, date])
 }
 
 model Category {
@@ -158,13 +215,13 @@ model Category {
 model Transaction {
   id          String    @id @default(uuid()) @db.Uuid
   userId      String    @db.Uuid
-  accountId   String    @db.Uuid
+  pocketId    String    @db.Uuid
   categoryId  String?   @db.Uuid
   type        TxType
   status      TxStatus  @default(CONFIRMED)
   origin      TxOrigin  @default(MANUAL)
-  amount      Decimal   @db.Decimal(18, 2) // account currency; signed only for ADJUSTMENT (ADR 0004)
-  currency    Currency
+  amount      Decimal   @db.Decimal(18, 2) // signed only for ADJUSTMENT and YIELD (ADR 0004)
+  currency    Currency // = the pocket's currency
   rateToBase  Decimal   @db.Decimal(18, 6) // frozen when recorded
   baseAmount  Decimal   @db.Decimal(18, 2)
   date        DateTime  @db.Date
@@ -174,58 +231,61 @@ model Transaction {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  user     User       @relation(fields: [userId], references: [id], onDelete: Restrict)
-  account  Account    @relation(fields: [accountId], references: [id], onDelete: Restrict)
-  category Category?  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  fixed    FixedItem? @relation(fields: [fixedId], references: [id], onDelete: Restrict)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  pocket    Pocket           @relation(fields: [pocketId], references: [id], onDelete: Restrict)
+  category  Category?        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  fixed     FixedItem?       @relation(fields: [fixedId], references: [id], onDelete: Restrict)
+  valuation PocketValuation?
 
   @@unique([fixedId, fixedPeriod]) // fixed items idempotency
   @@index([userId, date])
-  @@index([accountId, date])
+  @@index([pocketId, date])
 }
 
-// Moves money between accounts or pays a card statement: exactly one destination
-// (check constraint in the migration SQL).
+// Moves money between pockets (set apart, invest, redeem, between accounts, buy dollars)
+// or pays a card statement: exactly one destination (check constraint in the SQL).
 model Transfer {
-  id            String   @id @default(uuid()) @db.Uuid
-  userId        String   @db.Uuid
-  fromAccountId String   @db.Uuid
-  toAccountId   String?  @db.Uuid
-  statementId   String?  @db.Uuid
-  amountOut     Decimal  @db.Decimal(18, 2) // origin account currency
-  amountIn      Decimal  @db.Decimal(18, 2) // destination currency
-  currencyIn    Currency // for a statement payment: which part it pays
-  date          DateTime @db.Date
-  description   String?
-  createdAt     DateTime @default(now())
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @db.Uuid
+  fromPocketId String   @db.Uuid
+  toPocketId   String?  @db.Uuid
+  statementId  String?  @db.Uuid
+  amountOut    Decimal  @db.Decimal(18, 2) // origin pocket currency
+  amountIn     Decimal  @db.Decimal(18, 2) // destination currency
+  currencyIn   Currency // for a statement payment: which part it pays
+  date         DateTime @db.Date
+  description  String?
+  createdAt    DateTime @default(now())
 
-  user        User           @relation(fields: [userId], references: [id], onDelete: Restrict)
-  fromAccount Account        @relation("TransferFrom", fields: [fromAccountId], references: [id], onDelete: Restrict)
-  toAccount   Account?       @relation("TransferTo", fields: [toAccountId], references: [id], onDelete: Restrict)
-  statement   CardStatement? @relation(fields: [statementId], references: [id], onDelete: Restrict)
+  user       User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  fromPocket Pocket         @relation("TransferFrom", fields: [fromPocketId], references: [id], onDelete: Restrict)
+  toPocket   Pocket?        @relation("TransferTo", fields: [toPocketId], references: [id], onDelete: Restrict)
+  statement  CardStatement? @relation(fields: [statementId], references: [id], onDelete: Restrict)
 
   @@index([userId, date])
+  @@index([fromPocketId])
+  @@index([toPocketId])
 }
 
 // ---------- Cards ----------
 model CreditCard {
-  id                      String    @id @default(uuid()) @db.Uuid
-  userId                  String    @db.Uuid
-  name                    String
-  issuer                  String?
-  last4                   String?   @db.Char(4)
-  creditLimit             Decimal?  @db.Decimal(18, 2)
-  closingDay              Int // 1-31
-  dueDay                  Int // 1-31
-  defaultPaymentAccountId String?   @db.Uuid
-  archivedAt              DateTime?
-  createdAt               DateTime  @default(now())
+  id                     String    @id @default(uuid()) @db.Uuid
+  userId                 String    @db.Uuid
+  name                   String
+  issuer                 String?
+  last4                  String?   @db.Char(4)
+  creditLimit            Decimal?  @db.Decimal(18, 2)
+  closingDay             Int // 1-31
+  dueDay                 Int // 1-31
+  defaultPaymentPocketId String?   @db.Uuid
+  archivedAt             DateTime?
+  createdAt              DateTime  @default(now())
 
-  user                  User            @relation(fields: [userId], references: [id], onDelete: Restrict)
-  defaultPaymentAccount Account?        @relation(fields: [defaultPaymentAccountId], references: [id], onDelete: Restrict)
-  statements            CardStatement[]
-  charges               CardCharge[]
-  fixedItems            FixedItem[]
+  user                 User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  defaultPaymentPocket Pocket?         @relation(fields: [defaultPaymentPocketId], references: [id], onDelete: Restrict)
+  statements           CardStatement[]
+  charges              CardCharge[]
+  fixedItems           FixedItem[]
 
   @@index([userId])
 }
@@ -311,7 +371,7 @@ model FixedItem {
   kind                FixedKind
   name                String
   categoryId          String    @db.Uuid
-  accountId           String?   @db.Uuid // one of the two
+  pocketId            String?   @db.Uuid // one of the two (check constraint)
   cardId              String?   @db.Uuid
   currency            Currency
   intervalMonths      Int       @default(1) // 1 monthly, 12 yearly
@@ -323,7 +383,7 @@ model FixedItem {
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Restrict)
   category     Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  account      Account?      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  pocket       Pocket?       @relation(fields: [pocketId], references: [id], onDelete: Restrict)
   card         CreditCard?   @relation(fields: [cardId], references: [id], onDelete: Restrict)
   amounts      FixedAmount[]
   transactions Transaction[]
@@ -366,33 +426,19 @@ model Goal {
   status       GoalStatus @default(ACTIVE)
   createdAt    DateTime   @default(now())
 
-  user          User               @relation(fields: [userId], references: [id], onDelete: Restrict)
-  accounts      GoalAccount[]
-  contributions GoalContribution[]
+  user    User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  pockets GoalPocket[]
 
   @@index([userId])
 }
 
-// A whole account contributes to the goal...
-model GoalAccount {
-  goalId    String @db.Uuid
-  accountId String @db.Uuid
+// The pockets that measure a goal. To split money among goals, one pocket per goal.
+model GoalPocket {
+  goalId   String @db.Uuid
+  pocketId String @db.Uuid
 
-  goal    Goal    @relation(fields: [goalId], references: [id], onDelete: Cascade)
-  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  goal   Goal   @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  pocket Pocket @relation(fields: [pocketId], references: [id], onDelete: Cascade)
 
-  @@id([goalId, accountId])
-}
-
-// ...or assigned contributions, to split an account among several goals.
-model GoalContribution {
-  id         String   @id @default(uuid()) @db.Uuid
-  goalId     String   @db.Uuid
-  amount     Decimal  @db.Decimal(18, 2) // negative = withdrawal
-  date       DateTime @db.Date
-  transferId String?  @db.Uuid
-
-  goal Goal @relation(fields: [goalId], references: [id], onDelete: Cascade)
-
-  @@index([goalId])
+  @@id([goalId, pocketId])
 }

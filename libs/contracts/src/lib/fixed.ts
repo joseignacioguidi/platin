@@ -6,13 +6,13 @@ import { amountSchema, currencySchema, periodSchema, uuidSchema } from './common
 
 export const fixedKindSchema = z.enum([FixedKind.INCOME, FixedKind.EXPENSE]);
 
-/** FIJ-01: an income or expense that repeats every N months on an account. */
+/** FIJ-01: an income or expense that repeats every N months on a pocket. */
 export const createFixedRequestSchema = z
   .object({
     kind: fixedKindSchema,
     name: z.string().trim().min(1, 'Ingresá un nombre').max(60),
     categoryId: uuidSchema,
-    accountId: uuidSchema,
+    pocketId: uuidSchema,
     amount: amountSchema,
     intervalMonths: z.number().int().min(1).max(24).default(1),
     dayOfMonth: z.number().int().min(1, 'Entre 1 y 31').max(31, 'Entre 1 y 31'),
@@ -28,7 +28,7 @@ export const updateFixedRequestSchema = z
   .object({
     name: z.string().trim().min(1).max(60),
     categoryId: uuidSchema,
-    accountId: uuidSchema,
+    pocketId: uuidSchema,
     dayOfMonth: z.number().int().min(1).max(31),
     /** FIJ-03 "finalizar": last period included; null removes the end. */
     endPeriod: periodSchema.nullable(),
@@ -53,7 +53,7 @@ export const fixedItemSchema = z.object({
     icon: iconNameSchema,
     color: colorTokenSchema,
   }),
-  account: z.object({ id: uuidSchema, name: z.string() }).nullable(),
+  pocket: z.object({ id: uuidSchema, name: z.string(), accountName: z.string() }).nullable(),
   currency: currencySchema,
   intervalMonths: z.number().int(),
   dayOfMonth: z.number().int(),

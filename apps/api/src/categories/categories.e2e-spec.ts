@@ -1,5 +1,5 @@
 import { as, registerUser, TestUser } from '../../test/auth-helpers';
-import { category, createAccount } from '../../test/fixtures';
+import { category, createPocket } from '../../test/fixtures';
 import { createTestApp, resetDatabase, TestContext } from '../../test/test-app';
 import { SUGGESTED_CATEGORIES, SYSTEM_CATEGORIES } from './suggested-categories';
 
@@ -96,9 +96,9 @@ describe('categories', () => {
 
   it('a balance adjustment uses the Ajustes category', async () => {
     const api = as(ctx.app, user);
-    const account = await createAccount(ctx.app, user, { initialBalance: '1000' });
+    const account = await createPocket(ctx.app, user, { initialBalance: '1000' });
     const res = await api
-      .post(`/api/v1/accounts/${account.id}/adjust`)
+      .post(`/api/v1/pockets/${account.id}/adjust`)
       .send({ balance: '900', date: '2026-10-20' })
       .expect(200);
     const adjustments = await category(ctx.app, user, 'Ajustes');
@@ -140,7 +140,7 @@ describe('categories', () => {
 
   it('CAT-04: merging moves movements, charges and fixed items and archives the source', async () => {
     const api = as(ctx.app, user);
-    const account = await createAccount(ctx.app, user);
+    const account = await createPocket(ctx.app, user);
     const delivery = await category(ctx.app, user, 'Delivery');
     const outings = await category(ctx.app, user, 'Salidas');
     for (const amount of ['1000', '2000']) {
@@ -148,7 +148,7 @@ describe('categories', () => {
         .post('/api/v1/transactions')
         .send({
           type: 'EXPENSE',
-          accountId: account.id,
+          pocketId: account.id,
           categoryId: delivery.id,
           amount,
           date: '2026-10-20',
@@ -176,7 +176,7 @@ describe('categories', () => {
         kind: 'EXPENSE',
         name: 'Club',
         categoryId: delivery.id,
-        accountId: account.id,
+        pocketId: account.id,
         amount: '500',
         dayOfMonth: 5,
         startPeriod: '2026-10',

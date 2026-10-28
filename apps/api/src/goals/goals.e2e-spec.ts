@@ -1,13 +1,13 @@
-import type { Account, Goal } from '@platin/contracts';
+import type { Pocket, Goal } from '@platin/contracts';
 import { as, registerUser, TestUser } from '../../test/auth-helpers';
-import { createAccount } from '../../test/fixtures';
+import { addPocket, createAccount, createPocket } from '../../test/fixtures';
 import { createTestApp, resetDatabase, TestContext } from '../../test/test-app';
 
 describe('goals and savings', () => {
   let ctx: TestContext;
   let user: TestUser;
-  let savingsUsd: Account;
-  let cashUsd: Account;
+  let savingsUsd: Pocket;
+  let cashUsd: Pocket;
 
   const api = () => as(ctx.app, user);
 
@@ -18,25 +18,25 @@ describe('goals and savings', () => {
   beforeEach(async () => {
     await resetDatabase(ctx.prisma);
     user = await registerUser(ctx.app);
-    savingsUsd = await createAccount(ctx.app, user, {
+    savingsUsd = await createPocket(ctx.app, user, {
       name: 'Caja de ahorro USD',
-      type: 'SAVINGS',
+      kind: 'SAVINGS',
       currency: 'USD',
       initialBalance: '3000',
     });
-    cashUsd = await createAccount(ctx.app, user, {
+    cashUsd = await createPocket(ctx.app, user, {
       name: 'Efectivo USD',
-      type: 'CASH',
+      kind: 'SAVINGS',
       currency: 'USD',
       initialBalance: '1200',
     });
-    await createAccount(ctx.app, user, {
+    await createPocket(ctx.app, user, {
       name: 'Mercado Pago remunerada',
-      type: 'SAVINGS',
+      kind: 'SAVINGS',
       currency: 'ARS',
       initialBalance: '3710000',
     });
-    await createAccount(ctx.app, user, { name: 'Galicia', type: 'BANK', initialBalance: '500000' });
+    await createPocket(ctx.app, user, { name: 'Galicia', initialBalance: '500000' });
   });
 
   afterAll(async () => {
@@ -53,7 +53,7 @@ describe('goals and savings', () => {
           targetAmount: '15000',
           currency: 'USD',
           targetPeriod: '2027-12',
-          accountIds: [savingsUsd.id, cashUsd.id],
+          pocketIds: [savingsUsd.id, cashUsd.id],
         })
         .expect(201)
     ).body as Goal;
@@ -73,7 +73,7 @@ describe('goals and savings', () => {
       startPeriod: '2026-01',
       status: 'ACTIVE',
     });
-    expect(goal.accounts.map((a) => a.balanceInGoalCurrency)).toEqual(['3000.00', '1200.00']);
+    expect(goal.pockets.map((a) => a.balanceInGoalCurrency)).toEqual(['3000.00', '1200.00']);
     expect(goal.projection).toMatchObject({
       accumulated: '4200.00',
       remaining: '10800.00',
@@ -105,46 +105,50 @@ describe('goals and savings', () => {
         targetAmount: '6000000',
         currency: 'ARS',
         targetPeriod: '2027-06',
-        accountIds: [savingsUsd.id],
+        pocketIds: [savingsUsd.id],
       })
       .expect(201);
     // USD 3.000 × MEP 1.200
     expect(res.body.projection.accumulated).toBe('3600000.00');
   });
 
-  it('without linked accounts it adds assigned contributions (MET-02)', async () => {
-    const goal = (
-      await api()
+  it('to split money among goals, each goal measures its own pocket (MET-02)', async () => {
+    const account = await createAccount(ctx.app, user, { name: 'Brubank' });
+    const trip = await addPocket(ctx.app, user, account.id, {
+      name: 'Vacaciones',
+      initialBalance: '1200000',
+    });
+    const emergency = await addPocket(ctx.app, user, account.id, {
+      name: 'Emergencias',
+      initialBalance: '800000',
+    });
+    const goal = (name: string, pocketIds: string[]) =>
+      api()
         .post('/api/v1/goals')
         .send({
-          name: 'Vacaciones',
+          name,
           targetAmount: '2000000',
           currency: 'ARS',
           targetPeriod: '2027-02',
+          pocketIds,
         })
-        .expect(201)
-    ).body;
-    await api()
-      .post(`/api/v1/goals/${goal.id}/contributions`)
-      .send({ amount: '1500000', date: '2026-10-01' })
-      .expect(201);
-    const res = await api()
-      .post(`/api/v1/goals/${goal.id}/contributions`)
-      .send({ amount: '-300000', date: '2026-10-20' })
-      .expect(201);
-    expect(res.body.projection.accumulated).toBe('1200000.00');
-    expect(res.body.contributions).toHaveLength(2);
-    await api()
-      .post(`/api/v1/goals/${goal.id}/contributions`)
-      .send({ amount: '0', date: '2026-10-20' })
-      .expect(400);
+        .expect(201);
+    const tripGoal = (await goal('Vacaciones', [trip.id])).body;
+    const emergencyGoal = (await goal('Fondo de emergencia', [emergency.id])).body;
+    expect(tripGoal.projection.accumulated).toBe('1200000.00');
+    expect(tripGoal.pockets).toEqual([
+      expect.objectContaining({ name: 'Vacaciones', accountName: 'Brubank' }),
+    ]);
+    expect(emergencyGoal.projection.accumulated).toBe('800000.00');
+    // Without pockets nothing is accumulated yet.
+    expect((await goal('Casa', [])).body.projection.accumulated).toBe('0.00');
   });
 
   it('links and unlinks accounts and marks a goal as achieved (MET-05)', async () => {
     const goal = await car();
     const unlinked = await api()
       .patch(`/api/v1/goals/${goal.id}`)
-      .send({ accountIds: [cashUsd.id] })
+      .send({ pocketIds: [cashUsd.id] })
       .expect(200);
     expect(unlinked.body.projection.accumulated).toBe('1200.00');
     const achieved = await api()
@@ -164,7 +168,7 @@ describe('goals and savings', () => {
       totalUsd: '7291.67',
       totalArs: '8750000.00',
     });
-    expect(res.body.accounts.map((a: { name: string }) => a.name)).toEqual([
+    expect(res.body.pockets.map((a: { name: string }) => a.name)).toEqual([
       'Caja de ahorro USD',
       'Efectivo USD',
       'Mercado Pago remunerada',
@@ -189,10 +193,10 @@ describe('goals and savings', () => {
         targetAmount: '1',
         currency: 'USD',
         targetPeriod: '2027-01',
-        accountIds: [savingsUsd.id],
+        pocketIds: [savingsUsd.id],
       })
       .expect(404);
     expect((await theirs.get('/api/v1/goals').expect(200)).body).toEqual([]);
-    expect((await theirs.get('/api/v1/savings').expect(200)).body.accounts).toEqual([]);
+    expect((await theirs.get('/api/v1/savings').expect(200)).body.pockets).toEqual([]);
   });
 });

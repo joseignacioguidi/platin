@@ -8,7 +8,7 @@ export function toTransactionDto(row: TransactionRow): Transaction {
     type: row.type,
     status: row.status,
     origin: row.origin,
-    accountId: row.accountId,
+    pocketId: row.pocketId,
     categoryId: row.categoryId,
     amount: money(row.amount),
     currency: row.currency,

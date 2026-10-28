@@ -6,7 +6,7 @@ import type {
   UpdateFixedRequest,
 } from '@platin/contracts';
 import { addMonths, maxDate, Money, parsePeriod, periodOf, utcToPeriod } from '@platin/domain';
-import { AccountsService } from '../accounts/accounts.service';
+import { PocketsService } from '../accounts/pockets.service';
 import { CategoriesService } from '../categories/categories.service';
 import { AppException } from '../common/app-exception';
 import { ClockService } from '../common/clock.service';
@@ -19,7 +19,7 @@ import { FIXED_INCLUDE, FixedRow, toFixedDto } from './fixed.mapper';
 export class FixedService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly accounts: AccountsService,
+    private readonly pockets: PocketsService,
     private readonly categories: CategoriesService,
     private readonly clock: ClockService,
   ) {}
@@ -39,7 +39,7 @@ export class FixedService {
   }
 
   async create(userId: string, request: CreateFixedRequest): Promise<FixedItem> {
-    const account = await this.accounts.getActive(userId, request.accountId);
+    const pocket = await this.pockets.getActive(userId, request.pocketId);
     await this.categories.getOwned(userId, request.categoryId, request.kind);
     const row = await this.prisma.fixedItem.create({
       data: {
@@ -47,15 +47,15 @@ export class FixedService {
         kind: request.kind,
         name: request.name,
         categoryId: request.categoryId,
-        accountId: account.id,
-        currency: account.currency,
+        pocketId: pocket.id,
+        currency: pocket.currency,
         intervalMonths: request.intervalMonths ?? 1,
         dayOfMonth: request.dayOfMonth,
         startPeriod: toDbPeriod(parsePeriod(request.startPeriod)),
         endPeriod: request.endPeriod ? toDbPeriod(parsePeriod(request.endPeriod)) : null,
         amounts: {
           create: {
-            amount: Money.of(request.amount, account.currency).toString(),
+            amount: Money.of(request.amount, pocket.currency).toString(),
             effectiveFrom: toDbPeriod(parsePeriod(request.startPeriod)),
           },
         },
@@ -68,13 +68,13 @@ export class FixedService {
   async update(userId: string, id: string, changes: UpdateFixedRequest): Promise<FixedItem> {
     const row = await this.getOwned(userId, id);
     if (changes.categoryId) await this.categories.getOwned(userId, changes.categoryId, row.kind);
-    if (changes.accountId) {
-      const account = await this.accounts.getActive(userId, changes.accountId);
-      if (account.currency !== row.currency) {
+    if (changes.pocketId) {
+      const pocket = await this.pockets.getActive(userId, changes.pocketId);
+      if (pocket.currency !== row.currency) {
         throw new AppException(
           'FIXED_CURRENCY_MISMATCH',
           HttpStatus.UNPROCESSABLE_ENTITY,
-          'The new account must be in the same currency',
+          'The new pocket must be in the same currency',
         );
       }
     }

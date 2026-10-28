@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
-import { AccountBalancesService } from './account-balances.service';
-import { AccountsController } from './accounts.controller';
+import { AccountsController, PocketsController } from './accounts.controller';
 import { AccountsService } from './accounts.service';
+import { PocketBalancesService } from './pocket-balances.service';
+import { PocketsService } from './pockets.service';
 
 @Module({
-  controllers: [AccountsController],
-  providers: [AccountsService, AccountBalancesService],
-  exports: [AccountsService, AccountBalancesService],
+  controllers: [AccountsController, PocketsController],
+  providers: [AccountsService, PocketsService, PocketBalancesService],
+  exports: [AccountsService, PocketsService, PocketBalancesService],
 })
 export class AccountsModule {}

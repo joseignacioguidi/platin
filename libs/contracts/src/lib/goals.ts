@@ -1,25 +1,22 @@
 import { GoalStatus } from '@platin/domain';
 import { z } from 'zod';
-import { accountTypeSchema } from './accounts';
-import {
-  amountSchema,
-  currencySchema,
-  localDateSchema,
-  periodSchema,
-  signedAmountSchema,
-  uuidSchema,
-} from './common';
+import { pocketKindSchema } from './accounts';
+import { amountSchema, currencySchema, periodSchema, uuidSchema } from './common';
 
-export const goalStatusSchema = z.enum([GoalStatus.ACTIVE, GoalStatus.ACHIEVED, GoalStatus.CANCELLED]);
+export const goalStatusSchema = z.enum([
+  GoalStatus.ACTIVE,
+  GoalStatus.ACHIEVED,
+  GoalStatus.CANCELLED,
+]);
 export const goalPaceSchema = z.enum(['AHEAD', 'BEHIND', 'ON_TRACK']);
 
-/** MET-01: target amount, currency and month; optionally linked accounts (MET-02). */
+/** MET-01: target amount, currency and month, and the pockets that measure it (MET-02). */
 export const createGoalRequestSchema = z.object({
   name: z.string().trim().min(1, 'Ingresá un nombre').max(60),
   targetAmount: amountSchema,
   currency: currencySchema,
   targetPeriod: periodSchema,
-  accountIds: z.array(uuidSchema).max(20).default([]),
+  pocketIds: z.array(uuidSchema).max(20).default([]),
 });
 
 export const updateGoalRequestSchema = z
@@ -29,15 +26,9 @@ export const updateGoalRequestSchema = z
     targetPeriod: periodSchema,
     /** MET-05: mark as achieved or cancelled (or back to active). */
     status: goalStatusSchema,
-    accountIds: z.array(uuidSchema).max(20),
+    pocketIds: z.array(uuidSchema).max(20),
   })
   .partial();
-
-/** MET-02: an assigned contribution (negative = withdrawal), in the goal currency. */
-export const createContributionRequestSchema = z.object({
-  amount: signedAmountSchema.refine((v) => !/^-?0+(\.0+)?$/.test(v), 'El monto no puede ser cero'),
-  date: localDateSchema,
-});
 
 const simulationSchema = z.object({
   monthly: z.string(),
@@ -68,17 +59,17 @@ export const goalSchema = z.object({
   targetPeriod: z.string(),
   startPeriod: z.string(),
   status: goalStatusSchema,
-  /** Linked accounts with their balance converted to the goal currency. */
-  accounts: z.array(
+  /** Linked pockets with their balance converted to the goal currency. */
+  pockets: z.array(
     z.object({
       id: uuidSchema,
       name: z.string(),
+      accountName: z.string(),
       currency: currencySchema,
       balance: z.string(),
       balanceInGoalCurrency: z.string(),
     }),
   ),
-  contributions: z.array(z.object({ id: uuidSchema, amount: z.string(), date: z.string() })),
   projection: goalProjectionSchema,
 });
 
@@ -92,11 +83,13 @@ export const savingsSchema = z.object({
   usd: z.string(),
   ars: z.string(),
   arsInUsd: z.string(),
-  accounts: z.array(
+  /** Savings and investment pockets that count for net worth. */
+  pockets: z.array(
     z.object({
       id: uuidSchema,
       name: z.string(),
-      type: accountTypeSchema,
+      accountName: z.string(),
+      kind: pocketKindSchema,
       currency: currencySchema,
       balance: z.string(),
     }),
@@ -105,7 +98,6 @@ export const savingsSchema = z.object({
 
 export type CreateGoalRequest = z.input<typeof createGoalRequestSchema>;
 export type UpdateGoalRequest = z.infer<typeof updateGoalRequestSchema>;
-export type CreateContributionRequest = z.infer<typeof createContributionRequestSchema>;
 export type GoalProjection = z.infer<typeof goalProjectionSchema>;
 export type Goal = z.infer<typeof goalSchema>;
 export type Savings = z.infer<typeof savingsSchema>;

@@ -1,6 +1,6 @@
-import type { Account, Category, FixedItem } from '@platin/contracts';
+import type { Pocket, Category, FixedItem } from '@platin/contracts';
 import { as, registerUser, TestUser } from '../../test/auth-helpers';
-import { balanceOf, category, createAccount } from '../../test/fixtures';
+import { balanceOf, category, createPocket } from '../../test/fixtures';
 import { createTestApp, resetDatabase, TestContext } from '../../test/test-app';
 
 /**
@@ -11,8 +11,8 @@ describe('fixed items, sync and commitments', () => {
   let october: TestContext;
   let november: TestContext;
   let user: TestUser;
-  let galicia: Account;
-  let dollars: Account;
+  let galicia: Pocket;
+  let dollars: Pocket;
   let rentCategory: Category;
   let salaryCategory: Category;
 
@@ -35,8 +35,8 @@ describe('fixed items, sync and commitments', () => {
   beforeEach(async () => {
     await resetDatabase(october.prisma);
     user = await registerUser(october.app);
-    galicia = await createAccount(october.app, user, { name: 'Galicia', initialBalance: '100000' });
-    dollars = await createAccount(october.app, user, { name: 'Caja USD', currency: 'USD' });
+    galicia = await createPocket(october.app, user, { name: 'Galicia', initialBalance: '100000' });
+    dollars = await createPocket(october.app, user, { name: 'Caja USD', currency: 'USD' });
     rentCategory = await category(october.app, user, 'Alquiler');
     salaryCategory = await category(october.app, user, 'Sueldo');
   });
@@ -51,7 +51,7 @@ describe('fixed items, sync and commitments', () => {
       kind: 'EXPENSE',
       name: 'Alquiler',
       categoryId: rentCategory.id,
-      accountId: galicia.id,
+      pocketId: galicia.id,
       amount: '380000',
       dayOfMonth: 10,
       startPeriod: '2026-10',
@@ -60,7 +60,7 @@ describe('fixed items, sync and commitments', () => {
       kind: 'INCOME',
       name: 'Sueldo',
       categoryId: salaryCategory.id,
-      accountId: galicia.id,
+      pocketId: galicia.id,
       amount: '1850000',
       dayOfMonth: 1,
       startPeriod: '2026-10',
@@ -77,7 +77,7 @@ describe('fixed items, sync and commitments', () => {
       currentAmount: '380000.00',
       paused: false,
       next: { period: '2026-10', date: '2026-10-10', amount: '380000.00' },
-      account: { name: 'Galicia' },
+      pocket: { name: 'Disponible', accountName: 'Galicia' },
     });
   });
 
@@ -165,7 +165,7 @@ describe('fixed items, sync and commitments', () => {
       kind: 'EXPENSE',
       name: 'iCloud',
       categoryId: rentCategory.id,
-      accountId: dollars.id,
+      pocketId: dollars.id,
       amount: '2.99',
       dayOfMonth: 15,
       startPeriod: '2026-10',
@@ -248,7 +248,7 @@ describe('fixed items, sync and commitments', () => {
         kind: 'EXPENSE',
         name: 'X',
         categoryId: rentCategory.id,
-        accountId: galicia.id,
+        pocketId: galicia.id,
         amount: '1',
         dayOfMonth: 1,
         startPeriod: '2026-10',

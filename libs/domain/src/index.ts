@@ -8,3 +8,4 @@ export * from './lib/installments';
 export * from './lib/fixed';
 export * from './lib/commitments';
 export * from './lib/goals';
+export * from './lib/pockets';

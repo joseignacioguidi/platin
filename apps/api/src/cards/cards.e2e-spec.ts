@@ -1,13 +1,13 @@
-import type { Account, Card, Category, Charge, StatementSummary } from '@platin/contracts';
+import type { Pocket, Card, Category, Charge, StatementSummary } from '@platin/contracts';
 import { as, registerUser, TestUser } from '../../test/auth-helpers';
-import { balanceOf, category, createAccount } from '../../test/fixtures';
+import { balanceOf, category, createPocket } from '../../test/fixtures';
 import { createTestApp, resetDatabase, TestContext } from '../../test/test-app';
 
 describe('cards', () => {
   let ctx: TestContext;
   let user: TestUser;
   let visa: Card;
-  let galicia: Account;
+  let galicia: Pocket;
   let tech: Category;
   let fees: Category;
 
@@ -36,7 +36,7 @@ describe('cards', () => {
   beforeEach(async () => {
     await resetDatabase(ctx.prisma);
     user = await registerUser(ctx.app);
-    galicia = await createAccount(ctx.app, user, { name: 'Galicia', initialBalance: '2000000' });
+    galicia = await createPocket(ctx.app, user, { name: 'Galicia', initialBalance: '2000000' });
     tech = await category(ctx.app, user, 'Otros gastos');
     fees = await category(ctx.app, user, 'Impuestos y comisiones');
     visa = (
@@ -165,13 +165,13 @@ describe('cards', () => {
 
     const partial = await api()
       .post(`/api/v1/statements/${october.id}/payments`)
-      .send({ accountId: galicia.id, currency: 'ARS', amount: '20000', date: '2026-11-04' })
+      .send({ pocketId: galicia.id, currency: 'ARS', amount: '20000', date: '2026-11-04' })
       .expect(201);
     expect(partial.body).toMatchObject({ status: 'PARTIALLY_PAID', pending: { ARS: '27333.33' } });
 
     const paid = await api()
       .post(`/api/v1/statements/${october.id}/payments`)
-      .send({ accountId: galicia.id, currency: 'ARS', amount: '27333.33', date: '2026-11-05' })
+      .send({ pocketId: galicia.id, currency: 'ARS', amount: '27333.33', date: '2026-11-05' })
       .expect(201);
     expect(paid.body).toMatchObject({ status: 'PAID', pending: { ARS: '0.00', USD: '0.00' } });
     expect(await balanceOf(ctx.app, user, galicia.id)).toBe('1952666.67');
@@ -180,7 +180,7 @@ describe('cards', () => {
     const movements = await api().get('/api/v1/movements?type=TRANSFER').expect(200);
     expect(movements.body.items[0]).toMatchObject({
       kind: 'TRANSFER',
-      toAccount: null,
+      toPocket: null,
       statement: { cardName: 'Visa Galicia', period: '2026-10' },
     });
   });
@@ -196,13 +196,13 @@ describe('cards', () => {
     await api().post(`/api/v1/statements/${october.id}/close`).send({}).expect(200);
     const missing = await api()
       .post(`/api/v1/statements/${october.id}/payments`)
-      .send({ accountId: galicia.id, currency: 'USD', amount: '24.99', date: '2026-11-05' })
+      .send({ pocketId: galicia.id, currency: 'USD', amount: '24.99', date: '2026-11-05' })
       .expect(422);
     expect(missing.body.code).toBe('PAYMENT_AMOUNT_OUT_REQUIRED');
     const paid = await api()
       .post(`/api/v1/statements/${october.id}/payments`)
       .send({
-        accountId: galicia.id,
+        pocketId: galicia.id,
         currency: 'USD',
         amount: '24.99',
         amountOut: '31237.50',

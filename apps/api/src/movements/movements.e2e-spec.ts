@@ -1,14 +1,14 @@
-import type { Account, Category, Movement } from '@platin/contracts';
+import type { Pocket, Category, Movement } from '@platin/contracts';
 import { as, registerUser, TestUser } from '../../test/auth-helpers';
-import { category, createAccount } from '../../test/fixtures';
+import { category, createPocket } from '../../test/fixtures';
 import { createTestApp, resetDatabase, TestContext } from '../../test/test-app';
 
 describe('movements', () => {
   let ctx: TestContext;
   let user: TestUser;
-  let galicia: Account;
-  let wallet: Account;
-  let dollars: Account;
+  let galicia: Pocket;
+  let wallet: Pocket;
+  let dollars: Pocket;
   let food: Category;
   let salary: Category;
 
@@ -23,9 +23,9 @@ describe('movements', () => {
   beforeEach(async () => {
     await resetDatabase(ctx.prisma);
     user = await registerUser(ctx.app);
-    galicia = await createAccount(ctx.app, user, { name: 'Galicia', initialBalance: '2000000' });
-    wallet = await createAccount(ctx.app, user, { name: 'Mercado Pago' });
-    dollars = await createAccount(ctx.app, user, { name: 'Caja USD', currency: 'USD' });
+    galicia = await createPocket(ctx.app, user, { name: 'Galicia', initialBalance: '2000000' });
+    wallet = await createPocket(ctx.app, user, { name: 'Mercado Pago' });
+    dollars = await createPocket(ctx.app, user, { name: 'Caja USD', currency: 'USD' });
     food = await category(ctx.app, user, 'Supermercado');
     salary = await category(ctx.app, user, 'Sueldo');
 
@@ -33,7 +33,7 @@ describe('movements', () => {
       api().post('/api/v1/transactions').send(body).expect(201);
     await tx({
       type: 'INCOME',
-      accountId: galicia.id,
+      pocketId: galicia.id,
       categoryId: salary.id,
       amount: '1850000',
       date: '2026-10-20',
@@ -41,7 +41,7 @@ describe('movements', () => {
     });
     await tx({
       type: 'EXPENSE',
-      accountId: wallet.id,
+      pocketId: wallet.id,
       categoryId: food.id,
       amount: '18500',
       date: '2026-10-23',
@@ -49,7 +49,7 @@ describe('movements', () => {
     });
     await tx({
       type: 'EXPENSE',
-      accountId: galicia.id,
+      pocketId: galicia.id,
       categoryId: food.id,
       amount: '9000',
       date: '2026-09-30',
@@ -58,8 +58,8 @@ describe('movements', () => {
     await api()
       .post('/api/v1/transfers')
       .send({
-        fromAccountId: galicia.id,
-        toAccountId: dollars.id,
+        fromPocketId: galicia.id,
+        toPocketId: dollars.id,
         amountOut: '120000',
         amountIn: '100',
         date: '2026-10-23',
@@ -69,7 +69,7 @@ describe('movements', () => {
     await ctx.prisma.transaction.create({
       data: {
         userId: user.id,
-        accountId: galicia.id,
+        pocketId: galicia.id,
         categoryId: food.id,
         type: 'EXPENSE',
         status: 'PENDING',
@@ -105,13 +105,13 @@ describe('movements', () => {
       amountIn: '100.00',
       currencyIn: 'USD',
       impliedRate: '1200.000000',
-      fromAccount: { name: 'Galicia' },
-      toAccount: { name: 'Caja USD' },
+      fromPocket: { name: 'Disponible', accountName: 'Galicia' },
+      toPocket: { name: 'Caja USD', accountName: 'Caja USD' },
     });
     expect(res.body.items[1]).toMatchObject({
       kind: 'TRANSACTION',
       category: { name: 'Supermercado', icon: 'shopping-cart' },
-      account: { name: 'Mercado Pago', currency: 'ARS' },
+      pocket: { name: 'Disponible', accountName: 'Mercado Pago', currency: 'ARS' },
     });
     expect(res.body.nextCursor).toBeNull();
   });
@@ -123,7 +123,7 @@ describe('movements', () => {
     expect(await get('period=2026-10&type=EXPENSE')).toEqual(['Coto', 'Spotify']);
     expect(await get('type=INCOME')).toEqual(['Sueldo']);
     expect(await get('type=TRANSFER')).toEqual(['transfer:Compra de dólares']);
-    expect(await get(`accountId=${dollars.id}`)).toEqual(['transfer:Compra de dólares']);
+    expect(await get(`pocketId=${dollars.id}`)).toEqual(['transfer:Compra de dólares']);
     expect(await get(`categoryId=${food.id}`)).toEqual(['Coto', 'Spotify', 'Dia']);
     expect(await get('status=PENDING')).toEqual(['Spotify']);
     expect(await get('q=coto')).toEqual(['Coto']);
@@ -169,7 +169,7 @@ describe('movements', () => {
     const res = await as(ctx.app, other).get('/api/v1/movements').expect(200);
     expect(res.body.items).toEqual([]);
     const filtered = await as(ctx.app, other)
-      .get(`/api/v1/movements?accountId=${galicia.id}`)
+      .get(`/api/v1/movements?pocketId=${galicia.id}`)
       .expect(200);
     expect(filtered.body.items).toEqual([]);
     const summary = await as(ctx.app, other)

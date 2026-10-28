@@ -1,6 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type {
-  CreateContributionRequest,
   CreateGoalRequest,
   Goal,
   GoalProjection,
@@ -17,29 +16,28 @@ import {
   utcToPeriod,
   valueIn,
 } from '@platin/domain';
-import { AccountBalancesService } from '../accounts/account-balances.service';
+import { PocketBalancesService } from '../accounts/pocket-balances.service';
 import { AppException } from '../common/app-exception';
 import { ClockService } from '../common/clock.service';
-import { date, money, toDbDate, toDbPeriod } from '../common/serialize';
+import { money, toDbPeriod } from '../common/serialize';
 import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RatesService } from '../rates/rates.service';
 
 const GOAL_INCLUDE = {
-  accounts: { include: { account: true } },
-  contributions: { orderBy: { date: 'asc' } },
+  pockets: { include: { pocket: { include: { account: { select: { name: true } } } } } },
 } as const;
 type GoalRow = Prisma.GoalGetPayload<{ include: typeof GOAL_INCLUDE }>;
 
 /**
- * MET-01..05. A goal is measured against real accounts (their balance converted to the goal
- * currency with today's rate) or, without linked accounts, against assigned contributions.
+ * MET-01..05. A goal is measured against real pockets: the sum of their balances converted to
+ * the goal currency with today's rate. To split money among goals, one pocket per goal.
  */
 @Injectable()
 export class GoalsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly balances: AccountBalancesService,
+    private readonly balances: PocketBalancesService,
     private readonly rates: RatesService,
     private readonly clock: ClockService,
   ) {}
@@ -69,7 +67,7 @@ export class GoalsService {
   }
 
   async create(userId: string, request: CreateGoalRequest): Promise<Goal> {
-    await this.assertAccounts(userId, request.accountIds ?? []);
+    await this.assertPockets(userId, request.pocketIds ?? []);
     const row = await this.prisma.goal.create({
       data: {
         userId,
@@ -78,7 +76,7 @@ export class GoalsService {
         currency: request.currency,
         targetPeriod: toDbPeriod(parsePeriod(request.targetPeriod)),
         createdAt: this.clock.now(),
-        accounts: { create: (request.accountIds ?? []).map((accountId) => ({ accountId })) },
+        pockets: { create: (request.pocketIds ?? []).map((pocketId) => ({ pocketId })) },
       },
       include: GOAL_INCLUDE,
     });
@@ -87,7 +85,7 @@ export class GoalsService {
 
   async update(userId: string, id: string, changes: UpdateGoalRequest): Promise<Goal> {
     const row = await this.getOwned(userId, id);
-    if (changes.accountIds) await this.assertAccounts(userId, changes.accountIds);
+    if (changes.pocketIds) await this.assertPockets(userId, changes.pocketIds);
     await this.prisma.$transaction(async (tx) => {
       await tx.goal.update({
         where: { id },
@@ -100,28 +98,12 @@ export class GoalsService {
           ...(changes.targetPeriod ? { targetPeriod: toDbPeriod(changes.targetPeriod) } : {}),
         },
       });
-      if (changes.accountIds) {
-        await tx.goalAccount.deleteMany({ where: { goalId: id } });
-        await tx.goalAccount.createMany({
-          data: changes.accountIds.map((accountId) => ({ goalId: id, accountId })),
+      if (changes.pocketIds) {
+        await tx.goalPocket.deleteMany({ where: { goalId: id } });
+        await tx.goalPocket.createMany({
+          data: changes.pocketIds.map((pocketId) => ({ goalId: id, pocketId })),
         });
       }
-    });
-    return this.get(userId, id);
-  }
-
-  async addContribution(
-    userId: string,
-    id: string,
-    request: CreateContributionRequest,
-  ): Promise<Goal> {
-    const row = await this.getOwned(userId, id);
-    await this.prisma.goalContribution.create({
-      data: {
-        goalId: id,
-        amount: Money.of(request.amount, row.currency).toString(),
-        date: toDbDate(request.date),
-      },
     });
     return this.get(userId, id);
   }
@@ -132,25 +114,28 @@ export class GoalsService {
   }
 
   /**
-   * Total saved, valued in USD with the preferred rate: accounts of type savings (any
-   * currency) and cash in dollars.
+   * Total saved, valued in USD with the preferred rate: the savings and investment pockets
+   * that count for net worth, in any currency.
    */
   async savings(userId: string): Promise<Savings> {
-    const accounts = await this.prisma.account.findMany({
+    const pockets = await this.prisma.pocket.findMany({
       where: {
         userId,
         archivedAt: null,
-        OR: [{ type: 'SAVINGS' }, { type: 'CASH', currency: 'USD' }],
+        includeInNetWorth: true,
+        kind: { in: ['SAVINGS', 'INVESTMENT'] },
+        account: { archivedAt: null },
       },
-      orderBy: { createdAt: 'asc' },
+      include: { account: { select: { name: true, sortOrder: true } } },
+      orderBy: [{ account: { sortOrder: 'asc' } }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
-    const balances = await this.balances.balances(userId, accounts);
+    const balances = await this.balances.balances(userId, pockets);
     const rate = await this.todayRate(userId);
     const sum = (currency: Currency) =>
       Money.sum(
-        accounts
-          .filter((a) => a.currency === currency)
-          .map((a) => balances.get(a.id) ?? Money.zero(currency)),
+        pockets
+          .filter((p) => p.currency === currency)
+          .map((p) => balances.get(p.id) ?? Money.zero(currency)),
         currency,
       );
     const usd = sum('USD');
@@ -164,12 +149,13 @@ export class GoalsService {
       usd: usd.toString(),
       ars: ars.toString(),
       arsInUsd: arsInUsd.toString(),
-      accounts: accounts.map((a) => ({
-        id: a.id,
-        name: a.name,
-        type: a.type,
-        currency: a.currency,
-        balance: (balances.get(a.id) ?? Money.zero(a.currency)).toString(),
+      pockets: pockets.map((p) => ({
+        id: p.id,
+        name: p.name,
+        accountName: p.account.name,
+        kind: p.kind,
+        currency: p.currency,
+        balance: (balances.get(p.id) ?? Money.zero(p.currency)).toString(),
       })),
     };
   }
@@ -182,7 +168,7 @@ export class GoalsService {
   ): Promise<Goal> {
     const balances = await this.balances.balances(
       userId,
-      row.accounts.map((link) => link.account),
+      row.pockets.map((link) => link.pocket),
     );
     const convert = (m: Money) =>
       m.currency === row.currency
@@ -190,20 +176,14 @@ export class GoalsService {
         : rate
           ? valueIn(m, row.currency, rate.sell)
           : Money.zero(row.currency);
-    const accounts = row.accounts.map(({ account }) => {
-      const balance = balances.get(account.id) ?? Money.zero(account.currency);
-      return { account, balance, converted: convert(balance) };
+    const pockets = row.pockets.map(({ pocket }) => {
+      const balance = balances.get(pocket.id) ?? Money.zero(pocket.currency);
+      return { pocket, balance, converted: convert(balance) };
     });
-    const accumulated =
-      accounts.length > 0
-        ? Money.sum(
-            accounts.map((a) => a.converted),
-            row.currency,
-          )
-        : Money.sum(
-            row.contributions.map((c) => Money.of(c.amount.toFixed(2), row.currency)),
-            row.currency,
-          );
+    const accumulated = Money.sum(
+      pockets.map((p) => p.converted),
+      row.currency,
+    );
     const startPeriod = periodOf(localDateAt(row.createdAt));
     const projection = goalProjection(
       {
@@ -223,17 +203,13 @@ export class GoalsService {
       targetPeriod: utcToPeriod(row.targetPeriod),
       startPeriod,
       status: row.status,
-      accounts: accounts.map((a) => ({
-        id: a.account.id,
-        name: a.account.name,
-        currency: a.account.currency,
-        balance: a.balance.toString(),
-        balanceInGoalCurrency: a.converted.toString(),
-      })),
-      contributions: row.contributions.map((c) => ({
-        id: c.id,
-        amount: money(c.amount),
-        date: date(c.date),
+      pockets: pockets.map((p) => ({
+        id: p.pocket.id,
+        name: p.pocket.name,
+        accountName: p.pocket.account.name,
+        currency: p.pocket.currency,
+        balance: p.balance.toString(),
+        balanceInGoalCurrency: p.converted.toString(),
       })),
       projection: {
         accumulated: projection.accumulated.toString(),
@@ -263,11 +239,11 @@ export class GoalsService {
     return this.rates.rateFor(user.valuationRate, this.clock.today());
   }
 
-  private async assertAccounts(userId: string, accountIds: string[]): Promise<void> {
-    if (accountIds.length === 0) return;
-    const count = await this.prisma.account.count({ where: { userId, id: { in: accountIds } } });
-    if (count !== new Set(accountIds).size) {
-      throw new AppException('NOT_FOUND', HttpStatus.NOT_FOUND, 'Account not found');
+  private async assertPockets(userId: string, pocketIds: string[]): Promise<void> {
+    if (pocketIds.length === 0) return;
+    const count = await this.prisma.pocket.count({ where: { userId, id: { in: pocketIds } } });
+    if (count !== new Set(pocketIds).size) {
+      throw new AppException('NOT_FOUND', HttpStatus.NOT_FOUND, 'Pocket not found');
     }
   }
 

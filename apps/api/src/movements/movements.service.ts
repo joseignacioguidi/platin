@@ -11,6 +11,7 @@ import {
   lastDayOf,
   Money,
   Period,
+  transferIntent,
   utcToLocalDate,
   utcToPeriod,
   valueIn,
@@ -30,7 +31,35 @@ import { toTransferDto } from '../transfers/transfers.service';
 
 type ParsedQuery = Omit<MovementsQuery, 'limit'> & { limit: number; period?: Period };
 
-const accountRef = { select: { id: true, name: true, currency: true } } as const;
+const pocketRef = {
+  select: {
+    id: true,
+    name: true,
+    kind: true,
+    currency: true,
+    accountId: true,
+    account: { select: { name: true } },
+  },
+} as const;
+
+interface PocketRefRow {
+  id: string;
+  name: string;
+  currency: 'ARS' | 'USD';
+  accountId: string;
+  account: { name: string };
+}
+
+/** "Mercado Pago · Disponible" as the contracts expect it. */
+function toPocketRef(row: PocketRefRow) {
+  return {
+    id: row.id,
+    name: row.name,
+    accountId: row.accountId,
+    accountName: row.account.name,
+    currency: row.currency,
+  };
+}
 
 /**
  * MOV-03: one list with incomes, expenses, adjustments, transfers and card purchases, newest
@@ -56,10 +85,11 @@ export class MovementsService {
       (query.type === undefined || query.type === 'TRANSFER') &&
       !query.categoryId &&
       query.status !== 'PENDING';
-    // Card purchases are expenses; they never belong to an account (their payment does).
+    // Card purchases are expenses; they never belong to a pocket (their payment does).
     const wantsCharges =
       (query.type === undefined || query.type === 'EXPENSE' || query.type === 'CARD') &&
       !query.accountId &&
+      !query.pocketId &&
       query.status !== 'PENDING';
 
     const [transactions, transfers, charges] = await Promise.all([
@@ -83,14 +113,15 @@ export class MovementsService {
           baseAmount: money(row.baseAmount),
           rateToBase: rate(row.rateToBase),
           description: row.description,
-          account: row.account,
+          pocket: toPocketRef(row.pocket),
           category: row.category
             ? { ...row.category, color: row.category.color as ColorToken }
             : null,
         },
       })),
       ...transfers.map((row) => {
-        const dto = toTransferDto(row, row.fromAccount.currency);
+        const intent = row.toPocket ? transferIntent(row.fromPocket.kind, row.toPocket.kind) : null;
+        const dto = toTransferDto(row, row.fromPocket.currency, intent);
         return {
           key: row,
           movement: {
@@ -103,8 +134,9 @@ export class MovementsService {
             currencyIn: dto.currencyIn,
             impliedRate: dto.impliedRate,
             description: dto.description,
-            fromAccount: row.fromAccount,
-            toAccount: row.toAccount,
+            fromPocket: toPocketRef(row.fromPocket),
+            toPocket: row.toPocket ? toPocketRef(row.toPocket) : null,
+            intent,
             statement: row.statement
               ? {
                   id: row.statement.id,
@@ -201,7 +233,8 @@ export class MovementsService {
   ) {
     const filters: Prisma.TransactionWhereInput = { userId };
     if (range) filters.date = range;
-    if (query.accountId) filters.accountId = query.accountId;
+    if (query.accountId) filters.pocket = { accountId: query.accountId };
+    if (query.pocketId) filters.pocketId = query.pocketId;
     if (query.categoryId) filters.categoryId = query.categoryId;
     if (query.type === 'INCOME' || query.type === 'EXPENSE') filters.type = query.type;
     if (query.status) filters.status = query.status;
@@ -209,7 +242,7 @@ export class MovementsService {
     return this.prisma.transaction.findMany({
       where: { AND: [filters, afterCursor(cursor)] },
       include: {
-        account: accountRef,
+        pocket: pocketRef,
         category: { select: { id: true, name: true, icon: true, color: true } },
       },
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
@@ -227,15 +260,21 @@ export class MovementsService {
     const filters: Prisma.TransferWhereInput = { userId };
     if (range) filters.date = range;
     if (query.accountId) {
-      filters.OR = [{ fromAccountId: query.accountId }, { toAccountId: query.accountId }];
+      filters.OR = [
+        { fromPocket: { accountId: query.accountId } },
+        { toPocket: { accountId: query.accountId } },
+      ];
+    }
+    if (query.pocketId) {
+      filters.AND = [{ OR: [{ fromPocketId: query.pocketId }, { toPocketId: query.pocketId }] }];
     }
     if (query.cardId) filters.statement = { cardId: query.cardId };
     if (query.q) filters.description = { contains: query.q, mode: 'insensitive' };
     return this.prisma.transfer.findMany({
       where: { AND: [filters, afterCursor(cursor)] },
       include: {
-        fromAccount: accountRef,
-        toAccount: accountRef,
+        fromPocket: pocketRef,
+        toPocket: pocketRef,
         statement: {
           select: { id: true, period: true, card: { select: { id: true, name: true } } },
         },

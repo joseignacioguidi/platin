@@ -1,3 +1,4 @@
+import { compareDates, LocalDate } from './dates';
 import { Currency, TxStatus, TxType } from './enums';
 import { DecimalInput, Money } from './money';
 
@@ -5,48 +6,77 @@ export interface BalanceTransaction {
   type: TxType;
   status: TxStatus;
   /**
-   * In the account currency. Positive for INCOME and EXPENSE (the type gives the sign).
-   * ADJUSTMENT is the exception: its amount is signed (see docs/adr/0004).
+   * In the pocket's currency. Positive for INCOME and EXPENSE (the type gives the sign).
+   * ADJUSTMENT and YIELD are the exception: their amount is signed (see docs/adr/0004).
    */
   amount: DecimalInput;
+  /** Needed only to cut the balance at a date. */
+  date?: LocalDate;
 }
 
 export interface BalanceTransfer {
-  /** Amount in this account's currency (amountOut when leaving, amountIn when entering). */
+  direction: 'IN' | 'OUT';
+  /** Amount in this pocket's currency (amountOut when leaving, amountIn when entering). */
   amount: DecimalInput;
+  date?: LocalDate;
 }
 
-export interface AccountBalanceInput {
-  currency: Currency;
-  initialBalance: DecimalInput;
-  transactions: readonly BalanceTransaction[];
-  transfersOut: readonly BalanceTransfer[];
-  transfersIn: readonly BalanceTransfer[];
+/** Whether an entry dated `date` counts for a balance at `at` (everything counts without `at`). */
+function upTo(date: LocalDate | undefined, at: LocalDate | undefined): boolean {
+  return !at || !date || compareDates(date, at) <= 0;
 }
 
 /**
- * Balance = initial + confirmed income − confirmed expenses ± adjustments
- *           − transfers out + transfers in.
- * Pending movements don't count until they are confirmed.
+ * Pocket balance = initial + confirmed income − confirmed expenses ± adjustments ± yields
+ *                  − transfers out + transfers in.
+ * Pending movements don't count until they are confirmed. With `at`, only what happened
+ * up to that date (included) counts.
  */
-export function accountBalance(input: AccountBalanceInput): Money {
-  const { currency } = input;
-  let balance = Money.of(input.initialBalance, currency);
-  for (const tx of input.transactions) {
-    if (tx.status !== TxStatus.CONFIRMED) continue;
+export function pocketBalance(
+  initial: Money,
+  transactions: readonly BalanceTransaction[],
+  transfers: readonly BalanceTransfer[],
+  at?: LocalDate,
+): Money {
+  const currency = initial.currency;
+  let balance = initial;
+  for (const tx of transactions) {
+    if (tx.status !== TxStatus.CONFIRMED || !upTo(tx.date, at)) continue;
     const amount = Money.of(tx.amount, currency);
-    if (tx.type === TxType.INCOME || tx.type === TxType.ADJUSTMENT) balance = balance.add(amount);
-    else balance = balance.subtract(amount);
+    balance = tx.type === TxType.EXPENSE ? balance.subtract(amount) : balance.add(amount);
   }
-  for (const transfer of input.transfersOut)
-    balance = balance.subtract(Money.of(transfer.amount, currency));
-  for (const transfer of input.transfersIn)
-    balance = balance.add(Money.of(transfer.amount, currency));
+  for (const transfer of transfers) {
+    if (!upTo(transfer.date, at)) continue;
+    const amount = Money.of(transfer.amount, currency);
+    balance = transfer.direction === 'IN' ? balance.add(amount) : balance.subtract(amount);
+  }
   return balance;
 }
 
+export interface PocketForTotals {
+  balance: Money;
+  archived?: boolean;
+}
+
 /**
- * CTA-04: the adjustment needed so the balance matches the real one.
+ * Totals of an account (or of several): the sum of its pockets, separated by currency.
+ * Archived pockets are left out (they can only be archived with a zero balance).
+ */
+export function accountTotals(pockets: readonly PocketForTotals[]): Record<Currency, Money> {
+  const totals: Record<Currency, Money> = {
+    ARS: Money.zero(Currency.ARS),
+    USD: Money.zero(Currency.USD),
+  };
+  for (const pocket of pockets) {
+    if (pocket.archived) continue;
+    const currency = pocket.balance.currency;
+    totals[currency] = totals[currency].add(pocket.balance);
+  }
+  return totals;
+}
+
+/**
+ * CTA-06: the adjustment needed so the balance matches the real one.
  * Returns undefined when they already match.
  */
 export function balanceAdjustment(current: Money, real: Money): Money | undefined {
@@ -55,7 +85,7 @@ export function balanceAdjustment(current: Money, real: Money): Money | undefine
 }
 
 /**
- * Signed effect of a movement on its account (for lists and running balances).
+ * Signed effect of a movement on its pocket (for lists and running balances).
  * Pending movements have no effect.
  */
 export function transactionEffect(tx: BalanceTransaction, currency: Currency): Money {

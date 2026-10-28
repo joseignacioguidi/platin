@@ -8,7 +8,7 @@ import type {
   UpdateCardRequest,
 } from '@platin/contracts';
 import { installmentProgress, Money, Period, utcToPeriod } from '@platin/domain';
-import { AccountsService } from '../accounts/accounts.service';
+import { PocketsService } from '../accounts/pockets.service';
 import { AppException } from '../common/app-exception';
 import { ClockService } from '../common/clock.service';
 import type { CreditCard } from '../generated/prisma/client';
@@ -21,7 +21,7 @@ export class CardsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly statements: StatementsService,
-    private readonly accounts: AccountsService,
+    private readonly pockets: PocketsService,
     private readonly clock: ClockService,
   ) {}
 
@@ -38,8 +38,8 @@ export class CardsService {
   }
 
   async create(userId: string, request: CreateCardRequest): Promise<Card> {
-    if (request.defaultPaymentAccountId) {
-      await this.accounts.getActive(userId, request.defaultPaymentAccountId);
+    if (request.defaultPaymentPocketId) {
+      await this.pockets.getActive(userId, request.defaultPaymentPocketId);
     }
     const card = await this.prisma.creditCard.create({
       data: {
@@ -50,7 +50,7 @@ export class CardsService {
         creditLimit: request.creditLimit ?? null,
         closingDay: request.closingDay,
         dueDay: request.dueDay,
-        defaultPaymentAccountId: request.defaultPaymentAccountId ?? null,
+        defaultPaymentPocketId: request.defaultPaymentPocketId ?? null,
       },
     });
     return this.toDto(card);
@@ -62,8 +62,8 @@ export class CardsService {
    */
   async update(userId: string, id: string, changes: UpdateCardRequest): Promise<Card> {
     await this.getOwned(userId, id);
-    if (changes.defaultPaymentAccountId) {
-      await this.accounts.getActive(userId, changes.defaultPaymentAccountId);
+    if (changes.defaultPaymentPocketId) {
+      await this.pockets.getActive(userId, changes.defaultPaymentPocketId);
     }
     const { archived, ...rest } = changes;
     const card = await this.prisma.creditCard.update({
@@ -170,7 +170,7 @@ export class CardsService {
       creditLimit: limit?.toString() ?? null,
       closingDay: card.closingDay,
       dueDay: card.dueDay,
-      defaultPaymentAccountId: card.defaultPaymentAccountId,
+      defaultPaymentPocketId: card.defaultPaymentPocketId,
       archived: card.archivedAt !== null,
       openStatement: open ? toStatementSummary(open) : null,
       committedArs: committed.toString(),

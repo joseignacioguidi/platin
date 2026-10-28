@@ -2,25 +2,35 @@ import { TxOrigin, TxStatus, TxType } from '@platin/domain';
 import { z } from 'zod';
 import { amountSchema, currencySchema, localDateSchema, rateSchema, uuidSchema } from './common';
 
-export const txTypeSchema = z.enum([TxType.INCOME, TxType.EXPENSE, TxType.ADJUSTMENT]);
+export const txTypeSchema = z.enum([
+  TxType.INCOME,
+  TxType.EXPENSE,
+  TxType.ADJUSTMENT,
+  TxType.YIELD,
+]);
 export const txStatusSchema = z.enum([TxStatus.PENDING, TxStatus.CONFIRMED]);
-export const txOriginSchema = z.enum([TxOrigin.MANUAL, TxOrigin.FIXED, TxOrigin.ADJUSTMENT]);
+export const txOriginSchema = z.enum([
+  TxOrigin.MANUAL,
+  TxOrigin.FIXED,
+  TxOrigin.ADJUSTMENT,
+  TxOrigin.VALUATION,
+]);
 
-/** MOV-01: an income or expense on an account, in the account currency. */
+/** MOV-01: an income or expense on a pocket, in the pocket currency. */
 export const createTransactionRequestSchema = z.object({
   type: z.enum([TxType.INCOME, TxType.EXPENSE]),
-  accountId: uuidSchema,
+  pocketId: uuidSchema,
   categoryId: uuidSchema,
   amount: amountSchema,
   date: localDateSchema,
   description: z.string().trim().max(120).optional(),
-  /** ARS per USD, required when the account is not in the base currency (until phase 6). */
+  /** ARS per USD; without it, the preferred rate of the day is used. */
   exchangeRate: rateSchema.optional(),
 });
 
 export const updateTransactionRequestSchema = z
   .object({
-    accountId: uuidSchema,
+    pocketId: uuidSchema,
     categoryId: uuidSchema,
     amount: amountSchema,
     date: localDateSchema,
@@ -49,7 +59,7 @@ export const transactionSchema = z.object({
   type: txTypeSchema,
   status: txStatusSchema,
   origin: txOriginSchema,
-  accountId: uuidSchema,
+  pocketId: uuidSchema,
   categoryId: uuidSchema.nullable(),
   amount: z.string(),
   currency: currencySchema,

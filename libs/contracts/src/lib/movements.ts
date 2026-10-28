@@ -3,8 +3,16 @@ import { colorTokenSchema } from './accounts';
 import { iconNameSchema } from './categories';
 import { currencySchema, periodSchema, uuidSchema } from './common';
 import { txOriginSchema, txStatusSchema, txTypeSchema } from './transactions';
+import { transferIntentSchema } from './transfers';
 
-const accountRefSchema = z.object({ id: uuidSchema, name: z.string(), currency: currencySchema });
+/** A pocket with the account it belongs to ("Mercado Pago · Disponible"). */
+const pocketRefSchema = z.object({
+  id: uuidSchema,
+  name: z.string(),
+  accountId: uuidSchema,
+  accountName: z.string(),
+  currency: currencySchema,
+});
 const categoryRefSchema = z.object({
   id: uuidSchema,
   name: z.string(),
@@ -25,11 +33,11 @@ export const transactionMovementSchema = z.object({
   baseAmount: z.string(),
   rateToBase: z.string(),
   description: z.string().nullable(),
-  account: accountRefSchema,
+  pocket: pocketRefSchema,
   category: categoryRefSchema.nullable(),
 });
 
-/** A transfer between accounts (or a statement payment, from phase 4). */
+/** A transfer between pockets, or a statement payment. */
 export const transferMovementSchema = z.object({
   kind: z.literal('TRANSFER'),
   id: uuidSchema,
@@ -40,8 +48,10 @@ export const transferMovementSchema = z.object({
   currencyIn: currencySchema,
   impliedRate: z.string().nullable(),
   description: z.string().nullable(),
-  fromAccount: accountRefSchema,
-  toAccount: accountRefSchema.nullable(),
+  fromPocket: pocketRefSchema,
+  toPocket: pocketRefSchema.nullable(),
+  /** Set for transfers between pockets: "Apartaste", "Invertiste", "Rescataste"... */
+  intent: transferIntentSchema.nullable(),
   /** Set when the transfer pays a card statement (TAR-08). */
   statement: z
     .object({ id: uuidSchema, cardId: uuidSchema, cardName: z.string(), period: z.string() })
@@ -73,7 +83,9 @@ export const movementFilterSchema = z.enum(['EXPENSE', 'INCOME', 'TRANSFER', 'CA
 /** MOV-03: `GET /movements` filters, with cursor pagination. */
 export const movementsQuerySchema = z.object({
   period: periodSchema.optional(),
+  /** All the pockets of an account. */
   accountId: uuidSchema.optional(),
+  pocketId: uuidSchema.optional(),
   cardId: uuidSchema.optional(),
   categoryId: uuidSchema.optional(),
   type: movementFilterSchema.optional(),

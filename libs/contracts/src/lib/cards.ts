@@ -36,7 +36,7 @@ export const createCardRequestSchema = z.object({
   creditLimit: amountSchema.nullable().default(null),
   closingDay: daySchema,
   dueDay: daySchema,
-  defaultPaymentAccountId: uuidSchema.nullable().default(null),
+  defaultPaymentPocketId: uuidSchema.nullable().default(null),
 });
 
 export const updateCardRequestSchema = z
@@ -50,7 +50,7 @@ export const updateCardRequestSchema = z
     creditLimit: amountSchema.nullable(),
     closingDay: daySchema,
     dueDay: daySchema,
-    defaultPaymentAccountId: uuidSchema.nullable(),
+    defaultPaymentPocketId: uuidSchema.nullable(),
     archived: z.boolean(),
   })
   .partial();
@@ -79,7 +79,7 @@ export const cardSchema = z.object({
   creditLimit: z.string().nullable(),
   closingDay: z.number().int(),
   dueDay: z.number().int(),
-  defaultPaymentAccountId: uuidSchema.nullable(),
+  defaultPaymentPocketId: uuidSchema.nullable(),
   archived: z.boolean(),
   /** The statement that collects today's purchases. */
   openStatement: statementSummarySchema.nullable(),
@@ -126,6 +126,7 @@ export const statementAdjustmentSchema = z.object({
 export const statementPaymentSchema = z.object({
   id: uuidSchema,
   date: z.string(),
+  pocketName: z.string(),
   accountName: z.string(),
   amountOut: z.string(),
   currencyOut: currencySchema,
@@ -219,14 +220,14 @@ export const closeStatementRequestSchema = z.object({
   description: z.string().trim().max(120).optional(),
 });
 
-/** TAR-08: pay the pesos or the dollars part from an account. */
+/** TAR-08: pay the pesos or the dollars part from a pocket. */
 export const payStatementRequestSchema = z.object({
-  accountId: uuidSchema,
+  pocketId: uuidSchema,
   /** Which part of the statement this pays. */
   currency: currencySchema,
   /** Amount of that part being paid. */
   amount: amountSchema,
-  /** What leaves the account, when its currency differs from the part (paying dollars with pesos). */
+  /** What leaves the pocket, when its currency differs from the part (paying dollars with pesos). */
   amountOut: amountSchema.optional(),
   date: localDateSchema,
 });

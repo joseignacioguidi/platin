@@ -1,4 +1,5 @@
 import request from 'supertest';
+import { createPocket } from '../../test/fixtures';
 import { as, registerUser } from '../../test/auth-helpers';
 import { createTestApp, resetDatabase, TestContext } from '../../test/test-app';
 import { parseDolarApi } from './rate-provider';
@@ -67,12 +68,7 @@ describe('rates', () => {
     });
     const user = await registerUser(ctx.app);
     const api = as(ctx.app, user);
-    const usd = (
-      await api
-        .post('/api/v1/accounts')
-        .send({ name: 'USD', type: 'CASH', currency: 'USD' })
-        .expect(201)
-    ).body;
+    const usd = await createPocket(ctx.app, user, { name: 'USD', currency: 'USD' });
     const category = (await api.get('/api/v1/categories').expect(200)).body.find(
       (c: { kind: string }) => c.kind === 'EXPENSE',
     );
@@ -80,7 +76,7 @@ describe('rates', () => {
       .post('/api/v1/transactions')
       .send({
         type: 'EXPENSE',
-        accountId: usd.id,
+        pocketId: usd.id,
         categoryId: category.id,
         amount: '10',
         date: '2026-10-18',

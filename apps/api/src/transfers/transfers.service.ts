@@ -1,19 +1,31 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
 import type { CreateTransferRequest, Transfer } from '@platin/contracts';
-import { Currency, impliedRate, Money } from '@platin/domain';
-import { AccountsService } from '../accounts/accounts.service';
+import {
+  Currency,
+  impliedRate,
+  intentFits,
+  Money,
+  TransferIntent,
+  transferIntent,
+} from '@platin/domain';
+import { PocketsService } from '../accounts/pockets.service';
 import { AppException } from '../common/app-exception';
 import { date, money, toDbDate } from '../common/serialize';
-import type { Account, Transfer as TransferRow } from '../generated/prisma/client';
+import type { Pocket, Transfer as TransferRow } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
-export function toTransferDto(row: TransferRow, currencyOut: Currency): Transfer {
+export function toTransferDto(
+  row: TransferRow,
+  currencyOut: Currency,
+  intent: TransferIntent | null,
+): Transfer {
   const out = Money.of(row.amountOut.toFixed(2), currencyOut);
   const into = Money.of(row.amountIn.toFixed(2), row.currencyIn);
   return {
     id: row.id,
-    fromAccountId: row.fromAccountId,
-    toAccountId: row.toAccountId,
+    fromPocketId: row.fromPocketId,
+    toPocketId: row.toPocketId,
+    intent,
     statementId: row.statementId,
     amountOut: money(row.amountOut),
     currencyOut,
@@ -26,26 +38,33 @@ export function toTransferDto(row: TransferRow, currencyOut: Currency): Transfer
 }
 
 /**
- * MOV-02. Between currencies the rate is the one implied by the two amounts the user typed;
- * the rates API is not involved.
+ * MOV-02 / CTA-05 / INV-02: money between pockets of the same account or of another one.
+ * Between currencies the rate is the one implied by the two amounts the user typed.
  */
 @Injectable()
 export class TransfersService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly accounts: AccountsService,
+    private readonly pockets: PocketsService,
   ) {}
 
   async create(userId: string, request: CreateTransferRequest): Promise<Transfer> {
-    const from = await this.accounts.getActive(userId, request.fromAccountId);
-    const to = await this.accounts.getActive(userId, request.toAccountId);
+    const from = await this.pockets.getActive(userId, request.fromPocketId);
+    const to = await this.pockets.getActive(userId, request.toPocketId);
+    if (request.intent && !intentFits(request.intent, from.kind, to.kind)) {
+      throw new AppException(
+        'TRANSFER_INTENT_MISMATCH',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        `The pockets don't fit a ${request.intent} transfer`,
+      );
+    }
     const amountIn = this.amountIn(from, to, request);
 
     const row = await this.prisma.transfer.create({
       data: {
         userId,
-        fromAccountId: from.id,
-        toAccountId: to.id,
+        fromPocketId: from.id,
+        toPocketId: to.id,
         amountOut: Money.of(request.amountOut, from.currency).toString(),
         amountIn: amountIn.toString(),
         currencyIn: to.currency,
@@ -53,13 +72,14 @@ export class TransfersService {
         description: request.description || null,
       },
     });
-    return toTransferDto(row, from.currency);
+    return toTransferDto(row, from.currency, transferIntent(from.kind, to.kind));
   }
 
   async get(userId: string, id: string): Promise<Transfer> {
     const row = await this.getOwned(userId, id);
-    const from = await this.accounts.getOwned(userId, row.fromAccountId);
-    return toTransferDto(row, from.currency);
+    const from = await this.pockets.getOwned(userId, row.fromPocketId);
+    const to = row.toPocketId ? await this.pockets.getOwned(userId, row.toPocketId) : null;
+    return toTransferDto(row, from.currency, to ? transferIntent(from.kind, to.kind) : null);
   }
 
   async remove(userId: string, id: string): Promise<void> {
@@ -74,7 +94,7 @@ export class TransfersService {
     await this.prisma.transfer.delete({ where: { id } });
   }
 
-  private amountIn(from: Account, to: Account, request: CreateTransferRequest): Money {
+  private amountIn(from: Pocket, to: Pocket, request: CreateTransferRequest): Money {
     if (from.currency === to.currency) {
       if (
         request.amountIn &&
@@ -83,7 +103,7 @@ export class TransfersService {
         throw new AppException(
           'TRANSFER_AMOUNTS_DIFFER',
           HttpStatus.UNPROCESSABLE_ENTITY,
-          'Between accounts of the same currency both amounts must match',
+          'Between pockets of the same currency both amounts must match',
         );
       }
       return Money.of(request.amountOut, to.currency);

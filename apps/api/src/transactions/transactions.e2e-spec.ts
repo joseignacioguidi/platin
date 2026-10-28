@@ -1,18 +1,18 @@
-import type { Account, Category } from '@platin/contracts';
+import type { Pocket, Category } from '@platin/contracts';
 import { as, registerUser, TestUser } from '../../test/auth-helpers';
-import { balanceOf, category, createAccount } from '../../test/fixtures';
+import { balanceOf, category, createPocket } from '../../test/fixtures';
 import { createTestApp, resetDatabase, TestContext } from '../../test/test-app';
 
 describe('transactions', () => {
   let ctx: TestContext;
   let user: TestUser;
-  let wallet: Account;
+  let wallet: Pocket;
   let food: Category;
   let salary: Category;
 
   const expense = (overrides: Record<string, unknown> = {}) => ({
     type: 'EXPENSE',
-    accountId: wallet.id,
+    pocketId: wallet.id,
     categoryId: food.id,
     amount: '18500',
     date: '2026-10-23',
@@ -27,7 +27,7 @@ describe('transactions', () => {
   beforeEach(async () => {
     await resetDatabase(ctx.prisma);
     user = await registerUser(ctx.app);
-    wallet = await createAccount(ctx.app, user, { initialBalance: '100000' });
+    wallet = await createPocket(ctx.app, user, { initialBalance: '100000' });
     food = await category(ctx.app, user, 'Supermercado');
     salary = await category(ctx.app, user, 'Sueldo');
   });
@@ -53,25 +53,25 @@ describe('transactions', () => {
   });
 
   it('a movement in dollars freezes the rate of the day (preferred type) or the one sent', async () => {
-    const usd = await createAccount(ctx.app, user, { currency: 'USD', name: 'Caja USD' });
+    const usd = await createPocket(ctx.app, user, { currency: 'USD', name: 'Caja USD' });
     const api = as(ctx.app, user);
     // Default preference MEP: sell 1200 in the fake provider.
     const auto = await api
       .post('/api/v1/transactions')
-      .send(expense({ accountId: usd.id, amount: '24.99' }))
+      .send(expense({ pocketId: usd.id, amount: '24.99' }))
       .expect(201);
     expect(auto.body).toMatchObject({ rateToBase: '1200.000000', baseAmount: '29988.00' });
 
     await api.patch('/api/v1/users/me').send({ valuationRate: 'BLUE' }).expect(200);
     const blue = await api
       .post('/api/v1/transactions')
-      .send(expense({ accountId: usd.id, amount: '10' }))
+      .send(expense({ pocketId: usd.id, amount: '10' }))
       .expect(201);
     expect(blue.body.rateToBase).toBe('1565.000000');
 
     const res = await api
       .post('/api/v1/transactions')
-      .send(expense({ accountId: usd.id, amount: '24.99', exchangeRate: '1250.50' }))
+      .send(expense({ pocketId: usd.id, amount: '24.99', exchangeRate: '1250.50' }))
       .expect(201);
     expect(res.body).toMatchObject({
       currency: 'USD',
@@ -129,11 +129,11 @@ describe('transactions', () => {
   });
 
   it('keeps the frozen rate when editing the description only', async () => {
-    const usd = await createAccount(ctx.app, user, { currency: 'USD' });
+    const usd = await createPocket(ctx.app, user, { currency: 'USD' });
     const api = as(ctx.app, user);
     const created = await api
       .post('/api/v1/transactions')
-      .send(expense({ accountId: usd.id, amount: '10', exchangeRate: '1200' }))
+      .send(expense({ pocketId: usd.id, amount: '10', exchangeRate: '1200' }))
       .expect(201);
     const edited = await api
       .patch(`/api/v1/transactions/${created.body.id}`)
@@ -147,7 +147,7 @@ describe('transactions', () => {
       ctx.prisma.transaction.create({
         data: {
           userId: user.id,
-          accountId: wallet.id,
+          pocketId: wallet.id,
           categoryId: food.id,
           type: 'EXPENSE',
           status: 'PENDING',

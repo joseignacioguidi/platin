@@ -2,154 +2,177 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import type {
   Account,
   AccountsResponse,
-  AdjustBalanceRequest,
   ColorToken,
   CreateAccountRequest,
-  Transaction,
   UpdateAccountRequest,
 } from '@platin/contracts';
-import { balanceAdjustment, Money } from '@platin/domain';
+import { accountTotals, Currency, Money } from '@platin/domain';
 import { AppException } from '../common/app-exception';
-import { freezeBase } from '../common/base-conversion';
-import { money, toDbDate } from '../common/serialize';
-import type { Account as AccountRow } from '../generated/prisma/client';
+import {
+  Prisma,
+  type Account as AccountRow,
+  type Pocket as PocketRow,
+} from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { UserRates } from '../rates/user-rates.service';
-import { toTransactionDto } from '../transactions/transaction.mapper';
-import { AccountBalancesService } from './account-balances.service';
+import { PocketBalancesService } from './pocket-balances.service';
+import { toPocketDto } from './pockets.service';
 
-export function toAccountDto(row: AccountRow, balance: Money): Account {
-  return {
-    id: row.id,
-    name: row.name,
-    type: row.type,
-    currency: row.currency,
-    initialBalance: money(row.initialBalance),
-    includeInNetWorth: row.includeInNetWorth,
-    color: (row.color as ColorToken | null) ?? null,
-    archived: row.archivedAt !== null,
-    balance: balance.toString(),
-  };
-}
+/** Name of the pocket every account is born with (CTA-02). */
+export const AVAILABLE_POCKET_NAME = 'Disponible';
 
+type AccountWithPockets = AccountRow & { pockets: PocketRow[] };
+
+const totalsDto = (totals: Record<Currency, Money>) => ({
+  ARS: totals.ARS.toString(),
+  USD: totals.USD.toString(),
+});
+
+/** CTA-01, 03, 07: accounts (institutions) with their pockets and totals per currency. */
 @Injectable()
 export class AccountsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly balances: AccountBalancesService,
-    private readonly rates: UserRates,
+    private readonly balances: PocketBalancesService,
   ) {}
 
   async list(userId: string, includeArchived = false): Promise<AccountsResponse> {
     const rows = await this.prisma.account.findMany({
       where: { userId, ...(includeArchived ? {} : { archivedAt: null }) },
-      orderBy: { createdAt: 'asc' },
+      include: {
+        pockets: {
+          where: includeArchived ? {} : { archivedAt: null },
+          orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+        },
+      },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
-    const balances = await this.balances.balances(userId, rows);
-    const items = rows.map((row) =>
-      toAccountDto(row, balances.get(row.id) ?? Money.zero(row.currency)),
+    const balances = await this.balances.balances(
+      userId,
+      rows.flatMap((row) => row.pockets),
     );
-    const total = (currency: 'ARS' | 'USD') =>
-      Money.sum(
-        rows
-          .filter((row) => row.currency === currency && row.includeInNetWorth && !row.archivedAt)
-          .map((row) => balances.get(row.id) ?? Money.zero(currency)),
-        currency,
-      ).toString();
-    return { items, totals: { ARS: total('ARS'), USD: total('USD') } };
+    const items = rows.map((row) => this.toDto(row, balances));
+    const counted = rows
+      .filter((row) => !row.archivedAt)
+      .flatMap((row) => row.pockets)
+      .filter((pocket) => pocket.includeInNetWorth && !pocket.archivedAt)
+      .map((pocket) => ({ balance: balances.get(pocket.id) ?? Money.zero(pocket.currency) }));
+    return { items, totals: totalsDto(accountTotals(counted)) };
   }
 
   async get(userId: string, id: string): Promise<Account> {
-    const row = await this.getOwned(userId, id);
-    return toAccountDto(row, await this.balances.balance(userId, row));
-  }
-
-  async create(userId: string, request: CreateAccountRequest): Promise<Account> {
-    const row = await this.prisma.account.create({
-      data: {
-        userId,
-        name: request.name,
-        type: request.type,
-        currency: request.currency,
-        initialBalance: request.initialBalance ?? '0',
-        includeInNetWorth: request.includeInNetWorth ?? true,
-        color: request.color ?? null,
-      },
+    const row = await this.prisma.account.findFirst({
+      where: { id, userId },
+      include: { pockets: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] } },
     });
-    return toAccountDto(row, Money.of(row.initialBalance.toFixed(2), row.currency));
-  }
-
-  async update(userId: string, id: string, changes: UpdateAccountRequest): Promise<Account> {
-    await this.getOwned(userId, id);
-    const { archived, ...rest } = changes;
-    const row = await this.prisma.account.update({
-      where: { id },
-      data: {
-        ...rest,
-        ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }),
-      },
-    });
-    return toAccountDto(row, await this.balances.balance(userId, row));
-  }
-
-  /** CTA-04: records the difference to the real balance as a signed ADJUSTMENT movement. */
-  async adjust(
-    userId: string,
-    id: string,
-    request: AdjustBalanceRequest,
-  ): Promise<Transaction | null> {
-    const account = await this.getActive(userId, id);
-    const current = await this.balances.balance(userId, account);
-    const difference = balanceAdjustment(current, Money.of(request.balance, account.currency));
-    if (!difference) return null;
-
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    const rate =
-      request.exchangeRate ??
-      (account.currency === user.baseCurrency
-        ? undefined
-        : ((await this.rates.sellFor(userId, request.date)) ?? undefined));
-    const frozen = freezeBase(difference, user.baseCurrency, rate);
-    const category = await this.prisma.category.findUnique({
-      where: { userId_systemKey: { userId, systemKey: 'ADJUSTMENT' } },
-      select: { id: true },
-    });
-    const row = await this.prisma.transaction.create({
-      data: {
-        userId,
-        accountId: account.id,
-        categoryId: category?.id ?? null,
-        type: 'ADJUSTMENT',
-        origin: 'ADJUSTMENT',
-        status: 'CONFIRMED',
-        amount: difference.toString(),
-        currency: account.currency,
-        rateToBase: frozen.rateToBase,
-        baseAmount: frozen.baseAmount,
-        date: toDbDate(request.date),
-        description: 'Ajuste de saldo',
-      },
-    });
-    return toTransactionDto(row);
-  }
-
-  /** An account of the user (404 otherwise). */
-  async getOwned(userId: string, id: string): Promise<AccountRow> {
-    const row = await this.prisma.account.findFirst({ where: { id, userId } });
     if (!row) throw AppException.notFound('Account not found');
-    return row;
+    const balances = await this.balances.balances(userId, row.pockets);
+    return this.toDto(row, balances);
   }
 
-  /** An account of the user that is not archived (new movements can't use archived ones). */
-  async getActive(userId: string, id: string): Promise<AccountRow> {
-    const row = await this.getOwned(userId, id);
-    if (row.archivedAt) {
-      throw new AppException(
-        'ACCOUNT_ARCHIVED',
-        HttpStatus.UNPROCESSABLE_ENTITY,
-        'The account is archived',
+  /** CTA-01/02: the account and its "Disponible" pocket in pesos, with today's balance. */
+  async create(userId: string, request: CreateAccountRequest): Promise<Account> {
+    try {
+      const id = await this.prisma.$transaction(async (tx) => {
+        const account = await tx.account.create({
+          data: {
+            userId,
+            name: request.name,
+            kind: request.kind,
+            color: request.color ?? null,
+            sortOrder: await tx.account.count({ where: { userId } }),
+          },
+        });
+        await tx.pocket.create({
+          data: {
+            userId,
+            accountId: account.id,
+            name: AVAILABLE_POCKET_NAME,
+            kind: 'AVAILABLE',
+            currency: 'ARS',
+            initialBalance: request.initialBalance ?? '0',
+          },
+        });
+        return account.id;
+      });
+      return this.get(userId, id);
+    } catch (error) {
+      throw this.duplicate(error);
+    }
+  }
+
+  /** CTA-07: archiving an account archives its pockets; all of them must be at zero. */
+  async update(userId: string, id: string, changes: UpdateAccountRequest): Promise<Account> {
+    const current = await this.prisma.account.findFirst({
+      where: { id, userId },
+      include: { pockets: true },
+    });
+    if (!current) throw AppException.notFound('Account not found');
+    const { archived, ...rest } = changes;
+    if (archived) {
+      const balances = await this.balances.balances(userId, current.pockets);
+      if ([...balances.values()].some((balance) => !balance.isZero())) {
+        throw new AppException(
+          'ACCOUNT_NOT_EMPTY',
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          'Only an account whose pockets are all at zero can be archived',
+        );
+      }
+    }
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.account.update({
+          where: { id },
+          data: {
+            ...rest,
+            ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }),
+          },
+        });
+        if (archived !== undefined) {
+          await tx.pocket.updateMany({
+            where: { accountId: id },
+            data: { archivedAt: archived ? new Date() : null },
+          });
+        }
+      });
+    } catch (error) {
+      throw this.duplicate(error);
+    }
+    return this.get(userId, id);
+  }
+
+  private toDto(row: AccountWithPockets, balances: Map<string, Money>): Account {
+    const pockets = row.pockets.map((pocket) =>
+      toPocketDto(
+        { ...pocket, account: { name: row.name, archivedAt: row.archivedAt } },
+        balances.get(pocket.id) ?? Money.zero(pocket.currency),
+      ),
+    );
+    return {
+      id: row.id,
+      name: row.name,
+      kind: row.kind,
+      color: (row.color as ColorToken | null) ?? null,
+      archived: row.archivedAt !== null,
+      pockets,
+      totals: totalsDto(
+        accountTotals(
+          row.pockets.map((pocket) => ({
+            balance: balances.get(pocket.id) ?? Money.zero(pocket.currency),
+            archived: pocket.archivedAt !== null,
+          })),
+        ),
+      ),
+    };
+  }
+
+  private duplicate(error: unknown): unknown {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return new AppException(
+        'ACCOUNT_EXISTS',
+        HttpStatus.CONFLICT,
+        'There is already an account with that name',
       );
     }
-    return row;
+    return error;
   }
 }

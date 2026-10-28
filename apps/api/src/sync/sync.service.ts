@@ -34,7 +34,7 @@ export class SyncService {
       async (tx) => {
         let generatedPending = 0;
         const fixedItems = await tx.fixedItem.findMany({
-          where: { userId, accountId: { not: null }, pausedAt: null },
+          where: { userId, pocketId: { not: null }, pausedAt: null },
           include: FIXED_INCLUDE,
         });
         for (const fixed of fixedItems) {
@@ -47,7 +47,7 @@ export class SyncService {
             const { count } = await tx.transaction.createMany({
               data: due.map((occurrence) => ({
                 userId,
-                accountId: fixed.accountId as string,
+                pocketId: fixed.pocketId as string,
                 categoryId: fixed.categoryId,
                 type: fixed.kind,
                 status: 'PENDING' as const,

@@ -51,7 +51,7 @@ export class CommitmentsService {
         },
       }),
       this.prisma.fixedItem.findMany({
-        where: { userId, accountId: { not: null } },
+        where: { userId, pocketId: { not: null } },
         include: FIXED_INCLUDE,
       }),
       this.rates.latestSell(userId),
