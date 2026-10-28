@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import { PlButton } from '@platin/web-ui';
+import { PlButton, PlWink } from '@platin/web-ui';
 import { LAYOUT_TEXTS } from './layout.texts';
 
 /** Full-screen wait while the free server boots. */
 @Component({
   selector: 'pl-wake-screen',
-  imports: [PlButton],
+  imports: [PlButton, PlWink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'fixed inset-0 z-50 flex items-center justify-center bg-canvas px-8' },
   template: `
@@ -14,14 +14,7 @@ import { LAYOUT_TEXTS } from './layout.texts';
       role="status"
       aria-live="polite"
     >
-      <img
-        src="favicon.svg"
-        alt=""
-        width="72"
-        height="72"
-        class="rounded-2xl"
-        [class.animate-pulse]="!failed()"
-      />
+      <pl-wink class="w-16 text-brand" [animated]="!failed()" />
       <h1 class="text-xl font-bold">{{ texts.wakeTitle }}</h1>
       <p class="text-[15px] text-muted">{{ failed() ? texts.wakeFailed : texts.wakeBody }}</p>
       @if (failed()) {

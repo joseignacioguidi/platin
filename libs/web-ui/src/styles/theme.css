@@ -1,9 +1,11 @@
 /*
  * platin design tokens. Components use ONLY these Tailwind tokens (bg-brand, text-muted...),
- * never raw hex values. Dark mode redefines the variables under `.dark`.
+ * never raw hex values. Dark mode redefines the variables under `.dark`;
+ * `.pl-light` pins a subtree (the landing) to the light palette.
  */
 
-:root {
+:root,
+.pl-light {
   /* Brand and financial meaning */
   --pl-brand: #00b99a;
   --pl-brand-strong: #007a65; /* small text on light backgrounds (AA) */
