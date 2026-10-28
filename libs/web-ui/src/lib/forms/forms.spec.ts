@@ -174,7 +174,10 @@ describe('pl-select and pl-date-field', () => {
     await fixture.whenStable();
     const focused = document.querySelector('button[data-date="2026-10-20"]') as HTMLButtonElement;
     expect(focused.tabIndex).toBe(0);
-    focused.click();
-    expect(fixture.componentInstance.date()).toBe('2026-10-20');
+    // Fast typing: Enter picks the day reached with the keys, not the one DOM focus is on.
+    key(grid, 'ArrowLeft');
+    key(grid, 'ArrowLeft');
+    key(grid, 'Enter');
+    expect(fixture.componentInstance.date()).toBe('2026-10-18');
   });
 });

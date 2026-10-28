@@ -63,6 +63,12 @@ export const appAreaRoutes: Route[] = [
       import('./features/savings/goal-detail-page').then((m) => m.GoalDetailPage),
   },
   {
+    path: 'categorias',
+    title: 'Categorías · platin',
+    loadComponent: () =>
+      import('./features/categories/categories-page').then((m) => m.CategoriesPage),
+  },
+  {
     path: 'bienvenida',
     title: 'Bienvenida · platin',
     loadComponent: () => import('./features/onboarding/welcome-page').then((m) => m.WelcomePage),

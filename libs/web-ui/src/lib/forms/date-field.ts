@@ -128,7 +128,7 @@ function shiftMonths(date: LocalDate, months: number): LocalDate {
       <div
         role="dialog"
         [attr.aria-label]="label()"
-        class="flex flex-col gap-3 bg-surface text-ink"
+        class="flex w-full flex-col gap-3 bg-surface text-ink"
         [class]="
           sheet
             ? 'rounded-t-[28px] px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]'
@@ -351,6 +351,12 @@ export class PlDateField extends PlFormControl<LocalDate | null> {
 
   protected onGridKeydown(event: KeyboardEvent): void {
     const focused = this.focused();
+    // Picks the day moved to with the keys, even if DOM focus hasn't caught up yet.
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      this.choose(focused);
+      return;
+    }
     const weekday = (new Date(`${focused}T00:00:00Z`).getUTCDay() + 6) % 7; // 0 = Monday
     const moves: Record<string, () => LocalDate> = {
       ArrowLeft: () => addDays(focused, -1),

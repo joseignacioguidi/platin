@@ -231,6 +231,7 @@ describe('cards', () => {
       .patch(`/api/v1/charges/${created.id}`)
       .send({ totalAmount: '90000', installmentsCount: 6 })
       .expect(200);
+    expect(edited.body.locked).toBe(false);
     expect(edited.body.installments.map((i: { amount: string }) => i.amount)).toEqual([
       '15000.00',
       '15000.00',
@@ -259,7 +260,7 @@ describe('cards', () => {
         installmentsCount: 6,
       })
       .expect(200);
-    expect(renamed.body.description).toBe('Notebook');
+    expect(renamed.body).toMatchObject({ description: 'Notebook', locked: true });
 
     const plans = (await api().get(`/api/v1/cards/${visa.id}/installments`).expect(200)).body;
     expect(plans[0]).toMatchObject({ current: 1, remainingCount: 5, remainingAmount: '75000.00' });

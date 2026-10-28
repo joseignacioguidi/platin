@@ -1,6 +1,11 @@
 import { HttpClient, httpResource } from '@angular/common/http';
 import { computed, inject, Injectable } from '@angular/core';
-import type { Category, CreateCategoryRequest } from '@platin/contracts';
+import type {
+  Category,
+  CreateCategoryRequest,
+  MergeCategoryResponse,
+  UpdateCategoryRequest,
+} from '@platin/contracts';
 import type { CategoryKind } from '@platin/domain';
 import { firstValueFrom } from 'rxjs';
 import { API } from '../../core/api';
@@ -79,6 +84,24 @@ export class CategoriesStore {
     const category = await firstValueFrom(this.http.post<Category>(`${API}/categories`, request));
     this.bus.invalidate('categories');
     return category;
+  }
+
+  async update(id: string, changes: UpdateCategoryRequest): Promise<Category> {
+    const category = await firstValueFrom(
+      this.http.patch<Category>(`${API}/categories/${id}`, changes),
+    );
+    // Names, icons and colors show up in movements, cards and the home screen.
+    this.bus.invalidate('categories', 'movements', 'cards', 'fixed', 'dashboard', 'commitments');
+    return category;
+  }
+
+  /** CAT-04: everything moves to the target and the category is archived. */
+  async merge(id: string, targetId: string): Promise<MergeCategoryResponse> {
+    const result = await firstValueFrom(
+      this.http.post<MergeCategoryResponse>(`${API}/categories/${id}/merge`, { targetId }),
+    );
+    this.bus.invalidate('categories', 'movements', 'cards', 'fixed', 'dashboard', 'commitments');
+    return result;
   }
 
   private readRecent(): string[] {

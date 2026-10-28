@@ -126,7 +126,7 @@ interface Group<T> {
 
     <ng-template #panel let-sheet="sheet">
       <div
-        class="flex flex-col bg-surface text-ink"
+        class="flex w-full flex-col bg-surface text-ink"
         [class]="
           sheet
             ? 'max-h-[80dvh] rounded-t-[28px] px-3 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]'
@@ -220,13 +220,12 @@ interface Group<T> {
                       item.option.hint
                     }}</span>
                   }
-                  <svg
-                    lucideCheck
-                    [size]="18"
-                    class="shrink-0 text-brand-strong"
-                    [class.invisible]="!isSelected(item.option)"
-                    aria-hidden="true"
-                  ></svg>
+                  <!-- The check's slot is kept for every option so texts stay aligned. -->
+                  <span class="flex size-[18px] shrink-0 text-brand-strong" aria-hidden="true">
+                    @if (isSelected(item.option)) {
+                      <svg lucideCheck [size]="18"></svg>
+                    }
+                  </span>
                 </div>
               }
             </div>
