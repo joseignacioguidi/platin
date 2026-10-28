@@ -8,6 +8,8 @@ export const DASHBOARD_TEXTS = {
   committedHint: '· cuotas y fijos',
   freeShort: 'Libre',
   pendingTitle: 'Para confirmar',
+  valuationsOverdue: 'Pasó más de un mes desde que actualizaste tus inversiones.',
+  updateValues: 'Actualizar valores',
   upcoming: 'Próximos 30 días',
   seeAll: 'Ver todo',
   statementDue: 'Vence resumen',

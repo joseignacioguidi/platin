@@ -1,7 +1,6 @@
 export const SAVINGS_TEXTS = {
   title: 'Ahorros',
   investments: 'Inversiones',
-  investmentsSoon: 'Inversiones llega en la segunda tanda',
   total: 'Total ahorrado',
   approx: (ars: string, type: string, rate: string) => `≈ ${ars} · dólar ${type} a ${rate}`,
   dollars: 'Dólares',

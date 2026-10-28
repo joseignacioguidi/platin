@@ -31,6 +31,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { RefreshBus, reloadOn } from '../../core/data/refresh-bus';
 import { errorMessage } from '../../core/errors';
 import { Today } from '../../core/today';
+import { ValuationHistory } from '../investments/valuation-history';
 import { MovementGroups } from '../transactions/movement-groups';
 import { MovementSheet } from '../transactions/movement-sheet';
 import { MovementsList } from '../transactions/movements-list';
@@ -59,6 +60,7 @@ const ACTIONS: Record<Pocket['kind'], TransferIntent[]> = {
     PlSkeleton,
     PlErrorState,
     MovementGroups,
+    ValuationHistory,
     LucideChevronLeft,
     LucideDynamicIcon,
   ],
@@ -134,6 +136,10 @@ const ACTIONS: Record<Pocket['kind'], TransferIntent[]> = {
             }
           </div>
         </section>
+      }
+
+      @if (pocket.kind === 'INVESTMENT') {
+        <pl-valuation-history [pocketId]="pocket.id" [currency]="pocket.currency" />
       }
 
       <h2 class="text-lg font-bold">{{ t.movements }}</h2>

@@ -43,15 +43,9 @@ const PACE_CLASS = {
   template: `
     <header class="flex items-center justify-between gap-3">
       <h1 class="text-3xl font-bold">{{ texts.title }}</h1>
-      <button
-        plButton="secondary"
-        size="sm"
-        type="button"
-        disabled
-        [attr.title]="texts.investmentsSoon"
-      >
+      <a plButton="secondary" size="sm" routerLink="/app/inversiones">
         {{ texts.investments }}
-      </button>
+      </a>
     </header>
 
     @if (store.savingsResource.error() && !store.savingsResource.hasValue()) {

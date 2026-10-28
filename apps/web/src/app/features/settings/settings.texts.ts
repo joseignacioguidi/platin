@@ -4,6 +4,7 @@ export const SETTINGS_TEXTS = {
     accounts: 'Cuentas',
     categories: 'Categorías',
     savings: 'Ahorros y metas',
+    investments: 'Inversiones',
     pending: 'Para confirmar',
     fixed: 'Fijos',
     commitments: 'Compromisos',

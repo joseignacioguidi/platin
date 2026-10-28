@@ -120,6 +120,16 @@ import { DASHBOARD_TEXTS } from './dashboard.texts';
         </p>
       }
 
+      @if (d.valuationsOverdue) {
+        <a
+          routerLink="/app/inversiones/actualizar"
+          class="flex min-h-11 items-center gap-3 rounded-[18px] border border-dashed border-line px-4 py-3 text-[15px]"
+        >
+          <span class="min-w-0 flex-1">{{ texts.valuationsOverdue }}</span>
+          <span class="shrink-0 font-semibold text-brand-strong">{{ texts.updateValues }}</span>
+        </a>
+      }
+
       @if (d.pending.count > 0) {
         <a
           routerLink="/app/pendientes"

@@ -63,6 +63,18 @@ export const appAreaRoutes: Route[] = [
     loadComponent: () => import('./features/savings/savings-page').then((m) => m.SavingsPage),
   },
   {
+    path: 'inversiones',
+    title: 'Inversiones · platin',
+    loadComponent: () =>
+      import('./features/investments/investments-page').then((m) => m.InvestmentsPage),
+  },
+  {
+    path: 'inversiones/actualizar',
+    title: 'Actualizar valores · platin',
+    loadComponent: () =>
+      import('./features/investments/update-values-page').then((m) => m.UpdateValuesPage),
+  },
+  {
     path: 'metas/:id',
     title: 'Meta · platin',
     loadComponent: () =>
