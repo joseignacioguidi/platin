@@ -546,6 +546,109 @@ Forma de trabajo:
 - Rama feat/fase-11-inversiones. Todo en verde antes del PR, con capturas de Inversiones y de Actualizar valores.
 ```
 
+## Iteración 3: identidad, administración y planes
+
+Tres fases para darle a platin forma de producto. Se numeran de la 17 a la 19 para no mover la segunda tanda, pero pueden hacerse antes que ella. La 17 es independiente; la 19 necesita la 18.
+
+**Antes de empezar (vos):** exportar el artboard "Landing · A + C" del canvas de mockups (la dirección elegida: hero de C con el guiño de A, preguntas como títulos y el cierre de A) como imagen a `docs/mockups/landing/`; volver a exportar los tres documentos a `docs/`.
+
+| Fase | Qué se construye | Casos de uso | Terminado cuando |
+| --- | --- | --- | --- |
+| 17 | Landing nueva con la dirección elegida | LAN-01, 02 | La landing publicada se parece al mockup elegido, con su movimiento, y Lighthouse en celular da 90 o más |
+| 18 | Administrador: panel, usuarios, configuración y auditoría | ADM-01 a 07 (sin planes) | Entro con mi email de admin, veo las métricas y suspendo y reactivo un usuario de prueba, y todo queda en la auditoría |
+| 19 | Planes con límites, sin cobro | PLN-01 a 06, ADM-06 | Un usuario Gratis que llega al límite de cuentas puede pedir Pro; lo apruebo desde el panel y puede crear la cuenta |
+
+## Fase 17 — Landing nueva
+
+Reemplaza la landing actual por la dirección elegida en el canvas: más marca, más visual y un movimiento principal.
+
+**Terminado cuando:** la landing publicada se parece al mockup elegido en escritorio y celular, el movimiento principal funciona y se detiene con "reducir movimiento", y Lighthouse en celular da 90 o más en rendimiento, accesibilidad y buenas prácticas.
+
+```
+Leé CLAUDE.md, LAN-01 y las secciones "Identidad visual y UX" (incluida "Landing") de docs/especificacion.md. La referencia visual es la imagen de docs/mockups/landing/ y los íconos de docs/brand/ (el guiño es glifo-guino.svg).
+
+Vamos a hacer la Fase 17 de docs/plan.md: reemplazar la landing actual por la nueva dirección visual.
+
+1. Reconstruí apps/web/src/app/landing siguiendo el mockup: misma estructura de secciones, jerarquía tipográfica, colores y textos (los textos van en landing.texts.ts). Usá los tokens de Tailwind; los acentos coral, celeste y rosa se habilitan solo para la landing.
+2. El guiño como componente reutilizable (pl-wink en libs/web-ui) con una entrada opcional para animar el parpadeo; usalo también en la pantalla "Despertando el servidor" y en el favicon y los íconos del manifest (desde icono-guino.svg).
+3. Un solo movimiento principal, con CSS (sin librerías de animación): el que muestra el mockup. Todo queda quieto con prefers-reduced-motion. Nada de animaciones de entrada en cada sección.
+4. Responsive real: a 390 px de ancho no hay scroll horizontal (salvo cintas o tiras pensadas para desplazarse), los titulares escalan con clamp() y los botones tienen 44 px de alto como mínimo.
+5. Sigue prerenderizada. Actualizá metadatos, imagen para compartir y Open Graph con la identidad nueva.
+6. Corré Lighthouse en celular y corregí hasta llegar a 90 o más en rendimiento, accesibilidad y buenas prácticas.
+
+Forma de trabajo:
+- Plan primero, esperame.
+- Rama feat/fase-17-landing. Todo en verde antes del PR, con capturas en escritorio y celular, un GIF o video corto del movimiento y los resultados de Lighthouse.
+```
+
+## Fase 18 — Administrador
+
+Rol de administrador, panel con métricas agregadas, gestión de usuarios, configuración global y auditoría. Sin planes todavía: eso es la fase 19.
+
+**Antes de empezar (vos):** definir `ADMIN_EMAILS` con tu email en Render y en tu `.env` local, y crear un segundo usuario de prueba.
+
+**Terminado cuando:** entro con mi email y veo el panel; un usuario común no puede abrir `/admin` ni llamar a `/api/v1/admin/*`; suspendo al usuario de prueba, no puede ingresar, lo reactivo y las dos acciones están en la auditoría; publico un aviso y lo ven todos los usuarios.
+
+```
+Leé CLAUDE.md, el módulo 13 (ADM-01 a 05 y ADM-07) y la regla "Administración" de docs/especificacion.md, y la sección "Administración y planes" de docs/arquitectura.md.
+
+Vamos a hacer la Fase 18 de docs/plan.md: el usuario administrador. No implementes planes ni límites (fase 19), pero dejá el panel preparado para sumar las secciones Planes y Solicitudes.
+
+Privacidad (no negociable): el administrador nunca ve montos, saldos, movimientos, descripciones, categorías ni nombres de cuentas de un usuario. Solo datos de cuenta y conteos.
+
+Backend:
+1. Esquema: role, status y lastSeenAt en User; AppSetting, AuditLog y ActivityDay, según la arquitectura. Migración.
+2. ADMIN_EMAILS (variable de entorno, sumala a .env.example y a la tabla de variables de docs/arquitectura.md): al ingresar, un email de la lista pasa a ADMIN. Claim role en el JWT. RolesGuard('ADMIN') que verifica el rol en la base en cada pedido.
+3. Middleware que registra ActivityDay y lastSeenAt como máximo una vez por usuario y día.
+4. Módulo admin con: GET /admin/metrics (usuarios totales, activos 7 y 30 días, altas por semana de las últimas 12, usuarios que usan cada funcionalidad), GET /admin/users con búsqueda, filtros y cursor, GET /admin/users/:id (datos de cuenta y conteos por tipo de registro), POST suspend, reactivate y logout, DELETE del usuario con todos sus datos (requiere { confirmEmail }), GET/PUT /admin/settings/:key (registro abierto, aviso global con texto y fechas, categorías sugeridas, cotización por defecto) y GET /admin/audit.
+5. Cada escritura de admin y su AuditLog en la misma transacción. El admin no puede suspenderse a sí mismo.
+6. Suspender revoca todos los refresh tokens; el login de un suspendido responde ACCOUNT_SUSPENDED. Con el registro cerrado, POST /auth/register responde REGISTRATION_CLOSED.
+7. GET /announcements/current (usuario logueado) devuelve el aviso vigente.
+8. El módulo admin no importa ningún módulo financiero. Tests e2e: acceso denegado a usuarios comunes, auditoría de cada acción, suspensión, borrado, y un test que recorre todas las respuestas de /admin y falla si encuentra campos de montos o nombres de cuentas.
+
+Web:
+9. /admin con carga diferida, guard por rol y layout de escritorio con barra lateral: Resumen, Usuarios, Configuración, Auditoría (y lugar para Planes y Solicitudes).
+10. Resumen: tarjetas de métricas y un gráfico simple de altas por semana. Usuarios: tabla con búsqueda y filtros, detalle con acciones y confirmaciones. Configuración: un formulario por clave. Auditoría: lista cronológica.
+11. En la app, el aviso global arriba del contenido, descartable por sesión. Link a /admin en el menú Más solo para administradores.
+
+Forma de trabajo:
+- Plan primero, esperame. Si conviene, dividí en backend y web.
+- Rama feat/fase-18-admin. Todo en verde antes del PR, con capturas del panel.
+```
+
+## Fase 19 — Planes con límites
+
+Planes definidos desde el panel, límites que se respetan en toda la app, solicitudes de cambio de plan y una página pública de planes. Sin cobro, pero con el lugar listo para sumarlo.
+
+**Terminado cuando:** un usuario nuevo queda en Gratis; con el límite de cuentas alcanzado, al intentar crear otra ve cuál es el límite y pide Pro; apruebo la solicitud desde el panel y puede crearla; si le asigno Pro por 30 días, al vencer vuelve a Gratis sin perder datos.
+
+```
+Leé CLAUDE.md, el módulo 12 (PLN-01 a 06), ADM-06 y la regla "Planes" de docs/especificacion.md, y la sección "Administración y planes" de docs/arquitectura.md.
+
+Vamos a hacer la Fase 19 de docs/plan.md: planes con límites, asignados por el administrador y sin cobro.
+
+Dominio:
+1. checkLimit(limits, resource, used) y resolveCurrentPlan(userPlans, defaultPlan, now) en libs/domain, con tests: límite null = ilimitado, en el límite no se puede crear, archivados no cuentan, plan vencido vuelve al por defecto.
+
+Backend:
+2. Esquema: Plan, UserPlan y PlanRequest según la arquitectura, con el índice único parcial de isDefault en SQL. La migración crea "Gratis" (por defecto) y "Pro"; proponé límites iniciales razonables y preguntame antes de fijarlos.
+3. Al registrarse, UserPlan con el plan por defecto (source DEFAULT).
+4. EntitlementsService.assertCanCreate(userId, resource) llamado desde los servicios que crean cuentas, apartados, tarjetas, metas y fijos; @RequiresFeature('investments') en los endpoints de inversiones. Errores PLAN_LIMIT_REACHED y FEATURE_NOT_IN_PLAN con { resource, limit, used }.
+5. GET /me/plan, GET /plans (público), POST /plan-requests.
+6. Admin: CRUD de planes (PLN-01), plan por defecto, POST /admin/users/:id/plan con vencimiento opcional (PLN-06), GET /admin/plan-requests, approve y reject (ADM-06). Todo con auditoría. Sumá usuarios por plan a las métricas.
+7. Tests e2e: límite alcanzado en cada recurso, funcionalidad deshabilitada, bajar de plan sin perder datos (se edita lo existente pero no se crea), vencimiento, flujo completo de solicitud.
+
+Web:
+8. Store de plan con GET /me/plan. Ante PLAN_LIMIT_REACHED o FEATURE_NOT_IN_PLAN, una hoja que explica el límite ("Tu plan Gratis incluye 2 cuentas") y permite pedir otro plan. Las funcionalidades fuera del plan se ocultan del menú.
+9. Perfil: sección "Tu plan" con el uso de cada límite y el vencimiento, si tiene.
+10. /planes pública y prerenderizada, con la identidad de la landing nueva, que lee GET /plans; link desde la landing y el perfil.
+11. Panel: secciones Planes (editar límites, funcionalidades, precio de referencia, visibilidad y orden) y Solicitudes, y el cambio de plan en el detalle de usuario.
+
+Forma de trabajo:
+- Plan primero, esperame.
+- Rama feat/fase-19-planes. Todo en verde antes del PR, con capturas de la hoja de límite, /planes y el panel de planes.
+```
+
 ## Después del MVP
 
 La segunda tanda de la especificación, en fases chicas que se pueden hacer en cualquier orden. Los prompts siguen el mismo molde que las fases anteriores: leer `CLAUDE.md` y la sección de la especificación, plan primero, rama propia, PR con todo en verde.

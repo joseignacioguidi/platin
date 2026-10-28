@@ -42,7 +42,7 @@ Todo dinero vive en un apartado de una **cuenta** o en una **tarjeta**; los movi
 | Valuación | El valor de un apartado de inversión en una fecha, cargado a mano | apartado, fecha, valor, rendimiento generado |
 | Cotización | Tipo de cambio de un día | fecha, par de monedas, tipo (oficial, MEP, blue), valor, fuente |
 
-&#91;embedded content: relaciones del dominio · 11 entidades\]
+_Diagrama de relaciones: Fijo genera Movimiento; Movimiento clasifica con una Categoría y afecta el saldo de un Apartado; Meta mide el avance de Apartados; Apartado pertenece a una Cuenta; Transferencia mueve plata entre apartados y paga la Tarjeta; Tarjeta tiene un Resumen por mes; Consumo se divide en Cuotas que caen en Resúmenes._
 
 El apartado es el centro: movimientos, transferencias y metas lo afectan o lo miden, y cada apartado pertenece a una cuenta. Del lado de la tarjeta, cada consumo se parte en cuotas que caen en resúmenes mensuales.
 
@@ -50,7 +50,7 @@ Pagar un resumen es una transferencia de un apartado a la tarjeta; por eso el ga
 
 ## Módulos y casos de uso
 
-Once módulos; cada caso de uso tiene un código para referenciarlo en el plan de implementación.
+Trece módulos; cada caso de uso tiene un código para referenciarlo en el plan de implementación.
 
 ### 1. Autenticación y perfil
 
@@ -134,7 +134,7 @@ Once módulos; cada caso de uso tiene un código para referenciarlo en el plan d
 - **DAS-01** Dashboard: patrimonio neto, ingresos y gastos del mes, próximo vencimiento de tarjetas, presupuestos en riesgo, avance de metas.
 - **DAS-02** Reporte por categoría y por mes, con comparación contra el mes anterior.
 - **DAS-03** Evolución del patrimonio en el tiempo.
-- **LAN-01** Landing pública con propuesta de valor, capturas, funcionalidades y llamado a registrarse.
+- **LAN-01** Landing pública con la identidad de platin: propuesta de valor, el producto en acción, funcionalidades y llamado a registrarse. Usa la cara del guiño, la paleta completa y un movimiento principal (ver "Identidad visual y UX > Landing").
 - **LAN-02** Páginas de login y registro con la misma identidad visual.
 
 ### 11. Categorías
@@ -144,6 +144,29 @@ Once módulos; cada caso de uso tiene un código para referenciarlo en el plan d
 - **CAT-03** Archivar una categoría: deja de ofrecerse al cargar y el histórico se conserva.
 - **CAT-04** Fusionar una categoría en otra: pasa todos sus movimientos, consumos, fijos y presupuestos a la otra y la archiva.
 - **CAT-05** Las categorías de sistema (Ajustes, Rendimientos) no se pueden editar ni archivar.
+
+### 12. Planes
+
+Los planes existen y limitan el uso, pero todavía no se cobra: el plan lo asigna el administrador. La pasarela de pago se suma después sin cambiar este módulo.
+
+- **PLN-01** El administrador define los planes: nombre, descripción, precio de referencia (solo informativo), límites por recurso (cuentas, apartados, tarjetas, metas, fijos) y funcionalidades habilitadas (por ejemplo, inversiones). Un límite vacío significa ilimitado.
+- **PLN-02** Todo usuario nuevo recibe el plan por defecto, configurable por el administrador.
+- **PLN-03** El usuario ve su plan y su uso contra cada límite en el perfil, y qué incluye cada plan en una página pública de planes.
+- **PLN-04** Al llegar a un límite, la app dice cuál es y ofrece pedir otro plan. La solicitud le llega al administrador.
+- **PLN-05** Bajar de plan nunca borra datos: lo que excede el límite se sigue viendo y editando, pero no se pueden crear nuevos.
+- **PLN-06** El administrador cambia el plan de un usuario, con vencimiento opcional (por ejemplo, Pro de prueba por 30 días); al vencer, vuelve al plan por defecto.
+
+### 13. Administración
+
+El administrador gestiona la plataforma, no la plata de los usuarios: ve datos de cuenta y métricas agregadas, nunca movimientos, saldos ni montos.
+
+- **ADM-01** Rol de administrador, asignado por configuración del servidor (no se pide ni se otorga desde la app).
+- **ADM-02** Panel con métricas agregadas: usuarios totales, activos en 7 y 30 días, altas por semana, usuarios por plan y uso por funcionalidad (cuántos usuarios usan tarjetas, metas, inversiones, fijos).
+- **ADM-03** Lista de usuarios con email, nombre, fecha de alta, último acceso, plan y estado; con búsqueda y filtros. Por usuario se ve cuántos registros tiene de cada tipo, no su contenido.
+- **ADM-04** Acciones sobre un usuario: cambiar el plan, suspender y reactivar, cerrar sus sesiones y eliminar la cuenta con todos sus datos (con confirmación escribiendo el email).
+- **ADM-05** Configuración global: planes y límites, plan por defecto, categorías sugeridas para usuarios nuevos, cotización por defecto, registro abierto o cerrado y un aviso para todos los usuarios con texto y fechas.
+- **ADM-06** Solicitudes de cambio de plan: verlas, aprobarlas o rechazarlas.
+- **ADM-07** Registro de auditoría de cada acción del administrador: quién, qué, cuándo y sobre qué usuario.
 
 ## Reglas de negocio
 
@@ -222,6 +245,20 @@ Comprometido del mes M = cuotas de resúmenes que vencen en M + fijos de gasto a
 - Los rendimientos no cuentan como ingreso en "Libre este mes" ni en presupuestos; sí suman al patrimonio y aparecen en el detalle del apartado.
 - Borrar la última valuación borra su movimiento de rendimiento; las anteriores no se pueden borrar mientras exista una posterior.
 
+### Planes
+
+- Los límites se verifican solo al crear: si el usuario está en el límite o por encima, no puede crear otro de ese recurso, pero puede seguir editando, archivando y borrando lo existente.
+- Lo archivado no cuenta para el límite.
+- Una funcionalidad deshabilitada oculta su pantalla y sus acciones; los datos que ya existían se conservan y vuelven a verse al habilitarla.
+- El plan vigente es el último asignado que no venció; si no hay ninguno, el plan por defecto.
+
+### Administración
+
+- Ningún endpoint de administración devuelve montos, saldos, descripciones, categorías ni nombres de cuentas de un usuario. Las métricas son conteos.
+- Un usuario suspendido no puede ingresar y sus sesiones se cierran. Sus datos se conservan.
+- Toda acción del administrador que cambia algo queda en la auditoría, en la misma transacción que el cambio.
+- El administrador no puede suspenderse ni quitarse el rol a sí mismo.
+
 ## Alcance: MVP, backlog y fuera de alcance
 
 El MVP es lo mínimo para dejar de usar la versión actual: cuentas, movimientos, tarjetas con cuotas, fijos, compromisos y metas. Presupuestos, inversiones y reportes completos van en una segunda tanda.
@@ -246,7 +283,7 @@ Fuera de alcance por ahora:
 - Cotización automática de inversiones.
 - Cuentas compartidas entre usuarios (pareja, familia).
 - App móvil nativa o modo offline; la web es responsive.
-- Cobro, planes pagos o cualquier aspecto comercial.
+- Cobro real de suscripciones: los planes funcionan sin cobrar; la pasarela (Mercado Pago) se suma más adelante.
 - Migración de datos desde la versión actual: se cargan a mano.
 
 ### Iteración 2 (octubre 2026)
@@ -259,6 +296,14 @@ Después de usar el MVP, el modelo de cuentas planas no representaba cómo está
 - Selectores y campos de fecha propios en todos los formularios.
 
 La base de datos se recrea desde cero: no se migran los datos cargados durante el MVP.
+
+### Iteración 3 (octubre 2026)
+
+Tres pilares para que platin se parezca más a un producto:
+
+- Una landing con más identidad y movimiento (LAN-01 y la sección "Landing"), a partir de tres direcciones visuales en el canvas de mockups.
+- Un usuario administrador con métricas, gestión de usuarios y configuración global (ADM-01 a 07).
+- Planes con límites, asignados por el administrador y sin cobro (PLN-01 a 06). El cobro real con Mercado Pago queda fuera de alcance por ahora.
 
 ## Identidad visual y UX
 
@@ -305,6 +350,13 @@ Antes de implementar conviene bajar estas pantallas a mockups: Inicio, Carga rá
 - **Selectores propios** en lugar de las listas nativas del navegador: con búsqueda, ícono y color de cada opción, y un dato secundario (saldo y moneda de un apartado, tipo de una categoría). Agrupan opciones (apartados por cuenta) y se manejan con teclado. En celular se abren como hoja inferior.
 - **Campo de fecha propio**: un calendario que funciona igual en escritorio y celular, con atajos Hoy y Ayer, y la fecha escrita en español ("lunes 27 de octubre").
 - Ningún formulario usa `<select>` ni `<input type="date">` nativos.
+
+### Landing
+
+- La cara del guiño es el personaje de la marca: aparece en el hero y en el cierre.
+- La landing usa toda la paleta, incluidos los acentos coral, celeste y rosa, que en la app están reservados.
+- Un solo movimiento principal al cargar (el guiño, los números que ruedan o los recortes flotando, según la dirección elegida) y nada que se mueva sin motivo. Con "reducir movimiento" activado, todo queda quieto.
+- Los montos que se muestran son ejemplos coherentes con los de la app (libre del mes $ 412.300, meta del auto USD 771 por mes).
 
 ## Stack, arquitectura y preguntas abiertas
 

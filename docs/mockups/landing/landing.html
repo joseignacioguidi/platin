@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>platin — Landing (mockup de referencia)</title>
+<!-- Mockup de referencia para la fase 17. Uncut Sans se reemplaza por Inter Tight en este archivo. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+body{margin:0}
+a{color:#181818}a:hover{color:#007A65}
+.eye-open{opacity:0;transform-box:fill-box;transform-origin:center;animation:eyeOpen 2.4s infinite}
+.eye-wink{opacity:1;animation:eyeWink 2.4s infinite}
+@keyframes eyeOpen{0%,62%{opacity:1;transform:scaleY(1)}66%{opacity:0;transform:scaleY(.1)}90%{opacity:0;transform:scaleY(.1)}94%,100%{opacity:1;transform:scaleY(1)}}
+@keyframes eyeWink{0%,64%{opacity:0}66%,90%{opacity:1}92%,100%{opacity:0}}
+.bubble{animation:pop .5s .5s both cubic-bezier(.2,1.4,.4,1)}
+@keyframes pop{from{opacity:0;transform:translateY(12px) scale(.92)}to{opacity:1;transform:none}}
+.sticker{animation:float 6s ease-in-out infinite}
+@keyframes float{50%{translate:0 -10px}}
+@media (max-width:640px){.nav-how{display:none}nav a{white-space:nowrap}.hero-face{flex-direction:column!important;align-items:center;gap:16px;padding-right:0!important}.hero-face .bubble{position:static!important}}
+@media (prefers-reduced-motion:reduce){.eye-open,.eye-wink,.bubble,.sticker{animation:none}}
+</style>
+</head>
+<body>
+<div style="min-height: 100vh; background: #FFFFFF; color: #181818; font-family: 'Uncut Sans', 'Inter Tight', system-ui, sans-serif; overflow: hidden">
+
+  <nav aria-label="Navegación" style="max-width: 1240px; margin: 0 auto; padding: 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px">
+    <a href="#" style="display: flex; align-items: center; gap: 10px; text-decoration: none; font-size: 24px; font-weight: 900; letter-spacing: -0.05em">
+      <svg width="24" height="29" viewBox="252 270 524 638" aria-hidden="true"><g fill="none" stroke="#181818" stroke-linecap="round" stroke-linejoin="round"><path stroke-width="96" d="M612 548 C584 512 540 494 488 494 C416 494 366 526 366 572 C366 620 416 636 488 648 C560 660 612 680 612 726 C612 772 560 804 488 804 C434 804 388 786 360 750"/><path stroke-width="88" d="M488 418 V494 M488 804 V858"/><path stroke-width="60" d="M596 386 Q648 322 742 338"/></g><circle cx="314" cy="372" r="54" fill="#181818"/></svg>
+      platin
+    </a>
+    <div style="display: flex; align-items: center; gap: 8px">
+      <a class="nav-how" href="#preguntas" style="padding: 12px 16px; font-size: 16px; font-weight: 600; text-decoration: none">Cómo funciona</a>
+      <a href="#" style="padding: 12px 16px; font-size: 16px; font-weight: 600; text-decoration: none">Ingresar</a>
+      <a href="#" style="padding: 12px 20px; border-radius: 999px; background: #00B99A; font-size: 16px; font-weight: 700; text-decoration: none; border: 2px solid #181818">Crear cuenta</a>
+    </div>
+  </nav>
+
+  <section style="max-width: 1240px; margin: 0 auto; padding: 40px 24px 72px; display: flex; flex-direction: column; align-items: center; gap: 28px; text-align: center">
+    <div class="hero-face" style="position: relative; display: flex; justify-content: center; padding-right: 8px">
+      <svg width="190" height="231" viewBox="252 270 524 638" role="img" aria-label="La cara de platin guiñando un ojo">
+        <g fill="none" stroke="#181818" stroke-linecap="round" stroke-linejoin="round">
+          <path stroke-width="96" d="M612 548 C584 512 540 494 488 494 C416 494 366 526 366 572 C366 620 416 636 488 648 C560 660 612 680 612 726 C612 772 560 804 488 804 C434 804 388 786 360 750"/>
+          <path stroke-width="88" d="M488 418 V494 M488 804 V858"/>
+          <path class="eye-wink" stroke-width="60" d="M596 386 Q648 322 742 338"/>
+        </g>
+        <circle cx="314" cy="372" r="54" fill="#181818"/>
+        <circle class="eye-open" cx="662" cy="372" r="54" fill="#181818"/>
+      </svg>
+      <div class="bubble" style="position: absolute; left: 100%; top: 6px; width: 250px; padding: 16px 20px; border-radius: 26px 26px 26px 6px; background: #FFFFFF; border: 2px solid #181818; text-align: left; font-size: 16px; line-height: 1.4">
+        Este mes te quedan <span style="font-family: 'JetBrains Mono', monospace; font-weight: 600; white-space: nowrap">$ 412.300</span> libres. Vas bien.
+      </div>
+    </div>
+    <h1 style="margin: 0; font-size: clamp(60px, 10vw, 152px); font-weight: 900; line-height: 0.88; letter-spacing: -0.06em">Tu plata,<br>más clara.</h1>
+    <p style="margin: 0; max-width: 560px; font-size: 20px; line-height: 1.5">Cuentas con sus reservas, tarjetas en cuotas, metas y dólares. Todo lo que hoy anotás en papelitos, en un solo lugar.</p>
+    <a href="#" style="padding: 18px 30px; border-radius: 999px; background: #181818; color: #FFFFFF; font-size: 18px; font-weight: 700; text-decoration: none">Crear cuenta gratis</a>
+
+    <div style="margin-top: 32px; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 24px; max-width: 1100px">
+      <div class="sticker" style="rotate: -6deg; padding: 18px 22px; border-radius: 22px; background: #FE8363; border: 2px solid #181818; text-align: left; display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 14px; font-weight: 600">Supermercado</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 600">− $ 18.500</span>
+      </div>
+      <div class="sticker" style="rotate: 4deg; animation-delay: -1.5s; padding: 18px 22px; border-radius: 22px; background: #8B7FFF; border: 2px solid #181818; text-align: left; display: flex; flex-direction: column; gap: 8px; min-width: 220px">
+        <span style="font-size: 14px; font-weight: 600; display: flex; justify-content: space-between"><span>Heladera</span><span style="font-family: 'JetBrains Mono', monospace">4 de 12</span></span>
+        <span role="img" aria-label="4 de 12 cuotas" style="display: block; height: 10px; border-radius: 5px; background: #FFFFFF"><span style="display: block; width: 33%; height: 10px; border-radius: 5px; background: #181818"></span></span>
+      </div>
+      <div class="sticker" style="rotate: 7deg; animation-delay: -4.2s; padding: 18px 22px; border-radius: 22px; background: #7DE2F2; border: 2px solid #181818; text-align: left; display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 14px; font-weight: 600">Auto, 28 %</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 600">USD 771/mes</span>
+      </div>
+      <div class="sticker" style="rotate: -5deg; animation-delay: -2.4s; padding: 16px 20px; border-radius: 999px; background: #F9C558; border: 2px solid #181818; font-size: 16px; font-weight: 700">3 para confirmar</div>
+      <div class="sticker" style="rotate: 3deg; animation-delay: -5s; padding: 16px 20px; border-radius: 22px; background: #FFC7C7; border: 2px solid #181818; text-align: left; display: flex; flex-direction: column; gap: 2px">
+        <span style="font-size: 14px; font-weight: 600">Reserva en dólares</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 600">USD 670</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="preguntas" style="max-width: 1240px; margin: 0 auto; padding: 96px 24px 40px; display: flex; flex-direction: column; gap: 32px">
+    <h2 style="margin: 0 0 16px; max-width: 760px; font-size: clamp(40px, 5vw, 64px); font-weight: 900; line-height: 0.98; letter-spacing: -0.05em">Preguntale a tu plata. platin te contesta con números.</h2>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 40px; padding: clamp(28px, 4vw, 56px); border-radius: 36px; background: #D9F5EF">
+      <div style="flex: 1 1 420px; display: flex; flex-direction: column; gap: 16px">
+        <h3 style="margin: 0; font-size: clamp(34px, 4vw, 52px); font-weight: 900; line-height: 0.98; letter-spacing: -0.05em">¿Cuánto me queda libre este mes?</h3>
+        <p style="margin: 0; max-width: 480px; font-size: 19px; line-height: 1.5">Lo que entra, menos lo que ya gastaste y lo que ya está comprometido en cuotas y fijos. Un solo número, sin planillas.</p>
+      </div>
+      <div style="flex: 1 1 360px; display: flex; flex-direction: column; gap: 14px">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: clamp(44px, 5vw, 64px); font-weight: 600; letter-spacing: -0.04em">$ 412.300</span>
+        <div role="img" aria-label="Gastado 41 %, comprometido 36 %, libre 23 %" style="display: flex; gap: 4px; height: 18px">
+          <div style="width: 41%; background: #FE8363; border: 2px solid #181818; border-radius: 9px 3px 3px 9px"></div>
+          <div style="width: 36%; background: #8B7FFF; border: 2px solid #181818; border-radius: 3px"></div>
+          <div style="width: 23%; background: #00B99A; border: 2px solid #181818; border-radius: 3px 9px 9px 3px"></div>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 16px; font-size: 15px">
+          <span>Gastado</span><span>Comprometido</span><span style="font-weight: 700">Libre</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap-reverse; align-items: center; gap: 40px; padding: clamp(28px, 4vw, 56px); border-radius: 36px; background: #ECEAFF">
+      <div style="flex: 1 1 360px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; align-items: end; height: 180px" role="img" aria-label="Cuotas por mes: bajan de noviembre a abril">
+        <div style="height: 100%; border-radius: 12px; background: #8B7FFF; border: 2px solid #181818"></div>
+        <div style="height: 82%; border-radius: 12px; background: #C9C3FF; border: 2px solid #181818"></div>
+        <div style="height: 82%; border-radius: 12px; background: #C9C3FF; border: 2px solid #181818"></div>
+        <div style="height: 82%; border-radius: 12px; background: #C9C3FF; border: 2px solid #181818"></div>
+        <div style="height: 82%; border-radius: 12px; background: #C9C3FF; border: 2px solid #181818"></div>
+        <div style="height: 49%; border-radius: 12px; background: #FFFFFF; border: 2px solid #181818"></div>
+      </div>
+      <div style="flex: 1 1 420px; display: flex; flex-direction: column; gap: 16px">
+        <h3 style="margin: 0; font-size: clamp(34px, 4vw, 52px); font-weight: 900; line-height: 0.98; letter-spacing: -0.05em">¿Cuándo termino de pagar las cuotas?</h3>
+        <p style="margin: 0; max-width: 480px; font-size: 19px; line-height: 1.5">Cargás la compra una vez y cae sola en los resúmenes de tu tarjeta. Ves cuántas cuotas quedan y qué mes se libera cada una.</p>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 40px; padding: clamp(28px, 4vw, 56px); border-radius: 36px; background: #E6F8FB">
+      <div style="flex: 1 1 420px; display: flex; flex-direction: column; gap: 16px">
+        <h3 style="margin: 0; font-size: clamp(34px, 4vw, 52px); font-weight: 900; line-height: 0.98; letter-spacing: -0.05em">¿Cuánto tengo separado para cada cosa?</h3>
+        <p style="margin: 0; max-width: 480px; font-size: 19px; line-height: 1.5">Cada cuenta con sus reservas, en pesos o en dólares: para los fijos, para el auto o para invertir. Siempre sabés de dónde sacar.</p>
+      </div>
+      <div style="flex: 1 1 360px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; justify-content: space-between; padding: 16px 20px; border-radius: 18px; background: #FFFFFF; border: 2px solid #181818; font-size: 17px"><span>Disponible</span><span style="font-family: 'JetBrains Mono', monospace; font-weight: 600">$ 744.500</span></div>
+        <div style="display: flex; justify-content: space-between; padding: 16px 20px; border-radius: 18px; background: #FFFFFF; border: 2px solid #181818; font-size: 17px"><span>Reserva fijos</span><span style="font-family: 'JetBrains Mono', monospace; font-weight: 600">$ 4.000.000</span></div>
+        <div style="display: flex; justify-content: space-between; padding: 16px 20px; border-radius: 18px; background: #7DE2F2; border: 2px solid #181818; font-size: 17px"><span>Reserva auto</span><span style="font-family: 'JetBrains Mono', monospace; font-weight: 600">USD 670</span></div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap-reverse; align-items: center; gap: 40px; padding: clamp(28px, 4vw, 56px); border-radius: 36px; background: #FDF0D0">
+      <ul style="flex: 1 1 360px; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px">
+        <li style="display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-radius: 18px; background: #FFFFFF; border: 2px solid #181818; font-size: 17px"><span>Sueldo</span><span style="font-family: 'JetBrains Mono', monospace; font-weight: 600; color: #007A65">+ $ 1.850.000</span></li>
+        <li style="display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-radius: 18px; background: #FFFFFF; border: 2px solid #181818; font-size: 17px"><span>Alquiler</span><span style="font-family: 'JetBrains Mono', monospace; font-weight: 600">− $ 380.000</span></li>
+        <li style="display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-radius: 18px; background: #F9C558; border: 2px solid #181818; font-size: 17px"><span>Spotify</span><span style="font-weight: 700">Confirmar</span></li>
+      </ul>
+      <div style="flex: 1 1 420px; display: flex; flex-direction: column; gap: 16px">
+        <h3 style="margin: 0; font-size: clamp(34px, 4vw, 52px); font-weight: 900; line-height: 0.98; letter-spacing: -0.05em">¿Ya pagué el alquiler este mes?</h3>
+        <p style="margin: 0; max-width: 480px; font-size: 19px; line-height: 1.5">Alquiler, sueldo y suscripciones aparecen solos cada mes. Los confirmás con un toque y no se te pasa ninguno.</p>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding: 80px 24px 120px">
+    <div style="max-width: 1240px; margin: 0 auto; box-sizing: border-box; border-radius: 40px; background: #181818; color: #FFFFFF; padding: clamp(40px, 6vw, 88px); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 40px">
+      <div style="display: flex; flex-direction: column; gap: 20px; max-width: 640px">
+        <h2 style="margin: 0; font-size: clamp(40px, 5vw, 72px); font-weight: 900; line-height: 0.95; letter-spacing: -0.05em">En un minuto sabés cuánto te queda.</h2>
+        <p style="margin: 0; font-size: 19px; line-height: 1.5; color: #CFCFCB">Cargá tus cuentas con el saldo de hoy. Es gratis.</p>
+        <a href="#" style="align-self: flex-start; padding: 18px 28px; border-radius: 999px; background: #00B99A; color: #181818; font-size: 18px; font-weight: 700; text-decoration: none">Crear cuenta gratis</a>
+      </div>
+      <svg width="180" height="219" viewBox="252 270 524 638" aria-hidden="true">
+        <g fill="none" stroke="#00B99A" stroke-linecap="round" stroke-linejoin="round">
+          <path stroke-width="96" d="M612 548 C584 512 540 494 488 494 C416 494 366 526 366 572 C366 620 416 636 488 648 C560 660 612 680 612 726 C612 772 560 804 488 804 C434 804 388 786 360 750"/>
+          <path stroke-width="88" d="M488 418 V494 M488 804 V858"/>
+          <path class="eye-wink" stroke-width="60" d="M596 386 Q648 322 742 338"/>
+        </g>
+        <circle cx="314" cy="372" r="54" fill="#00B99A"/>
+        <circle class="eye-open" cx="662" cy="372" r="54" fill="#00B99A"/>
+      </svg>
+    </div>
+  </section>
+
+  <footer style="max-width: 1240px; margin: 0 auto; padding: 0 24px 48px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; font-size: 15px; color: #555555">
+    <span><strong style="color: #181818">platin</strong>. Tu plata, más clara.</span>
+    <span>Hecho en Argentina</span>
+  </footer>
+</div>
+</body>
+</html>

@@ -29,7 +29,7 @@ TypeScript de punta a punta en un monorepo Nx: Angular en Vercel, NestJS en Rend
 
 Dos apps y tres librerías. Las reglas de importación se hacen cumplir con tags de Nx y la regla de lint `@nx/enforce-module-boundaries`, así que un import prohibido rompe el CI.
 
-&#91;embedded content: apps y librerías del monorepo · qué importa a qué\]
+_Diagrama: apps/web importa libs/web-ui, libs/contracts y libs/domain; apps/api importa libs/contracts y libs/domain; libs/contracts y libs/web-ui solo importan libs/domain; libs/domain no importa nada del monorepo._
 
 `apps/web` también importa `libs/domain` directamente (por ejemplo, para previsualizar el reparto de cuotas en el formulario). `libs/web-ui` solo puede importar `libs/domain` para formatear montos.
 
@@ -506,7 +506,7 @@ Para cargar movimientos con fechas viejas hace falta histórico; DolarApi deriva
 
 Tres servicios gratuitos conectados por Vercel como único punto de entrada; un push a `main` despliega todo después de pasar el CI.
 
-&#91;embedded content: infraestructura · cómo viaja un pedido\]
+_Diagrama: Navegador → Vercel (HTTPS, mismo dominio) → Render por /api/* con la cabecera secreta; Render → Neon (Prisma) y → DolarApi (cotizaciones). Al abrir la app, el navegador llama directo a GET /health de Render para despertarlo._
 
 El servidor gratuito de Render tarda alrededor de un minuto en despertar ([Render](https://render.com/docs/free)). Al abrir la app, el front llama directo a `/health` y muestra "Despertando el servidor" hasta que responde; recién ahí hace `refresh` y `sync` por `/api`. Así el primer pedido real no queda colgado detrás del arranque.
 
@@ -542,6 +542,127 @@ Vercel y Render despliegan solos al hacer push a `main` (integración con GitHub
 | `API_DIRECT_URL` | Vercel (build) | URL de Render para el pedido de `/health` |
 
 En local: `docker compose` con Postgres, `.env` a partir de `.env.example`, y `nx serve api` + `nx serve web` con proxy de `/api` al puerto de la API.
+
+## Administración y planes
+
+El administrador y los planes viven en la misma API y la misma app, separados por rol. Los límites de cada plan se verifican en un solo lugar del backend antes de crear cualquier recurso, y el modelo ya deja lugar para sumar cobro real después.
+
+### Esquema (agregados)
+
+```prisma
+enum Role          { USER ADMIN }
+enum UserStatus    { ACTIVE SUSPENDED }
+enum PlanSource    { DEFAULT ADMIN REQUEST PAYMENT }   // PAYMENT: reservado para el cobro
+enum RequestStatus { PENDING APPROVED REJECTED }
+
+// En User:
+//   role       Role       @default(USER)
+//   status     UserStatus @default(ACTIVE)
+//   lastSeenAt DateTime?
+
+model Plan {
+  id          String    @id @default(uuid()) @db.Uuid
+  key         String    @unique          // "free", "pro"
+  name        String
+  description String
+  priceArs    Decimal?  @db.Decimal(18, 2) // solo de referencia, no se cobra
+  limits      Json      // validado con Zod: { maxAccounts, maxPockets, maxCards, maxGoals, maxFixed: int | null; investments: boolean }
+  isDefault   Boolean   @default(false)   // exactamente uno (índice único parcial en SQL)
+  isPublic    Boolean   @default(true)    // aparece en la página de planes
+  sortOrder   Int       @default(0)
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+// Historial de planes de cada usuario; el vigente es el último sin vencer.
+model UserPlan {
+  id        String     @id @default(uuid()) @db.Uuid
+  userId    String     @db.Uuid
+  planId    String     @db.Uuid
+  source    PlanSource
+  startsAt  DateTime   @default(now())
+  endsAt    DateTime?
+  grantedBy String?    @db.Uuid   // admin que lo asignó
+  @@index([userId, startsAt])
+}
+
+model PlanRequest {
+  id        String        @id @default(uuid()) @db.Uuid
+  userId    String        @db.Uuid
+  planId    String        @db.Uuid
+  message   String?
+  status    RequestStatus @default(PENDING)
+  decidedBy String?       @db.Uuid
+  decidedAt DateTime?
+  createdAt DateTime      @default(now())
+  @@index([status, createdAt])
+}
+
+// Configuración global: plan por defecto, registro abierto, aviso, categorías sugeridas, cotización por defecto.
+model AppSetting {
+  key       String   @id
+  value     Json     // cada clave con su esquema Zod en libs/contracts
+  updatedAt DateTime @updatedAt
+  updatedBy String?  @db.Uuid
+}
+
+model AuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  actorId      String   @db.Uuid
+  action       String   // "user.suspend", "plan.update", "setting.update"...
+  targetUserId String?  @db.Uuid
+  payload      Json     // antes y después del cambio; nunca datos financieros
+  createdAt    DateTime @default(now())
+  @@index([createdAt])
+  @@index([targetUserId])
+}
+
+// Un registro por usuario y día con actividad: alimenta "activos en 7 y 30 días".
+model ActivityDay {
+  userId String   @db.Uuid
+  date   DateTime @db.Date
+  @@id([userId, date])
+}
+```
+
+### Límites de plan
+
+- `libs/domain`: `checkLimit(limits, resource, used)` y `resolveCurrentPlan(userPlans, defaultPlan, now)`, puras y con tests.
+- `apps/api`: `EntitlementsService` con `assertCanCreate(userId, resource)`, llamado por cada servicio antes de crear una cuenta, un apartado, una tarjeta, una meta o un fijo, y un decorador `@RequiresFeature('investments')` para los endpoints de una funcionalidad. Si no se puede, responde 403 con `code: PLAN_LIMIT_REACHED` o `FEATURE_NOT_IN_PLAN` y `{ resource, limit, used }`.
+- `GET /me/plan`: plan vigente, límites, uso actual y vencimiento. El front lo guarda en un store y lo usa para mostrar el uso, ocultar funcionalidades y abrir la hoja "Pedir otro plan" cuando la API responde con esos códigos.
+- `GET /plans` es público (sin login) para la página de planes; `POST /plan-requests` pide un cambio.
+- La migración crea los planes iniciales ("Gratis" por defecto y "Pro") con límites a definir desde el panel.
+
+### API de administración
+
+- Controladores bajo `/api/v1/admin/*` con `RolesGuard('ADMIN')`, que consulta el rol en la base en cada pedido (no confía solo en el token).
+- El JWT suma el claim `role` para que el front muestre u oculte el panel; el cambio de rol se refleja al próximo refresh.
+- El rol se otorga con la variable `ADMIN_EMAILS` (lista separada por comas): al ingresar, un email de la lista pasa a `ADMIN`. No hay forma de pedirlo desde la app.
+- El módulo `admin` solo importa `users`, `plans`, `settings`, `audit` y `metrics`; nunca los módulos financieros. Un test e2e verifica que ninguna respuesta de `/admin` contenga montos ni nombres de cuentas.
+- Toda escritura de admin se hace dentro de una transacción que también inserta su `AuditLog`.
+- Un middleware registra `ActivityDay` y `lastSeenAt` como máximo una vez por usuario y día.
+- Suspender revoca todas las familias de refresh tokens y hace que el login responda `ACCOUNT_SUSPENDED`.
+
+| Método y ruta | Caso de uso |
+| --- | --- |
+| `GET /admin/metrics` | ADM-02 |
+| `GET /admin/users?query=&plan=&status=&cursor=`, `GET /admin/users/:id` | ADM-03 |
+| `POST /admin/users/:id/plan`, `/suspend`, `/reactivate`, `/logout`; `DELETE /admin/users/:id` | ADM-04, PLN-06 |
+| `GET/POST /admin/plans`, `PATCH /admin/plans/:id` | PLN-01, 02 |
+| `GET/PUT /admin/settings/:key` | ADM-05 |
+| `GET /admin/plan-requests`, `POST /admin/plan-requests/:id/approve` y `/reject` | ADM-06 |
+| `GET /admin/audit?cursor=` | ADM-07 |
+
+### Web
+
+- Rutas `/admin/**` en la misma app Angular, con carga diferida y un guard por rol. Layout propio de escritorio (barra lateral: Resumen, Usuarios, Planes, Solicitudes, Configuración, Auditoría); reutiliza `libs/web-ui`.
+- Perfil del usuario: sección "Tu plan" con el uso de cada límite (`pl-progress`) y el botón para pedir otro plan.
+- `/planes`: página pública prerenderizada con la misma identidad que la landing, que lee `GET /plans` al cargar.
+- El aviso global (si hay uno vigente) se muestra arriba de la app, descartable por sesión.
+
+### Cobro, más adelante
+
+Cuando se cobre: una interfaz `PaymentProvider` con una implementación para suscripciones de Mercado Pago, un webhook que crea `UserPlan` con `source: PAYMENT` y `endsAt` al fin del período pago, y la página de planes con botón de suscripción. Nada de lo anterior cambia: los límites siguen saliendo del plan vigente.
 
 ## Docker y VPS
 
