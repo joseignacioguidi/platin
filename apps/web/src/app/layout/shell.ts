@@ -11,6 +11,7 @@ import {
 } from '@lucide/angular';
 import { HideAmounts } from '@platin/web-ui';
 import { QuickEntryLauncher } from '../features/quick-entry/quick-entry-launcher';
+import { AnnouncementBanner } from './announcement-banner';
 import { LAYOUT_TEXTS } from './layout.texts';
 
 /**
@@ -22,6 +23,7 @@ import { LAYOUT_TEXTS } from './layout.texts';
   imports: [
     RouterOutlet,
     RouterLink,
+    AnnouncementBanner,
     RouterLinkActive,
     LucideHouse,
     LucideList,
@@ -93,6 +95,7 @@ import { LAYOUT_TEXTS } from './layout.texts';
       class="mx-auto w-full max-w-3xl px-5 pb-32 pt-4 lg:pl-72 lg:pr-8 lg:pb-12 lg:pt-8 lg:max-w-none"
     >
       <div class="mx-auto w-full max-w-3xl">
+        <pl-announcement-banner />
         <router-outlet />
       </div>
     </main>

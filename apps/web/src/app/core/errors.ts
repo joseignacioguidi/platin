@@ -9,6 +9,11 @@ const MESSAGES: Record<string, string> = {
   TOO_MANY_REQUESTS: 'Demasiados intentos. Esperá un minuto y probá de nuevo.',
   NOT_FOUND: 'No encontramos lo que buscabas.',
   CARD_STATEMENT_CLOSED: 'El resumen ya está cerrado y no se puede modificar.',
+  ACCOUNT_SUSPENDED: 'Tu cuenta está suspendida. Si creés que es un error, escribinos.',
+  REGISTRATION_CLOSED: 'Por ahora el registro está cerrado.',
+  ADMIN_SELF_ACTION: 'No podés hacer eso con tu propia cuenta.',
+  CONFIRMATION_MISMATCH: 'El email no coincide con el del usuario.',
+  FORBIDDEN: 'No tenés permiso para hacer eso.',
   SERVICE_UNAVAILABLE: 'El servidor no está disponible. Probá de nuevo en un rato.',
 };
 

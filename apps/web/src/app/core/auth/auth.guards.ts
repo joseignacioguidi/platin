@@ -17,3 +17,11 @@ export const guestGuard: CanActivateFn = () => {
   if (isPlatformServer(inject(PLATFORM_ID))) return true;
   return inject(AuthService).isAuthenticated() ? inject(Router).createUrlTree(['/app']) : true;
 };
+
+/** /admin/**: only administrators (the API checks again on every request). */
+export const adminGuard: CanActivateFn = async () => {
+  const router = inject(Router);
+  const auth = inject(AuthService);
+  if (!(await inject(SessionService).restore())) return router.createUrlTree(['/ingresar']);
+  return auth.user()?.role === 'ADMIN' ? true : router.createUrlTree(['/app']);
+};

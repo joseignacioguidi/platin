@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LucideChevronRight, LucideDynamicIcon } from '@lucide/angular';
+import { AuthService } from '../../core/auth/auth.service';
 import { SETTINGS_TEXTS } from './settings.texts';
 
 interface MoreLink {
@@ -18,7 +19,7 @@ interface MoreLink {
     <h1 class="mb-4 text-xl font-bold">{{ texts.title }}</h1>
     <nav class="rounded-tile bg-surface px-2 py-1">
       <ul>
-        @for (link of links; track link.path) {
+        @for (link of visibleLinks(); track link.path) {
           <li class="border-b border-line-soft last:border-b-0">
             <a
               [routerLink]="link.path"
@@ -35,6 +36,7 @@ interface MoreLink {
   `,
 })
 export class MorePage {
+  private readonly auth = inject(AuthService);
   protected readonly texts = SETTINGS_TEXTS.more;
   protected readonly links: MoreLink[] = [
     { path: '/app/ahorros', label: SETTINGS_TEXTS.more.savings, icon: 'piggy-bank' },
@@ -46,4 +48,10 @@ export class MorePage {
     { path: '/app/categorias', label: SETTINGS_TEXTS.more.categories, icon: 'tag' },
     { path: '/app/perfil', label: SETTINGS_TEXTS.more.profile, icon: 'user' },
   ];
+  /** The admin panel shows up only for administrators (the API checks again). */
+  protected readonly visibleLinks = computed(() =>
+    this.auth.user()?.role === 'ADMIN'
+      ? [...this.links, { path: '/admin', label: SETTINGS_TEXTS.more.admin, icon: 'shield-check' }]
+      : this.links,
+  );
 }

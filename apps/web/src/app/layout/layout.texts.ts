@@ -16,4 +16,5 @@ export const LAYOUT_TEXTS = {
   quickEntryLabel: 'Carga rápida',
   hideAmounts: 'Ocultar montos',
   showAmounts: 'Mostrar montos',
+  dismissAnnouncement: 'Cerrar aviso',
 } as const;

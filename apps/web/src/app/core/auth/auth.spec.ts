@@ -16,6 +16,7 @@ const session = (token: string): AuthResponse => ({
     name: 'José',
     baseCurrency: 'ARS',
     valuationRate: 'MEP',
+    role: 'USER',
   },
 });
 

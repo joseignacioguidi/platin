@@ -9,6 +9,7 @@ export const SETTINGS_TEXTS = {
     fixed: 'Fijos',
     commitments: 'Compromisos',
     profile: 'Perfil y preferencias',
+    admin: 'Administración',
   },
   profile: {
     title: 'Perfil',
