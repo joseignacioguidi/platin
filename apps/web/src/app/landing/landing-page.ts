@@ -91,9 +91,7 @@ const ROW =
       <section
         class="mx-auto flex max-w-[1240px] flex-col items-center gap-7 px-4 pb-18 pt-6 text-center sm:px-6 sm:pt-10"
       >
-        <div
-          class="relative flex flex-col items-center gap-4 sm:block sm:pr-2"
-        >
+        <div class="relative flex flex-col items-center gap-4 sm:block sm:pr-2">
           <pl-wink class="w-[150px] sm:w-[190px]" [animated]="true" [label]="t.faceLabel" />
           <p
             class="bubble m-0 w-[250px] rounded-[26px_26px_26px_6px] border-2 border-ink bg-surface px-5 py-4 text-left leading-snug sm:absolute sm:left-full sm:top-1.5"
@@ -184,9 +182,7 @@ const ROW =
                 >{{ t.free.amount }}</span
               >
               <div role="img" [attr.aria-label]="t.free.barAria" class="flex h-[18px] gap-1">
-                <div
-                  class="w-[41%] rounded-[9px_3px_3px_9px] border-2 border-ink bg-expense"
-                ></div>
+                <div class="w-[41%] rounded-[9px_3px_3px_9px] border-2 border-ink bg-expense"></div>
                 <div class="w-[36%] rounded-[3px] border-2 border-ink bg-card"></div>
                 <div class="w-[23%] rounded-[3px_9px_9px_3px] border-2 border-ink bg-brand"></div>
               </div>
@@ -242,9 +238,7 @@ const ROW =
           <article [class]="questionCard + ' flex-wrap-reverse bg-pending-soft'">
             <ul class="m-0 flex flex-[1_1_300px] list-none flex-col gap-2.5 p-0">
               @for (item of t.fixed.rows; track item.label) {
-                <li
-                  [class]="row + (item.kind === 'pending' ? ' bg-pending' : ' bg-surface')"
-                >
+                <li [class]="row + (item.kind === 'pending' ? ' bg-pending' : ' bg-surface')">
                   <span>{{ item.label }}</span>
                   <span
                     [class]="
@@ -295,7 +289,8 @@ const ROW =
       class="mx-auto flex max-w-[1240px] flex-wrap justify-between gap-4 px-4 pb-12 text-[15px] text-muted sm:px-6"
     >
       <span
-        ><strong class="text-ink">{{ t.brand }}</strong>. {{ t.footerTagline }}</span
+        ><strong class="text-ink">{{ t.brand }}</strong
+        >. {{ t.footerTagline }}</span
       >
       <span>{{ t.footerMade }}</span>
     </footer>
