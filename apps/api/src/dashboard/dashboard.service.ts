@@ -21,6 +21,7 @@ import { ClockService } from '../common/clock.service';
 import { toDbDate, toDbPeriod } from '../common/serialize';
 import { FIXED_INCLUDE, FixedRow, toSchedule } from '../fixed/fixed.mapper';
 import type { Prisma } from '../generated/prisma/client';
+import { InvestmentsService } from '../investments/investments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RatesService } from '../rates/rates.service';
 import { UserRates } from '../rates/user-rates.service';
@@ -46,6 +47,7 @@ export class DashboardService {
     private readonly clock: ClockService,
     private readonly rates: RatesService,
     private readonly userRates: UserRates,
+    private readonly investments: InvestmentsService,
   ) {}
 
   async get(userId: string, requested?: Period): Promise<Dashboard> {
@@ -175,6 +177,7 @@ export class DashboardService {
             stale: !fresh || todayRate.date !== today,
           }
         : null,
+      valuationsOverdue: await this.investments.overdue(userId),
     };
   }
 

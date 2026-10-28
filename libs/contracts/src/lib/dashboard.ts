@@ -44,6 +44,8 @@ export const dashboardSchema = z.object({
   rate: z
     .object({ type: rateTypeSchema, sell: z.string(), date: z.string(), stale: z.boolean() })
     .nullable(),
+  /** INV-03: suggest updating investment values (more than a month since the last time). */
+  valuationsOverdue: z.boolean(),
 });
 
 export type UpcomingItem = z.infer<typeof upcomingItemSchema>;

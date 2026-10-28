@@ -16,6 +16,7 @@ import { ProblemDetailsFilter } from '../common/problem-details.filter';
 import { AppConfig } from '../config/app-config';
 import { ConfigModule } from '../config/config.module';
 import { GoalsModule } from '../goals/goals.module';
+import { InvestmentsModule } from '../investments/investments.module';
 import { HealthModule } from '../health/health.module';
 import { MovementsModule } from '../movements/movements.module';
 import { PrismaModule } from '../prisma/prisma.module';
@@ -65,6 +66,7 @@ const isCredentialRoute = (context: ExecutionContext): boolean =>
     CommitmentsModule,
     DashboardModule,
     GoalsModule,
+    InvestmentsModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },
