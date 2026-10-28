@@ -16,6 +16,16 @@ export const envSchema = z.object({
   // Requests per minute and IP: strict on /auth/*, general elsewhere.
   THROTTLE_AUTH_LIMIT: z.coerce.number().int().positive().default(5),
   THROTTLE_LIMIT: z.coerce.number().int().positive().default(120),
+  // Comma-separated emails that get the ADMIN role when they sign in (ADM-01).
+  ADMIN_EMAILS: z
+    .string()
+    .optional()
+    .transform((value) =>
+      (value ?? '')
+        .split(',')
+        .map((email) => email.trim().toLowerCase())
+        .filter(Boolean),
+    ),
   RATES_BASE_URL: z.string().default('https://dolarapi.com'),
   CLOCK_TODAY: optionalString.pipe(
     z

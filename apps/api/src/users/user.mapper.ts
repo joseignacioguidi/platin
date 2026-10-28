@@ -8,5 +8,6 @@ export function toUserDto(user: UserRow): User {
     name: user.name,
     baseCurrency: user.baseCurrency,
     valuationRate: user.valuationRate,
+    role: user.role,
   };
 }

@@ -3,6 +3,11 @@ import { currencySchema, rateTypeSchema, uuidSchema } from './common';
 
 export const PASSWORD_MIN_LENGTH = 10;
 
+export const roleSchema = z.enum(['USER', 'ADMIN']);
+export const userStatusSchema = z.enum(['ACTIVE', 'SUSPENDED']);
+export type Role = z.infer<typeof roleSchema>;
+export type UserStatus = z.infer<typeof userStatusSchema>;
+
 export const emailSchema = z
   .string()
   .trim()
@@ -32,6 +37,7 @@ export const userSchema = z.object({
   name: z.string().nullable(),
   baseCurrency: currencySchema,
   valuationRate: rateTypeSchema,
+  role: roleSchema,
 });
 
 export const updateUserRequestSchema = z

@@ -4,6 +4,8 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
 import { AccountsModule } from '../accounts/accounts.module';
+import { ActivityModule } from '../activity/activity.module';
+import { AdminModule } from '../admin/admin.module';
 import { AuthModule } from '../auth/auth.module';
 import { CardsModule } from '../cards/cards.module';
 import { CategoriesModule } from '../categories/categories.module';
@@ -21,6 +23,7 @@ import { HealthModule } from '../health/health.module';
 import { MovementsModule } from '../movements/movements.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RatesModule } from '../rates/rates.module';
+import { SettingsModule } from '../settings/settings.module';
 import { SyncModule } from '../sync/sync.module';
 import { TransactionsModule } from '../transactions/transactions.module';
 import { TransfersModule } from '../transfers/transfers.module';
@@ -67,6 +70,9 @@ const isCredentialRoute = (context: ExecutionContext): boolean =>
     DashboardModule,
     GoalsModule,
     InvestmentsModule,
+    SettingsModule,
+    ActivityModule,
+    AdminModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: ZodValidationPipe },

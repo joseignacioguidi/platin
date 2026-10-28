@@ -10,3 +10,4 @@ export * from './lib/commitments';
 export * from './lib/goals';
 export * from './lib/pockets';
 export * from './lib/investments';
+export * from './lib/admin';

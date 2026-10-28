@@ -32,6 +32,7 @@ describe('auth', () => {
         name: 'José',
         baseCurrency: 'ARS',
         valuationRate: 'MEP',
+        role: 'USER',
       });
       const cookie = (res.headers['set-cookie'] as unknown as string[])[0];
       expect(cookie).toMatch(/^platin_rt=/);

@@ -1,14 +1,14 @@
 import type { ColorToken } from '@platin/contracts';
 import type { Prisma } from '../generated/prisma/client';
 
-interface SuggestedCategory {
+export interface SuggestedCategory {
   name: string;
   kind: 'INCOME' | 'EXPENSE';
   icon: string;
   color: ColorToken;
 }
 
-/** Categories every new user starts with (they can be edited or archived). */
+/** Default categories every new user starts with; the admin can replace them (ADM-05). */
 export const SUGGESTED_CATEGORIES: readonly SuggestedCategory[] = [
   { name: 'Supermercado', kind: 'EXPENSE', icon: 'shopping-cart', color: 'expense' },
   { name: 'Delivery', kind: 'EXPENSE', icon: 'bike', color: 'expense' },
@@ -46,12 +46,14 @@ export const SYSTEM_CATEGORIES: readonly (SuggestedCategory & {
   },
 ];
 
+/** Creates the given suggested categories (the admin can change them) plus the system ones. */
 export async function seedSuggestedCategories(
   tx: Prisma.TransactionClient,
   userId: string,
+  suggested: readonly SuggestedCategory[] = SUGGESTED_CATEGORIES,
 ): Promise<void> {
   await tx.category.createMany({
-    data: [...SUGGESTED_CATEGORIES, ...SYSTEM_CATEGORIES].map((category) => ({
+    data: [...suggested, ...SYSTEM_CATEGORIES].map((category) => ({
       ...category,
       userId,
     })),

@@ -539,6 +539,7 @@ Vercel y Render despliegan solos al hacer push a `main` (integración con GitHub
 | `ORIGIN_SECRET` | Render y Vercel | Cabecera secreta que solo agrega Vercel |
 | `APP_ORIGIN` | Render | Dominio de la app, para CORS de `/health` |
 | `RATES_BASE_URL` | Render | `https://dolarapi.com` |
+| `ADMIN_EMAILS` | Render | Emails separados por coma que reciben el rol de administrador al ingresar |
 | `API_DIRECT_URL` | Vercel (build) | URL de Render para el pedido de `/health` |
 
 En local: `docker compose` con Postgres, `.env` a partir de `.env.example`, y `nx serve api` + `nx serve web` con proxy de `/api` al puerto de la API.

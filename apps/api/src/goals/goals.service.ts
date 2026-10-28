@@ -25,7 +25,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RatesService } from '../rates/rates.service';
 
 const GOAL_INCLUDE = {
-  pockets: { include: { pocket: { include: { account: { select: { name: true } } } } } },
+  pockets: {
+    include: { pocket: { include: { account: { select: { name: true } } } } },
+    // Stable order: the pockets as they were created.
+    orderBy: { pocket: { createdAt: 'asc' } },
+  },
 } as const;
 type GoalRow = Prisma.GoalGetPayload<{ include: typeof GOAL_INCLUDE }>;
 

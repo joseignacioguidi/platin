@@ -86,16 +86,29 @@ enum StatementStatus {
 }
 
 // ---------- User and session ----------
+enum Role {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
 model User {
-  id            String    @id @default(uuid()) @db.Uuid
-  email         String    @unique
+  id            String     @id @default(uuid()) @db.Uuid
+  email         String     @unique
   passwordHash  String
   name          String?
-  baseCurrency  Currency  @default(ARS)
-  valuationRate RateType  @default(MEP)
+  baseCurrency  Currency   @default(ARS)
+  valuationRate RateType   @default(MEP)
   lastSyncedAt  DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  role          Role       @default(USER) // granted by ADMIN_EMAILS, never from the app
+  status        UserStatus @default(ACTIVE)
+  lastSeenAt    DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   refreshTokens RefreshToken[]
   accounts      Account[]
@@ -441,4 +454,35 @@ model GoalPocket {
   pocket Pocket @relation(fields: [pocketId], references: [id], onDelete: Cascade)
 
   @@id([goalId, pocketId])
+}
+
+// ---------- Administration ----------
+// Global configuration: one row per key, each value validated by its Zod schema in libs/contracts.
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+  updatedBy String?  @db.Uuid
+}
+
+// Every admin action that changes something. No foreign keys: it outlives deleted users.
+model AuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  actorId      String   @db.Uuid
+  action       String // "user.suspend", "setting.update"...
+  targetUserId String?  @db.Uuid
+  payload      Json // before and after; never financial data
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([targetUserId])
+}
+
+// One row per user and day with activity: feeds "active in 7 and 30 days".
+model ActivityDay {
+  userId String   @db.Uuid
+  date   DateTime @db.Date
+
+  @@id([userId, date])
+  @@index([date])
 }
