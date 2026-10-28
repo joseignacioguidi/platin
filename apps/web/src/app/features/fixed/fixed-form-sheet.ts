@@ -9,6 +9,7 @@ import {
   PlCategorySelect,
   PlSegmented,
   PlSegmentOption,
+  PlPocketSelect,
   PlSelect,
   PlSelectOption,
   PlSheet,
@@ -26,7 +27,7 @@ const FREQUENCIES = [1, 2, 3, 6, 12] as const;
 /** FIJ-01 and FIJ-03: create, edit, pause, finish or delete a fixed item. */
 @Component({
   selector: 'pl-fixed-form-sheet',
-  imports: [PlSheet, PlButton, PlSegmented, PlSelect, PlCategorySelect, FormField],
+  imports: [PlSheet, PlButton, PlSegmented, PlSelect, PlPocketSelect, PlCategorySelect, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="fixed ? texts.edit : texts.new">
@@ -68,10 +69,11 @@ const FREQUENCIES = [1, 2, 3, 6, 12] as const;
         />
       </pl-form-field>
       <pl-form-field [label]="f.account" controlId="fixed-account">
-        <pl-select
+        <pl-pocket-select
           inputId="fixed-account"
           [label]="f.account"
-          [options]="accounts.options()"
+          [pockets]="accounts.pockets()"
+          display="account"
           [value]="accountId() || null"
           (valueChange)="accountId.set($event ?? '')"
         />
@@ -167,7 +169,7 @@ export class FixedFormSheet {
   protected readonly amount = signal('');
   protected readonly categoryId = signal(this.fixed?.category.id ?? '');
   protected readonly accountId = signal(
-    this.fixed?.account?.id ?? this.accounts.accounts()[0]?.id ?? '',
+    this.fixed?.pocket?.id ?? this.accounts.pockets().find((p) => p.kind === 'AVAILABLE')?.id ?? '',
   );
   protected readonly interval = signal<number>(this.fixed?.intervalMonths ?? 1);
   protected readonly day = signal(this.fixed?.dayOfMonth ?? 10);
@@ -191,14 +193,15 @@ export class FixedFormSheet {
 
   protected async save(): Promise<void> {
     if (!this.name().trim()) return this.error.set('Ingresá un nombre.');
-    if (!this.categoryId() || !this.accountId()) return this.error.set('Elegí categoría y cuenta.');
+    if (!this.categoryId() || !this.accountId())
+      return this.error.set('Elegí categoría y apartado.');
     const fixed = this.fixed;
     if (fixed) {
       await this.run(() =>
         this.store.update(fixed.id, {
           name: this.name().trim(),
           categoryId: this.categoryId(),
-          accountId: this.accountId(),
+          pocketId: this.accountId(),
           dayOfMonth: this.day(),
           endPeriod: this.end(),
         }),
@@ -212,7 +215,7 @@ export class FixedFormSheet {
         kind: this.kind(),
         name: this.name().trim(),
         categoryId: this.categoryId(),
-        accountId: this.accountId(),
+        pocketId: this.accountId(),
         amount,
         intervalMonths: this.interval(),
         dayOfMonth: this.day(),

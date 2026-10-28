@@ -1,5 +1,5 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import type { Goal } from '@platin/contracts';
 import { addMonths, Currency, parsePeriod, Period } from '@platin/domain';
 import {
@@ -65,17 +65,22 @@ import { SAVINGS_TEXTS } from './savings.texts';
       </pl-form-field>
       <fieldset class="flex flex-col gap-1">
         <legend class="mb-1 text-sm font-medium">{{ f.accounts }}</legend>
-        @for (account of accounts.accounts(); track account.id) {
+        @for (pocket of savingPockets(); track pocket.id) {
           <label class="flex min-h-11 items-center gap-3">
             <input
               type="checkbox"
               class="size-5 accent-brand"
-              [checked]="selected().includes(account.id)"
-              (change)="toggle(account.id)"
+              [checked]="selected().includes(pocket.id)"
+              (change)="toggle(pocket.id)"
             />
-            <span class="flex-1">{{ account.name }}</span>
-            <span class="font-amount text-sm text-muted">{{ account.currency }}</span>
+            <span class="flex min-w-0 flex-1 flex-col">
+              <span class="truncate">{{ pocket.name }}</span>
+              <span class="truncate text-xs text-muted">{{ pocket.accountName }}</span>
+            </span>
+            <span class="font-amount text-sm text-muted">{{ pocket.currency }}</span>
           </label>
+        } @empty {
+          <p class="text-sm text-muted">{{ f.noPockets }}</p>
         }
         <p class="text-xs text-muted">{{ f.accountsHint }}</p>
       </fieldset>
@@ -114,7 +119,11 @@ export class GoalFormSheet {
     0,
     120,
   );
-  protected readonly selected = signal<string[]>(this.goal?.accounts.map((a) => a.id) ?? []);
+  protected readonly selected = signal<string[]>(this.goal?.pockets.map((p) => p.id) ?? []);
+  /** Savings and investment pockets (plus any already linked). */
+  protected readonly savingPockets = computed(() =>
+    this.accounts.pockets().filter((p) => p.kind !== 'AVAILABLE' || this.selected().includes(p.id)),
+  );
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
 
@@ -141,14 +150,14 @@ export class GoalFormSheet {
             name: this.name().trim(),
             targetAmount: amount,
             targetPeriod: target,
-            accountIds: this.selected(),
+            pocketIds: this.selected(),
           })
         : await this.store.create({
             name: this.name().trim(),
             targetAmount: amount,
             currency: this.currency(),
             targetPeriod: target,
-            accountIds: this.selected(),
+            pocketIds: this.selected(),
           });
       this.ref.close(result);
     } catch (error) {

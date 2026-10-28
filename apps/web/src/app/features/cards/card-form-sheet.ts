@@ -8,7 +8,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { type Card, createCardRequestSchema } from '@platin/contracts';
-import { parseTypedAmount, PlButton, PlSelect, PlSheet } from '@platin/web-ui';
+import { parseTypedAmount, PlButton, PlPocketSelect, PlSheet } from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
 import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { fieldError, zodValidator } from '../../core/forms/zod-validator';
@@ -25,7 +25,7 @@ function optionalAmount(control: AbstractControl<string>): ValidationErrors | nu
 /** TAR-01: card with its closing and due days. */
 @Component({
   selector: 'pl-card-form-sheet',
-  imports: [PlSheet, PlButton, PlSelect, ReactiveFormsModule, FormField],
+  imports: [PlSheet, PlButton, PlPocketSelect, ReactiveFormsModule, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="card ? texts.edit : texts.new">
@@ -108,12 +108,13 @@ function optionalAmount(control: AbstractControl<string>): ValidationErrors | nu
           </pl-form-field>
         </div>
         <pl-form-field [label]="f.defaultAccount" controlId="card-account">
-          <pl-select
+          <pl-pocket-select
             inputId="card-account"
             [label]="f.defaultAccount"
-            [options]="accounts.options()"
+            [pockets]="accounts.pockets()"
+            [kinds]="['AVAILABLE']"
             [emptyLabel]="f.none"
-            formControlName="defaultPaymentAccountId"
+            formControlName="defaultPaymentPocketId"
           />
         </pl-form-field>
         @if (error()) {
@@ -154,7 +155,7 @@ export class CardFormSheet {
     limit: [this.card?.creditLimit?.replace(/\.00$/, '') ?? '', optionalAmount],
     issuer: [this.card?.issuer ?? ''],
     last4: [this.card?.last4 ?? '', Validators.pattern(/^(\d{4})?$/)],
-    defaultPaymentAccountId: [this.card?.defaultPaymentAccountId ?? ''],
+    defaultPaymentPocketId: [this.card?.defaultPaymentPocketId ?? ''],
   });
 
   protected async save(): Promise<void> {
@@ -168,7 +169,7 @@ export class CardFormSheet {
       creditLimit: parseTypedAmount(v.limit) ?? null,
       issuer: v.issuer.trim() || null,
       last4: v.last4 || null,
-      defaultPaymentAccountId: v.defaultPaymentAccountId || null,
+      defaultPaymentPocketId: v.defaultPaymentPocketId || null,
     };
     const card = this.card;
     await this.run(() => (card ? this.store.update(card.id, request) : this.store.create(request)));

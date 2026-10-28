@@ -8,15 +8,15 @@ import {
 } from '@angular/forms';
 import {
   type Account,
+  type ColorToken,
   createAccountRequestSchema,
   nonNegativeAmountSchema,
 } from '@platin/contracts';
-import type { AccountType, Currency } from '@platin/domain';
+import type { AccountKind } from '@platin/domain';
 import {
   parseTypedAmount,
   PlButton,
-  PlSegmented,
-  PlSegmentOption,
+  PlColorPicker,
   PlSelect,
   PlSelectOption,
   PlSheet,
@@ -35,15 +35,23 @@ function nonNegativeAmountValidator(control: AbstractControl<string>): Validatio
     : { zod: 'Ingresá un monto válido' };
 }
 
-const TYPES: AccountType[] = ['CASH', 'BANK', 'WALLET', 'SAVINGS', 'INVESTMENT'];
+const KINDS: AccountKind[] = ['BANK', 'WALLET', 'CASH', 'BROKER'];
 
-/** CTA-01: create or edit an account (currency and initial balance only on creation). */
+/** Icon of each kind of account. */
+export const ACCOUNT_KIND_ICONS: Record<AccountKind, string> = {
+  BANK: 'landmark',
+  WALLET: 'smartphone',
+  CASH: 'banknote',
+  BROKER: 'trending-up',
+};
+
+/** CTA-01: create or edit an account (the balance of its "Disponible" only on creation). */
 @Component({
   selector: 'pl-account-form-sheet',
-  imports: [PlSheet, PlButton, PlSegmented, PlSelect, ReactiveFormsModule, FormField],
+  imports: [PlSheet, PlButton, PlSelect, PlColorPicker, ReactiveFormsModule, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <pl-sheet [heading]="account ? texts.edit : texts.new">
+    <pl-sheet [heading]="account ? texts.edit : texts.newLabel">
       <form class="flex flex-col gap-4" [formGroup]="form" (ngSubmit)="save()" novalidate>
         <pl-form-field
           [label]="f.name"
@@ -59,20 +67,20 @@ const TYPES: AccountType[] = ['CASH', 'BANK', 'WALLET', 'SAVINGS', 'INVESTMENT']
             [attr.aria-invalid]="!!fieldError(form.controls.name)"
           />
         </pl-form-field>
-        <pl-form-field [label]="f.type" controlId="account-type">
+        <pl-form-field [label]="f.kind" controlId="account-kind">
           <pl-select
-            inputId="account-type"
-            [label]="f.type"
-            [options]="typeOptions"
-            formControlName="type"
+            inputId="account-kind"
+            [label]="f.kind"
+            [options]="kindOptions"
+            formControlName="kind"
           />
         </pl-form-field>
+        <div class="flex flex-col gap-1.5">
+          <span class="text-sm font-medium">{{ f.color }}</span>
+          <pl-color-picker [label]="f.color" formControlName="color" />
+        </div>
 
         @if (!account) {
-          <div class="flex flex-col gap-1.5">
-            <span class="text-sm font-medium">{{ f.currency }}</span>
-            <pl-segmented [label]="f.currency" [options]="currencyOptions" [(value)]="currency" />
-          </div>
           <pl-form-field
             [label]="f.initialBalance"
             controlId="account-balance"
@@ -89,11 +97,6 @@ const TYPES: AccountType[] = ['CASH', 'BANK', 'WALLET', 'SAVINGS', 'INVESTMENT']
           </pl-form-field>
         }
 
-        <label class="flex min-h-11 items-center gap-3">
-          <input type="checkbox" class="size-5 accent-brand" formControlName="includeInNetWorth" />
-          <span>{{ f.includeInNetWorth }}</span>
-        </label>
-
         @if (error()) {
           <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">{{ error() }}</p>
         }
@@ -104,6 +107,9 @@ const TYPES: AccountType[] = ['CASH', 'BANK', 'WALLET', 'SAVINGS', 'INVESTMENT']
           <button plButton="danger" type="button" [disabled]="saving()" (click)="toggleArchive()">
             {{ account.archived ? f.unarchive : f.archive }}
           </button>
+          @if (!account.archived) {
+            <p class="text-xs text-muted">{{ f.archiveHint }}</p>
+          }
         }
       </form>
     </pl-sheet>
@@ -114,26 +120,23 @@ export class AccountFormSheet {
   protected readonly f = ACCOUNTS_TEXTS.form;
   protected readonly inputClass = INPUT_CLASS;
   protected readonly fieldError = fieldError;
-  protected readonly typeOptions: PlSelectOption<AccountType>[] = TYPES.map((type) => ({
-    value: type,
-    label: ACCOUNTS_TEXTS.types[type],
+  protected readonly kindOptions: PlSelectOption<AccountKind>[] = KINDS.map((kind) => ({
+    value: kind,
+    label: ACCOUNTS_TEXTS.kinds[kind],
+    icon: ACCOUNT_KIND_ICONS[kind],
   }));
   protected readonly account = inject<Account | null>(DIALOG_DATA);
   private readonly ref = inject(DialogRef);
   private readonly store = inject(AccountsStore);
 
-  protected readonly currencyOptions: PlSegmentOption<Currency>[] = (['ARS', 'USD'] as const).map(
-    (value) => ({ value, label: ACCOUNTS_TEXTS.currencies[value] }),
-  );
-  protected readonly currency = signal<Currency>('ARS');
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
 
   protected readonly form = inject(NonNullableFormBuilder).group({
     name: [this.account?.name ?? '', zodValidator(createAccountRequestSchema.shape.name)],
-    type: [this.account?.type ?? ('WALLET' as AccountType)],
+    kind: [this.account?.kind ?? ('WALLET' as AccountKind)],
+    color: [(this.account?.color ?? 'transfer') as ColorToken],
     initialBalance: ['0', nonNegativeAmountValidator],
-    includeInNetWorth: [this.account?.includeInNetWorth ?? true],
   });
 
   protected async save(): Promise<void> {
@@ -144,15 +147,14 @@ export class AccountFormSheet {
       this.account
         ? this.store.update(this.account.id, {
             name: value.name.trim(),
-            type: value.type,
-            includeInNetWorth: value.includeInNetWorth,
+            kind: value.kind,
+            color: value.color,
           })
         : this.store.create({
             name: value.name.trim(),
-            type: value.type,
-            currency: this.currency(),
+            kind: value.kind,
+            color: value.color,
             initialBalance: parseTypedAmount(value.initialBalance) ?? '0',
-            includeInNetWorth: value.includeInNetWorth,
           }),
     );
   }

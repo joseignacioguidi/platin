@@ -20,6 +20,7 @@ import {
   PlMoney,
   PlMonthPicker,
   PlSelect,
+  PlSelectOption,
 } from '@platin/web-ui';
 import { API } from '../../core/api';
 import { AuthService } from '../../core/auth/auth.service';
@@ -95,7 +96,7 @@ type Chip = 'ALL' | 'EXPENSE' | 'INCOME' | 'TRANSFER' | 'CARD' | 'PENDING';
     @if (showFilters()) {
       <pl-select
         [label]="texts.accountFilter"
-        [options]="accounts.options()"
+        [options]="accountOptions()"
         [emptyLabel]="texts.allAccounts"
         [value]="accountId() || null"
         (valueChange)="accountId.set($event ?? '')"
@@ -193,6 +194,9 @@ export class MovementsPage {
   protected readonly period = signal<Period>(this.today.period());
   protected readonly filter = signal<Chip>('ALL');
   protected readonly accountId = signal('');
+  protected readonly accountOptions = computed<PlSelectOption[]>(() =>
+    this.accounts.accounts().map((account) => ({ value: account.id, label: account.name })),
+  );
   protected readonly search = signal('');
   protected readonly searching = signal(false);
   protected readonly showFilters = signal(false);

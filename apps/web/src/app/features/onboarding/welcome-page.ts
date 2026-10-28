@@ -1,25 +1,19 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import type { AccountType, Currency } from '@platin/domain';
-import {
-  parseTypedAmount,
-  PlButton,
-  PlSegmented,
-  PlSegmentOption,
-  PlSelect,
-  PlSelectOption,
-} from '@platin/web-ui';
+import type { AccountKind } from '@platin/domain';
+import { parseTypedAmount, PlButton, PlSelect, PlSelectOption } from '@platin/web-ui';
 import { AuthService } from '../../core/auth/auth.service';
 import { errorMessage } from '../../core/errors';
 import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { AccountsStore } from '../accounts/accounts.store';
+import { ACCOUNT_KIND_ICONS } from '../accounts/account-form-sheet';
 import { ACCOUNTS_TEXTS } from '../accounts/accounts.texts';
 import { CardsStore } from '../cards/cards.store';
 import { ONBOARDING_TEXTS } from './onboarding.texts';
 
 type Step = 'account' | 'card';
 
-const TYPES: AccountType[] = ['BANK', 'WALLET', 'CASH', 'SAVINGS'];
+const KINDS: AccountKind[] = ['BANK', 'WALLET', 'BROKER'];
 
 /**
  * AUTH-05 (minimal): right after registering, create the first account with today's balance
@@ -27,7 +21,7 @@ const TYPES: AccountType[] = ['BANK', 'WALLET', 'CASH', 'SAVINGS'];
  */
 @Component({
   selector: 'pl-welcome-page',
-  imports: [PlButton, PlSegmented, PlSelect, FormField],
+  imports: [PlButton, PlSelect, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-5' },
   template: `
@@ -63,10 +57,6 @@ const TYPES: AccountType[] = ['BANK', 'WALLET', 'CASH', 'SAVINGS'];
             (valueChange)="type.set($event ?? 'BANK')"
           />
         </pl-form-field>
-        <div class="flex flex-col gap-1">
-          <span class="text-sm font-medium">{{ t.currency }}</span>
-          <pl-segmented [label]="t.currency" [options]="currencies" [(value)]="currency" />
-        </div>
         <label class="flex flex-col gap-1">
           <span class="text-sm font-medium">{{ t.balance }}</span>
           <input
@@ -136,30 +126,27 @@ const TYPES: AccountType[] = ['BANK', 'WALLET', 'CASH', 'SAVINGS'];
 export class WelcomePage {
   protected readonly t = ONBOARDING_TEXTS;
   protected readonly input = INPUT_CLASS;
-  protected readonly typeOptions: PlSelectOption<AccountType>[] = TYPES.map((type) => ({
-    value: type,
-    label: ACCOUNTS_TEXTS.types[type],
+  protected readonly typeOptions: PlSelectOption<AccountKind>[] = KINDS.map((kind) => ({
+    value: kind,
+    label: ACCOUNTS_TEXTS.kinds[kind],
+    icon: ACCOUNT_KIND_ICONS[kind],
   }));
   private readonly accounts = inject(AccountsStore);
   private readonly cards = inject(CardsStore);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
 
-  protected readonly currencies: PlSegmentOption<Currency>[] = [
-    { value: 'ARS', label: 'Pesos' },
-    { value: 'USD', label: 'Dólares' },
-  ];
   protected readonly step = signal<Step>('account');
   protected readonly accountName = signal('');
-  protected readonly type = signal<AccountType>('BANK');
-  protected readonly currency = signal<Currency>('ARS');
+  protected readonly type = signal<AccountKind>('BANK');
   protected readonly balance = signal('');
   protected readonly cardName = signal('');
   protected readonly closingDay = signal(30);
   protected readonly dueDay = signal(5);
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
-  private accountId: string | null = null;
+  /** The "Disponible" of the account just created: the card is paid from there. */
+  private pocketId: string | null = null;
 
   protected name(): string {
     return this.auth.user()?.name ?? '';
@@ -178,11 +165,10 @@ export class WelcomePage {
       await this.run(async () => {
         const account = await this.accounts.create({
           name: this.accountName().trim(),
-          type: this.type(),
-          currency: this.currency(),
+          kind: this.type(),
           initialBalance: balance,
         });
-        this.accountId = account.id;
+        this.pocketId = account.pockets[0]?.id ?? null;
         this.step.set('card');
       });
       return;
@@ -193,7 +179,7 @@ export class WelcomePage {
         name: this.cardName().trim(),
         closingDay: this.closingDay(),
         dueDay: this.dueDay(),
-        defaultPaymentAccountId: this.accountId,
+        defaultPaymentPocketId: this.pocketId,
       });
       await this.router.navigateByUrl('/app');
     });

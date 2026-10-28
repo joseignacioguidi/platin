@@ -24,6 +24,8 @@ export const TRANSACTIONS_TEXTS = {
   statementOf: (period: string) => `resumen ${period}`,
   inInstallments: (count: number) => `en ${count} cuotas`,
   adjustment: 'Ajuste de saldo',
+  yield: 'Rendimiento',
+  intents: { SAVE: 'Apartaste', INVEST: 'Invertiste', REDEEM: 'Rescataste' },
   noCategory: 'Sin categoría',
   at: (rate: string) => `a $ ${rate}`,
   loadMore: 'Ver más',

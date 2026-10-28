@@ -27,6 +27,9 @@ import {
   PlSegmentOption,
   PlSelect,
   PlSelectOption,
+  PlPocketSelect,
+  pocketSelectOptions,
+  HideAmounts,
   PlSheet,
 } from '@platin/web-ui';
 import { AuthService } from '../../core/auth/auth.service';
@@ -55,13 +58,14 @@ type Mode = 'EXPENSE' | 'INCOME' | 'TRANSFER';
     PlAmountKeypad,
     PlEmptyState,
     PlSelect,
+    PlPocketSelect,
     PlDateField,
     LucidePencil,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet>
-      @if (accountsStore.resource.hasValue() && accounts().length === 0) {
+      @if (accountsStore.resource.hasValue() && pockets().length === 0) {
         <pl-empty-state
           icon="wallet"
           [heading]="texts.noAccountsTitle"
@@ -175,18 +179,21 @@ type Mode = 'EXPENSE' | 'INCOME' | 'TRANSFER';
         } @else {
           <!-- Transfer -->
           <div class="grid grid-cols-2 gap-2">
-            <pl-select
+            <pl-pocket-select
               appearance="tile"
+              display="account"
               [label]="texts.from"
-              [options]="accountsStore.options()"
+              [pockets]="pockets()"
               [value]="accountId()"
               (valueChange)="accountId.set($event)"
             />
-            <pl-select
+            <pl-pocket-select
               appearance="tile"
+              display="account"
               [label]="texts.to"
               placeholder="—"
-              [options]="accountsStore.options()"
+              [pockets]="pockets()"
+              [exclude]="accountId() ? [accountId()!] : []"
               [value]="toAccountId()"
               (valueChange)="toAccountId.set($event)"
             />
@@ -269,6 +276,7 @@ export class QuickEntrySheet {
   private readonly transactions = inject(TransactionsStore);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly hideAmounts = inject(HideAmounts);
 
   protected readonly modeOptions: PlSegmentOption<Mode>[] = (
     ['EXPENSE', 'INCOME', 'TRANSFER'] as const
@@ -300,11 +308,9 @@ export class QuickEntrySheet {
   protected readonly paymentValue = computed(() =>
     this.card() ? `card:${this.cardId()}` : this.accountId(),
   );
-  /** Accounts and, for an expense, the cards (value "card:<id>"), in two groups. */
+  /** Pockets grouped by account and, for an expense, the cards (value "card:<id>"). */
   protected readonly paymentOptions = computed<PlSelectOption[]>(() => [
-    ...this.accountsStore
-      .options()
-      .map((option) => ({ ...option, group: this.texts.accountsGroup })),
+    ...pocketSelectOptions(this.pockets(), this.hideAmounts.hidden(), 'account'),
     ...(this.mode() === 'EXPENSE'
       ? this.cards().map((card) => ({
           value: `card:${card.id}`,
@@ -315,11 +321,10 @@ export class QuickEntrySheet {
       : []),
   ]);
 
-  protected readonly accounts = computed(() =>
-    this.accountsStore.accounts().filter((account) => !account.archived),
-  );
-  protected readonly account = computed(() => this.accountsStore.byId(this.accountId()));
-  protected readonly toAccount = computed(() => this.accountsStore.byId(this.toAccountId()));
+  protected readonly pockets = computed(() => this.accountsStore.pockets());
+  /** The pocket the money leaves (or enters, for an income). */
+  protected readonly account = computed(() => this.accountsStore.pocketById(this.accountId()));
+  protected readonly toAccount = computed(() => this.accountsStore.pocketById(this.toAccountId()));
   protected readonly amountCurrency = computed(() =>
     this.card() ? this.cardCurrency() : (this.account()?.currency ?? 'ARS'),
   );
@@ -371,12 +376,13 @@ export class QuickEntrySheet {
   });
 
   constructor() {
-    // Preselect the last used account (or the first) once accounts load.
+    // Preselect the last used pocket (or the first "Disponible") once accounts load.
     effect(() => {
-      const accounts = this.accounts();
-      if (this.accountId() || accounts.length === 0) return;
+      const pockets = this.pockets();
+      if (this.accountId() || pockets.length === 0) return;
       const last = this.accountsStore.lastUsedId();
-      this.accountId.set(accounts.find((a) => a.id === last)?.id ?? accounts[0].id);
+      const fallback = pockets.find((p) => p.kind === 'AVAILABLE') ?? pockets[0];
+      this.accountId.set(pockets.find((p) => p.id === last)?.id ?? fallback.id);
     });
     // Changing the type resets the category (income and expense categories differ).
     effect(() => {
@@ -448,8 +454,8 @@ export class QuickEntrySheet {
     try {
       if (this.mode() === 'TRANSFER') {
         await this.transactions.transfer({
-          fromAccountId: accountId,
-          toAccountId: this.toAccountId() as string,
+          fromPocketId: accountId,
+          toPocketId: this.toAccountId() as string,
           amountOut: this.amount(),
           amountIn: this.crossCurrency() ? parseTypedAmount(this.receivedText()) : undefined,
           date: this.date(),
@@ -470,7 +476,7 @@ export class QuickEntrySheet {
         const categoryId = this.categoryId() as string;
         await this.transactions.create({
           type: this.mode() as 'EXPENSE' | 'INCOME',
-          accountId,
+          pocketId: accountId,
           categoryId,
           amount: this.amount(),
           date: this.date(),

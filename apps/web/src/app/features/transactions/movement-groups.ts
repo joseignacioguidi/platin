@@ -43,7 +43,7 @@ interface DayGroup {
                 class="block w-full rounded-xl text-left focus-visible:outline-offset-[-2px]"
                 (click)="selected.emit(movement)"
               >
-                <pl-movement-row [movement]="movement" />
+                <pl-movement-row [movement]="movement" [pocketId]="pocketId()" />
               </button>
             </li>
           }
@@ -55,6 +55,8 @@ interface DayGroup {
 export class MovementGroups {
   readonly movements = input.required<Movement[]>();
   readonly baseCurrency = input<Currency>('ARS');
+  /** Shows the list from one pocket's point of view (its detail screen). */
+  readonly pocketId = input<string | null>(null);
   readonly selected = output<Movement>();
 
   private readonly today = inject(Today);

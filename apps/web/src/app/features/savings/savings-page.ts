@@ -25,7 +25,7 @@ const PACE_CLASS = {
   AHEAD: 'bg-brand-soft text-brand-strong',
 } as const;
 
-/** /app/ahorros: total saved in USD, goals and savings accounts (mockup "Ahorros"). */
+/** /app/ahorros: total saved in USD, goals and savings and investment pockets (mockup "Ahorros"). */
 @Component({
   selector: 'pl-savings-page',
   imports: [
@@ -143,18 +143,29 @@ const PACE_CLASS = {
     <section class="flex flex-col gap-2">
       <h2 class="text-xl font-bold">{{ texts.accounts }}</h2>
       <ul class="rounded-tile bg-surface px-4">
-        @for (account of savings()?.accounts ?? []; track account.id) {
-          <li class="flex min-h-14 items-center gap-3 border-b border-line-soft last:border-b-0">
-            <span class="size-2.5 rounded-full bg-transfer" aria-hidden="true"></span>
-            <a [routerLink]="['/app/cuentas', account.id]" class="flex-1 truncate text-[17px]">{{
-              account.name
-            }}</a>
-            <pl-money
-              class="text-[17px]"
-              [amount]="account.balance"
-              [currency]="account.currency"
-              [decimals]="false"
-            />
+        @for (pocket of savings()?.pockets ?? []; track pocket.id) {
+          <li class="border-b border-line-soft last:border-b-0">
+            <a
+              [routerLink]="['/app/apartados', pocket.id]"
+              class="flex min-h-14 items-center gap-3 rounded-xl"
+            >
+              <span
+                class="size-2.5 rounded-full"
+                [class.bg-savings]="pocket.kind === 'SAVINGS'"
+                [class.bg-card]="pocket.kind === 'INVESTMENT'"
+                aria-hidden="true"
+              ></span>
+              <span class="flex min-w-0 flex-1 flex-col">
+                <span class="truncate text-[17px]">{{ pocket.name }}</span>
+                <span class="truncate text-sm text-muted">{{ pocket.accountName }}</span>
+              </span>
+              <pl-money
+                class="text-[17px]"
+                [amount]="pocket.balance"
+                [currency]="pocket.currency"
+                [decimals]="false"
+              />
+            </a>
           </li>
         } @empty {
           <li class="py-4 text-sm text-muted">{{ texts.noAccounts }}</li>

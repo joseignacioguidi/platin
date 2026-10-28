@@ -26,6 +26,12 @@ export const appAreaRoutes: Route[] = [
       import('./features/accounts/account-detail-page').then((m) => m.AccountDetailPage),
   },
   {
+    path: 'apartados/:id',
+    title: 'Apartado · platin',
+    loadComponent: () =>
+      import('./features/accounts/pocket-detail-page').then((m) => m.PocketDetailPage),
+  },
+  {
     path: 'tarjetas',
     title: 'Tarjetas · platin',
     loadComponent: () => import('./features/cards/cards-page').then((m) => m.CardsPage),

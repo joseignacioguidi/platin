@@ -17,7 +17,6 @@ import {
 } from '@platin/web-ui';
 import { API } from '../../core/api';
 import { RefreshBus, reloadOn } from '../../core/data/refresh-bus';
-import { ContributionSheet } from './contribution-sheet';
 import { GoalFormSheet } from './goal-form-sheet';
 import { SavingsStore } from './savings.store';
 import { SAVINGS_TEXTS } from './savings.texts';
@@ -170,31 +169,35 @@ import { SAVINGS_TEXTS } from './savings.texts';
         </p>
       }
 
-      @if (g.accounts.length > 0) {
-        <section class="flex flex-col gap-2">
-          <h2 class="text-[17px] font-semibold">{{ t.linked }}</h2>
+      <section class="flex flex-col gap-2">
+        <h2 class="text-[17px] font-semibold">{{ t.linked }}</h2>
+        @if (g.pockets.length > 0) {
           <ul class="rounded-tile bg-surface px-4">
-            @for (account of g.accounts; track account.id) {
-              <li
-                class="flex min-h-14 items-center gap-3 border-b border-line-soft last:border-b-0"
-              >
-                <span class="size-2.5 rounded-full bg-transfer" aria-hidden="true"></span>
-                <span class="flex-1 truncate text-[17px]">{{ account.name }}</span>
-                <pl-money
-                  class="text-[17px]"
-                  [amount]="account.balance"
-                  [currency]="account.currency"
-                  [decimals]="false"
-                />
+            @for (pocket of g.pockets; track pocket.id) {
+              <li class="border-b border-line-soft last:border-b-0">
+                <a
+                  [routerLink]="['/app/apartados', pocket.id]"
+                  class="flex min-h-14 items-center gap-3 rounded-xl"
+                >
+                  <span class="size-2.5 rounded-full bg-savings" aria-hidden="true"></span>
+                  <span class="flex min-w-0 flex-1 flex-col">
+                    <span class="truncate text-[17px]">{{ pocket.name }}</span>
+                    <span class="truncate text-sm text-muted">{{ pocket.accountName }}</span>
+                  </span>
+                  <pl-money
+                    class="text-[17px]"
+                    [amount]="pocket.balance"
+                    [currency]="pocket.currency"
+                    [decimals]="false"
+                  />
+                </a>
               </li>
             }
           </ul>
-        </section>
-      } @else {
-        <button plButton="secondary" type="button" (click)="contribute(g)">
-          {{ t.addContribution }}
-        </button>
-      }
+        } @else {
+          <p class="rounded-tile bg-surface p-4 text-[15px] text-muted">{{ t.noPockets }}</p>
+        }
+      </section>
 
       <div class="grid grid-cols-2 gap-2">
         @if (g.status === 'ACTIVE') {
@@ -274,10 +277,6 @@ export class GoalDetailPage {
 
   protected edit(goal: Goal): void {
     this.sheet.open(GoalFormSheet, { data: goal, ariaLabel: this.t.edit });
-  }
-
-  protected contribute(goal: Goal): void {
-    this.sheet.open(ContributionSheet, { data: goal, ariaLabel: this.t.addContribution });
   }
 
   protected async setStatus(

@@ -20,3 +20,4 @@ export * from './lib/forms/date-field';
 export * from './lib/forms/pickers';
 export * from './lib/forms/category-select';
 export * from './lib/forms/period-options';
+export * from './lib/forms/pocket-select';

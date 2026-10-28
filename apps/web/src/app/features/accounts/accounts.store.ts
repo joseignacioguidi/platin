@@ -6,16 +6,21 @@ import type {
   AdjustBalanceRequest,
   AdjustBalanceResponse,
   CreateAccountRequest,
+  CreatePocketRequest,
+  Pocket,
   UpdateAccountRequest,
+  UpdatePocketRequest,
 } from '@platin/contracts';
-import { HideAmounts, moneyText, PlSelectOption } from '@platin/web-ui';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Observable } from 'rxjs';
 import { API } from '../../core/api';
-import { RefreshBus, reloadOn } from '../../core/data/refresh-bus';
+import { DataKey, RefreshBus, reloadOn } from '../../core/data/refresh-bus';
 
-const LAST_ACCOUNT_KEY = 'platin.lastAccount';
+const LAST_POCKET_KEY = 'platin.lastPocket';
 
-/** Accounts with their calculated balances. */
+/** What a write on accounts or pockets can change. */
+const AFFECTED: DataKey[] = ['accounts', 'movements', 'dashboard', 'goals'];
+
+/** Accounts with their pockets and calculated balances (CTA-01 to 07). */
 @Injectable({ providedIn: 'root' })
 export class AccountsStore {
   private readonly http = inject(HttpClient);
@@ -24,19 +29,9 @@ export class AccountsStore {
   readonly resource = httpResource<AccountsResponse>(() => `${API}/accounts`);
   readonly accounts = computed(() => this.resource.value()?.items ?? []);
   readonly totals = computed(() => this.resource.value()?.totals ?? { ARS: '0.00', USD: '0.00' });
-  private readonly hideAmounts = inject(HideAmounts);
-
-  /** Active accounts as select options, with the balance as secondary text. */
-  readonly options = computed<PlSelectOption[]>(() =>
-    this.accounts()
-      .filter((account) => !account.archived)
-      .map((account) => ({
-        value: account.id,
-        label: account.name,
-        hint: moneyText(account.balance, account.currency, this.hideAmounts.hidden()),
-        tone: 'transfer',
-        keywords: account.currency,
-      })),
+  /** Every active pocket, account after account (what the selectors offer). */
+  readonly pockets = computed(() =>
+    this.accounts().flatMap((account) => account.pockets.filter((pocket) => !pocket.archived)),
   );
 
   constructor() {
@@ -47,7 +42,11 @@ export class AccountsStore {
     return this.accounts().find((account) => account.id === id);
   }
 
-  /** All accounts, archived included (the default list hides archived ones). */
+  pocketById(id: string | null | undefined): Pocket | undefined {
+    return this.pockets().find((pocket) => pocket.id === id);
+  }
+
+  /** All accounts, archived ones and archived pockets included. */
   async listArchived(): Promise<Account[]> {
     const response = await firstValueFrom(
       this.http.get<AccountsResponse>(`${API}/accounts`, { params: { archived: 'true' } }),
@@ -55,32 +54,41 @@ export class AccountsStore {
     return response.items;
   }
 
-  async create(request: CreateAccountRequest): Promise<Account> {
-    const account = await firstValueFrom(this.http.post<Account>(`${API}/accounts`, request));
-    this.bus.invalidate('accounts', 'dashboard');
-    return account;
+  /** One account with all its pockets, archived ones included. */
+  get(id: string): Promise<Account> {
+    return firstValueFrom(this.http.get<Account>(`${API}/accounts/${id}`));
   }
 
-  async update(id: string, changes: UpdateAccountRequest): Promise<Account> {
-    const account = await firstValueFrom(
-      this.http.patch<Account>(`${API}/accounts/${id}`, changes),
+  getPocket(id: string): Promise<Pocket> {
+    return firstValueFrom(this.http.get<Pocket>(`${API}/pockets/${id}`));
+  }
+
+  create(request: CreateAccountRequest): Promise<Account> {
+    return this.write(this.http.post<Account>(`${API}/accounts`, request));
+  }
+
+  update(id: string, changes: UpdateAccountRequest): Promise<Account> {
+    return this.write(this.http.patch<Account>(`${API}/accounts/${id}`, changes));
+  }
+
+  createPocket(accountId: string, request: CreatePocketRequest): Promise<Pocket> {
+    return this.write(this.http.post<Pocket>(`${API}/accounts/${accountId}/pockets`, request));
+  }
+
+  updatePocket(id: string, changes: UpdatePocketRequest): Promise<Pocket> {
+    return this.write(this.http.patch<Pocket>(`${API}/pockets/${id}`, changes));
+  }
+
+  adjust(pocketId: string, request: AdjustBalanceRequest): Promise<AdjustBalanceResponse> {
+    return this.write(
+      this.http.post<AdjustBalanceResponse>(`${API}/pockets/${pocketId}/adjust`, request),
     );
-    this.bus.invalidate('accounts', 'movements', 'dashboard');
-    return account;
   }
 
-  async adjust(id: string, request: AdjustBalanceRequest): Promise<AdjustBalanceResponse> {
-    const result = await firstValueFrom(
-      this.http.post<AdjustBalanceResponse>(`${API}/accounts/${id}/adjust`, request),
-    );
-    this.bus.invalidate('accounts', 'movements', 'dashboard');
-    return result;
-  }
-
-  /** The account used last in the quick entry (preselected next time). */
+  /** The pocket used last in the quick entry (preselected next time). */
   lastUsedId(): string | null {
     try {
-      return localStorage.getItem(LAST_ACCOUNT_KEY);
+      return localStorage.getItem(LAST_POCKET_KEY);
     } catch {
       return null;
     }
@@ -88,9 +96,15 @@ export class AccountsStore {
 
   rememberLastUsed(id: string): void {
     try {
-      localStorage.setItem(LAST_ACCOUNT_KEY, id);
+      localStorage.setItem(LAST_POCKET_KEY, id);
     } catch {
       // Private mode: nothing to remember.
     }
+  }
+
+  private async write<T>(request: Observable<T>): Promise<T> {
+    const result = await firstValueFrom(request);
+    this.bus.invalidate(...AFFECTED);
+    return result;
   }
 }

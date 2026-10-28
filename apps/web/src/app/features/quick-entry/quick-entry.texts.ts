@@ -9,7 +9,6 @@ export const QUICK_ENTRY_TEXTS = {
   less: 'Menos',
   account: 'Cuenta',
   card: 'Tarjeta',
-  accountsGroup: 'Cuentas',
   cardsGroup: 'Tarjetas de crédito',
   installments: 'Cuotas',
   onePayment: '1 pago',

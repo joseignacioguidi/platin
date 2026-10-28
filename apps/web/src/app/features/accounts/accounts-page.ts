@@ -8,32 +8,25 @@ import {
   signal,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { LucidePlus } from '@lucide/angular';
+import { LucideChevronRight, LucideDynamicIcon, LucidePlus } from '@lucide/angular';
 import type { Account } from '@platin/contracts';
-import type { AccountType } from '@platin/domain';
 import {
+  PL_POCKET_ICONS,
+  PL_TONE_CLASSES,
   PlBottomSheet,
   PlButton,
   PlEmptyState,
+  PlErrorState,
   PlListItem,
   PlMoney,
-  PlTone,
-  PlErrorState,
   PlSkeleton,
+  PlTone,
 } from '@platin/web-ui';
-import { AccountFormSheet } from './account-form-sheet';
+import { ACCOUNT_KIND_ICONS, AccountFormSheet } from './account-form-sheet';
 import { AccountsStore } from './accounts.store';
 import { ACCOUNTS_TEXTS } from './accounts.texts';
 
-export const ACCOUNT_ICONS: Record<AccountType, { icon: string; tone: PlTone }> = {
-  CASH: { icon: 'banknote', tone: 'brand' },
-  BANK: { icon: 'landmark', tone: 'transfer' },
-  WALLET: { icon: 'wallet', tone: 'transfer' },
-  SAVINGS: { icon: 'piggy-bank', tone: 'savings' },
-  INVESTMENT: { icon: 'trending-up', tone: 'card' },
-};
-
-/** CTA-02: accounts with their balance and the total per currency. */
+/** CTA-03: each account with its pockets grouped, their balances and the totals per currency. */
 @Component({
   selector: 'pl-accounts-page',
   imports: [
@@ -45,13 +38,21 @@ export const ACCOUNT_ICONS: Record<AccountType, { icon: string; tone: PlTone }> 
     PlListItem,
     PlMoney,
     LucidePlus,
+    LucideChevronRight,
+    LucideDynamicIcon,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
   template: `
     <header class="flex items-center justify-between gap-3">
       <h1 class="text-3xl font-bold">{{ texts.title }}</h1>
-      <button plButton size="sm" type="button" (click)="create()">
+      <button
+        plButton
+        size="sm"
+        type="button"
+        [attr.aria-label]="texts.newLabel"
+        (click)="create()"
+      >
         <svg lucidePlus [size]="18"></svg>{{ texts.new }}
       </button>
     </header>
@@ -59,10 +60,10 @@ export const ACCOUNT_ICONS: Record<AccountType, { icon: string; tone: PlTone }> 
     @if (store.resource.error() && !store.resource.hasValue()) {
       <pl-error-state (retry)="store.resource.reload()" />
     } @else if (!store.resource.hasValue()) {
-      <pl-skeleton [heights]="[140, 72, 72]" />
+      <pl-skeleton [heights]="[120, 200, 200]" />
     } @else if (visible().length === 0 && !showArchived()) {
       <pl-empty-state icon="wallet" [heading]="texts.emptyTitle" [description]="texts.emptyBody">
-        <button plButton type="button" (click)="create()">{{ texts.new }}</button>
+        <button plButton type="button" (click)="create()">{{ texts.newLabel }}</button>
       </pl-empty-state>
     } @else {
       <section
@@ -77,26 +78,74 @@ export const ACCOUNT_ICONS: Record<AccountType, { icon: string; tone: PlTone }> 
         <p class="text-xs text-muted">{{ texts.totalsHint }}</p>
       </section>
 
-      <ul class="rounded-tile bg-surface px-4">
-        @for (account of visible(); track account.id) {
-          <li class="border-b border-line-soft last:border-b-0">
-            <a [routerLink]="['/app/cuentas', account.id]" class="block rounded-xl">
-              <pl-list-item
-                [heading]="account.name"
-                [subtitle]="subtitle(account)"
-                [icon]="icons[account.type].icon"
-                [tone]="icons[account.type].tone"
+      @for (account of visible(); track account.id) {
+        <section
+          class="flex flex-col rounded-card bg-surface px-4 pt-2 pb-1"
+          [class.opacity-70]="account.archived"
+          [attr.aria-labelledby]="'account-' + account.id"
+        >
+          <a
+            [routerLink]="['/app/cuentas', account.id]"
+            class="flex min-h-14 items-center gap-3 rounded-xl"
+            [attr.aria-label]="texts.openAccount(account.name)"
+          >
+            <span
+              class="flex size-10 shrink-0 items-center justify-center rounded-xl"
+              [class]="toneClass(account.color ?? 'transfer')"
+              aria-hidden="true"
+            >
+              <svg [lucideIcon]="kindIcons[account.kind]" [size]="20"></svg>
+            </span>
+            <span class="flex min-w-0 flex-1 flex-col">
+              <span
+                [id]="'account-' + account.id"
+                class="text-lg leading-tight font-bold break-words"
+                >{{ account.name }}</span
               >
-                <pl-money
-                  class="text-[17px]"
-                  [amount]="account.balance"
-                  [currency]="account.currency"
-                />
-              </pl-list-item>
-            </a>
-          </li>
-        }
-      </ul>
+              <span class="text-sm text-muted">
+                {{ texts.kinds[account.kind]
+                }}{{ account.archived ? ' · ' + texts.archivedBadge : '' }}
+              </span>
+            </span>
+            <span class="flex flex-col items-end">
+              <pl-money class="font-semibold" [amount]="account.totals.ARS" currency="ARS" />
+              @if (account.totals.USD !== '0.00') {
+                <pl-money class="text-sm" [amount]="account.totals.USD" currency="USD" />
+              }
+            </span>
+            <svg
+              lucideChevronRight
+              [size]="18"
+              class="shrink-0 text-muted"
+              aria-hidden="true"
+            ></svg>
+          </a>
+          <ul class="border-t border-line-soft">
+            @for (pocket of account.pockets; track pocket.id) {
+              <li class="border-b border-line-soft last:border-b-0">
+                <a
+                  [routerLink]="['/app/apartados', pocket.id]"
+                  class="block rounded-xl"
+                  [attr.aria-label]="texts.detail.openPocket(pocket.name)"
+                >
+                  <pl-list-item
+                    [heading]="pocket.name"
+                    [subtitle]="pocketSubtitle(pocket.kind, pocket.instrument, pocket.currency)"
+                    [icon]="pocketIcons[pocket.kind].icon"
+                    [tone]="pocketIcons[pocket.kind].tone"
+                  >
+                    <pl-money
+                      class="text-[17px]"
+                      [amount]="pocket.balance"
+                      [currency]="pocket.currency"
+                    />
+                  </pl-list-item>
+                </a>
+              </li>
+            }
+          </ul>
+        </section>
+      }
       <button
         type="button"
         class="min-h-11 self-center text-sm font-medium text-brand-strong"
@@ -112,7 +161,8 @@ export class AccountsPage implements OnInit {
   readonly nueva = input<string>();
 
   protected readonly texts = ACCOUNTS_TEXTS;
-  protected readonly icons = ACCOUNT_ICONS;
+  protected readonly kindIcons = ACCOUNT_KIND_ICONS;
+  protected readonly pocketIcons = PL_POCKET_ICONS;
   protected readonly store = inject(AccountsStore);
   private readonly sheet = inject(PlBottomSheet);
   private readonly router = inject(Router);
@@ -130,15 +180,21 @@ export class AccountsPage implements OnInit {
     }
   }
 
-  protected subtitle(account: Account): string {
-    const type = this.texts.types[account.type];
-    return account.archived
-      ? `${type} · ${this.texts.archivedBadge}`
-      : `${type} · ${account.currency}`;
+  protected toneClass(tone: PlTone): string {
+    return PL_TONE_CLASSES[tone];
+  }
+
+  protected pocketSubtitle(
+    kind: keyof typeof ACCOUNTS_TEXTS.pocketKinds,
+    instrument: keyof typeof ACCOUNTS_TEXTS.instruments | null,
+    currency: 'ARS' | 'USD',
+  ): string {
+    const what = instrument ? this.texts.instruments[instrument] : this.texts.pocketKinds[kind];
+    return `${what} · ${currency}`;
   }
 
   protected create(): void {
-    this.sheet.open(AccountFormSheet, { data: null, ariaLabel: this.texts.new });
+    this.sheet.open(AccountFormSheet, { data: null, ariaLabel: this.texts.newLabel });
   }
 
   protected async toggleArchived(): Promise<void> {

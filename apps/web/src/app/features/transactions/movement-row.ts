@@ -4,6 +4,19 @@ import { parsePeriod, toDecimal } from '@platin/domain';
 import { displayAmount, formatPeriodShort, PlListItem, PlMoney, PlTone } from '@platin/web-ui';
 import { TRANSACTIONS_TEXTS } from './transactions.texts';
 
+/** "Mercado Pago" for its Disponible, "Mercado Pago · Ahorro" for any other pocket. */
+export function pocketPlace(pocket: { name: string; accountName: string; kind?: string }): string {
+  return pocket.name === 'Disponible'
+    ? pocket.accountName
+    : `${pocket.accountName} · ${pocket.name}`;
+}
+
+const INTENT_ICONS: Record<'SAVE' | 'INVEST' | 'REDEEM', { icon: string; tone: PlTone }> = {
+  SAVE: { icon: 'piggy-bank', tone: 'savings' },
+  INVEST: { icon: 'trending-up', tone: 'card' },
+  REDEEM: { icon: 'arrow-down-to-line', tone: 'transfer' },
+};
+
 interface RowView {
   heading: string;
   subtitle: string;
@@ -47,6 +60,8 @@ interface RowView {
 })
 export class MovementRow {
   readonly movement = input.required<Movement>();
+  /** The pocket the list belongs to, if any: transfers into it read as money in. */
+  readonly pocketId = input<string | null>(null);
   protected readonly texts = TRANSACTIONS_TEXTS;
 
   protected readonly view = computed<RowView>(() => {
@@ -69,7 +84,7 @@ export class MovementRow {
           m.description && m.description !== 'Pago de tarjeta'
             ? m.description
             : this.texts.cardPayment(m.statement.cardName),
-        subtitle: `${m.fromAccount.name} → ${this.texts.statementOf(formatPeriodShort(parsePeriod(m.statement.period)))}`,
+        subtitle: `${pocketPlace(m.fromPocket)} → ${this.texts.statementOf(formatPeriodShort(parsePeriod(m.statement.period)))}`,
         icon: 'credit-card',
         tone: 'transfer',
         pending: false,
@@ -77,33 +92,53 @@ export class MovementRow {
       };
     }
     if (m.kind === 'TRANSFER') {
-      const route = `${m.fromAccount.name} → ${m.toAccount?.name ?? ''}`;
+      const to = m.toPocket;
+      // Inside one account the account name is said once: "Mercado Pago · Disponible → Ahorro".
+      const route =
+        to && to.accountId === m.fromPocket.accountId
+          ? `${m.fromPocket.accountName} · ${m.fromPocket.name} → ${to.name}`
+          : `${pocketPlace(m.fromPocket)} → ${to ? pocketPlace(to) : ''}`;
+      // Seen from the pocket that receives it, a transfer is money in.
+      const incoming = !!to && to.id === this.pocketId();
       const rate = m.impliedRate
         ? ` · ${this.texts.at(displayAmount(toDecimal(m.impliedRate).toFixed(0)))}`
         : '';
       const cross = m.currencyIn !== m.currencyOut;
+      const intent = !cross && m.intent && m.intent !== 'MOVE' ? m.intent : null;
       return {
-        heading: m.description || this.transferTitle(m.currencyOut, m.currencyIn),
+        heading:
+          m.description ||
+          (intent ? this.texts.intents[intent] : this.transferTitle(m.currencyOut, m.currencyIn)),
         subtitle: route + rate,
-        icon: 'arrow-left-right',
-        tone: 'transfer',
+        icon: intent ? INTENT_ICONS[intent].icon : 'arrow-left-right',
+        tone: intent ? INTENT_ICONS[intent].tone : 'transfer',
         pending: false,
-        lines: [
-          { sign: '-', amount: m.amountOut, currency: m.currencyOut, positive: false },
-          ...(cross
-            ? [{ sign: '+' as const, amount: m.amountIn, currency: m.currencyIn, positive: true }]
-            : []),
-        ],
+        lines: incoming
+          ? [{ sign: '+', amount: m.amountIn, currency: m.currencyIn, positive: true }]
+          : [
+              { sign: '-', amount: m.amountOut, currency: m.currencyOut, positive: false },
+              ...(cross
+                ? [
+                    {
+                      sign: '+' as const,
+                      amount: m.amountIn,
+                      currency: m.currencyIn,
+                      positive: true,
+                    },
+                  ]
+                : []),
+            ],
       };
     }
     const pending = m.status === 'PENDING';
-    if (m.type === 'ADJUSTMENT') {
+    if (m.type === 'ADJUSTMENT' || m.type === 'YIELD') {
       const negative = m.amount.startsWith('-');
+      const yields = m.type === 'YIELD';
       return {
-        heading: m.description || this.texts.adjustment,
-        subtitle: m.account.name,
-        icon: 'scale',
-        tone: 'muted',
+        heading: m.description || (yields ? this.texts.yield : this.texts.adjustment),
+        subtitle: pocketPlace(m.pocket),
+        icon: yields ? 'trending-up' : 'scale',
+        tone: yields ? 'savings' : 'muted',
         pending,
         lines: [
           {
@@ -120,8 +155,8 @@ export class MovementRow {
     return {
       heading: m.description || category?.name || this.texts.noCategory,
       subtitle: m.description
-        ? [category?.name, m.account.name].filter(Boolean).join(' · ')
-        : m.account.name,
+        ? [category?.name, pocketPlace(m.pocket)].filter(Boolean).join(' · ')
+        : pocketPlace(m.pocket),
       icon: category?.icon ?? 'receipt',
       tone: pending ? 'pending' : income ? 'brand' : (category?.color ?? 'expense'),
       pending,

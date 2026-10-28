@@ -8,7 +8,7 @@ import {
   PlDateField,
   PlSegmented,
   PlSegmentOption,
-  PlSelect,
+  PlPocketSelect,
   PlSheet,
 } from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
@@ -26,7 +26,7 @@ export interface PayStatementData {
 /** TAR-08: pay the pesos or the dollars part (total or partial) from an account. */
 @Component({
   selector: 'pl-pay-statement-sheet',
-  imports: [PlSheet, PlButton, PlSegmented, PlSelect, PlDateField, FormField],
+  imports: [PlSheet, PlButton, PlSegmented, PlPocketSelect, PlDateField, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="t.title">
@@ -40,10 +40,11 @@ export interface PayStatementData {
         />
       </div>
       <pl-form-field [label]="t.account" controlId="pay-account">
-        <pl-select
+        <pl-pocket-select
           inputId="pay-account"
           [label]="t.account"
-          [options]="accounts.options()"
+          [pockets]="accounts.pockets()"
+          display="account"
           [value]="accountId()"
           (valueChange)="accountId.set($event ?? '')"
         />
@@ -110,16 +111,22 @@ export class PayStatementSheet {
   protected readonly amount = signal(this.pendingText(this.currency()));
   protected readonly amountOut = signal('');
   protected readonly accountId = signal(
-    this.data.card.defaultPaymentAccountId ?? this.accounts.accounts()[0]?.id ?? '',
+    this.data.card.defaultPaymentPocketId ?? this.firstAvailable() ?? '',
   );
   protected readonly date = signal<LocalDate>(this.today.date());
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  protected readonly account = computed(() => this.accounts.byId(this.accountId()));
+  protected readonly account = computed(() => this.accounts.pocketById(this.accountId()));
   protected readonly crossCurrency = computed(
     () => !!this.account() && this.account()?.currency !== this.currency(),
   );
+
+  /** The first "Disponible" in the currency of the part being paid, or any available one. */
+  private firstAvailable(): string | undefined {
+    const available = this.accounts.pockets().filter((p) => p.kind === 'AVAILABLE');
+    return (available.find((p) => p.currency === this.currency()) ?? available[0])?.id;
+  }
 
   protected value(event: Event): string {
     return (event.target as HTMLInputElement).value;
@@ -139,12 +146,12 @@ export class PayStatementSheet {
     if (!amount) return this.error.set('Ingresá el monto a pagar.');
     const amountOut = this.crossCurrency() ? parseTypedAmount(this.amountOut()) : undefined;
     if (this.crossCurrency() && !amountOut)
-      return this.error.set('Ingresá cuánto sale de la cuenta.');
+      return this.error.set('Ingresá cuánto sale del apartado.');
     this.saving.set(true);
     this.error.set(null);
     try {
       await this.store.pay(this.data.statement.id, {
-        accountId: this.accountId(),
+        pocketId: this.accountId(),
         currency: this.currency(),
         amount,
         amountOut,

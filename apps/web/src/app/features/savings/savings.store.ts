@@ -1,12 +1,6 @@
 import { HttpClient, httpResource } from '@angular/common/http';
 import { computed, inject, Injectable } from '@angular/core';
-import type {
-  CreateContributionRequest,
-  CreateGoalRequest,
-  Goal,
-  Savings,
-  UpdateGoalRequest,
-} from '@platin/contracts';
+import type { CreateGoalRequest, Goal, Savings, UpdateGoalRequest } from '@platin/contracts';
 import { firstValueFrom, Observable } from 'rxjs';
 import { API } from '../../core/api';
 import { RefreshBus, reloadOn } from '../../core/data/refresh-bus';
@@ -34,10 +28,6 @@ export class SavingsStore {
 
   update(id: string, changes: UpdateGoalRequest): Promise<Goal> {
     return this.write(this.http.patch<Goal>(`${API}/goals/${id}`, changes));
-  }
-
-  contribute(id: string, request: CreateContributionRequest): Promise<Goal> {
-    return this.write(this.http.post<Goal>(`${API}/goals/${id}/contributions`, request));
   }
 
   remove(id: string): Promise<void> {

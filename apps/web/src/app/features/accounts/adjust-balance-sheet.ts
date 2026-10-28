@@ -1,6 +1,6 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import type { Account } from '@platin/contracts';
+import type { Pocket } from '@platin/contracts';
 import { LocalDate } from '@platin/domain';
 import { parseTypedAmount, PlButton, PlDateField, PlMoney, PlSheet } from '@platin/web-ui';
 import { AuthService } from '../../core/auth/auth.service';
@@ -19,11 +19,11 @@ import { ACCOUNTS_TEXTS } from './accounts.texts';
     <pl-sheet [heading]="texts.title">
       <p class="text-[15px] text-muted">{{ texts.body }}</p>
       <p class="text-sm">
-        {{ detail.balance }}:
-        <pl-money [amount]="account.balance" [currency]="account.currency" decimals="auto" />
+        {{ texts.current }}:
+        <pl-money [amount]="pocket.balance" [currency]="pocket.currency" decimals="auto" />
       </p>
       <label class="flex flex-col gap-1">
-        <span class="text-sm font-medium">{{ texts.real }} ({{ account.currency }})</span>
+        <span class="text-sm font-medium">{{ texts.real }} ({{ pocket.currency }})</span>
         <input
           type="text"
           inputmode="decimal"
@@ -67,9 +67,8 @@ import { ACCOUNTS_TEXTS } from './accounts.texts';
 })
 export class AdjustBalanceSheet {
   protected readonly texts = ACCOUNTS_TEXTS.adjust;
-  protected readonly detail = ACCOUNTS_TEXTS.detail;
   protected readonly inputClass = INPUT_CLASS;
-  protected readonly account = inject<Account>(DIALOG_DATA);
+  protected readonly pocket = inject<Pocket>(DIALOG_DATA);
   protected readonly today = inject(Today);
   private readonly ref = inject(DialogRef);
   private readonly store = inject(AccountsStore);
@@ -82,7 +81,7 @@ export class AdjustBalanceSheet {
   protected readonly error = signal<string | null>(null);
   protected readonly message = signal<string | null>(null);
   protected readonly needsRate = computed(
-    () => this.account.currency !== (this.auth.user()?.baseCurrency ?? 'ARS'),
+    () => this.pocket.currency !== (this.auth.user()?.baseCurrency ?? 'ARS'),
   );
 
   protected value(event: Event): string {
@@ -105,7 +104,7 @@ export class AdjustBalanceSheet {
     this.saving.set(true);
     this.error.set(null);
     try {
-      const result = await this.store.adjust(this.account.id, {
+      const result = await this.store.adjust(this.pocket.id, {
         balance: negative ? `-${parsed}` : parsed,
         date: this.date(),
         exchangeRate,

@@ -19,7 +19,7 @@ export const FIXED_TEXTS = {
     name: 'Nombre',
     namePlaceholder: 'Ej.: Alquiler',
     category: 'Categoría',
-    account: 'Cuenta',
+    account: 'Apartado',
     amount: 'Monto',
     frequency: 'Frecuencia',
     frequencies: { 1: 'Mensual', 2: 'Bimestral', 3: 'Trimestral', 6: 'Semestral', 12: 'Anual' },

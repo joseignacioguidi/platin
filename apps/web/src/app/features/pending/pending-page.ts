@@ -74,7 +74,7 @@ interface Draft {
                 <span class="truncate text-[17px] font-semibold">{{ item.description }}</span>
                 <span class="text-sm text-muted">
                   {{ item.type === 'INCOME' ? texts.income : texts.expense }} ·
-                  {{ item.account.name }} ·
+                  {{ item.pocket.accountName }} · {{ item.pocket.name }} ·
                   {{ dateText(item.date) }}
                 </span>
               </div>

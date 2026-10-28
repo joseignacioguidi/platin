@@ -1,5 +1,6 @@
 import { Provider } from '@angular/core';
 import {
+  LucideArrowDownToLine,
   LucideArrowLeftRight,
   LucideBaby,
   LucideBanknote,
@@ -114,6 +115,7 @@ export const CATEGORY_ICONS: readonly PlIconChoice[] = [
  */
 export function provideAppIcons(): Provider {
   return provideLucideIcons(
+    LucideArrowDownToLine,
     LucideArrowLeftRight,
     LucideBaby,
     LucideBanknote,
