@@ -1,6 +1,6 @@
 import { CallHandler, ExecutionContext, Injectable, Logger, NestInterceptor } from '@nestjs/common';
 import { localDateToUtc, type LocalDate } from '@platin/domain';
-import type { Observable } from 'rxjs';
+import { from, switchMap, type Observable } from 'rxjs';
 import { AuthenticatedRequest } from '../common/current-user.decorator';
 import { ClockService } from '../common/clock.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -22,19 +22,18 @@ export class ActivityInterceptor implements NestInterceptor {
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const userId = context.switchToHttp().getRequest<AuthenticatedRequest>().user?.id;
-    if (userId) {
-      const today = this.clock.today();
-      if (this.lastRecorded.get(userId) !== today) {
-        if (this.lastRecorded.size > 10_000) this.lastRecorded.clear();
-        this.lastRecorded.set(userId, today);
-        // Fire and forget: activity never slows down nor breaks the request.
-        this.record(userId, today).catch((error: unknown) => {
-          this.lastRecorded.delete(userId);
-          this.logger.warn(`Could not record activity: ${String(error)}`);
-        });
-      }
-    }
-    return next.handle();
+    if (!userId) return next.handle();
+    const today = this.clock.today();
+    if (this.lastRecorded.get(userId) === today) return next.handle();
+    if (this.lastRecorded.size > 10_000) this.lastRecorded.clear();
+    this.lastRecorded.set(userId, today);
+    // Awaited (once per user and day) so no write is left running after the response, but a
+    // failure never breaks the request.
+    const recorded = this.record(userId, today).catch((error: unknown) => {
+      this.lastRecorded.delete(userId);
+      this.logger.warn(`Could not record activity: ${String(error)}`);
+    });
+    return from(recorded).pipe(switchMap(() => next.handle()));
   }
 
   private async record(userId: string, today: LocalDate): Promise<void> {

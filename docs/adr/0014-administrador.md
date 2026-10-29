@@ -22,7 +22,7 @@ La fase 18 suma un usuario administrador (ADM-01 a 05 y ADM-07). Algunos puntos 
   - `default-rate`: el tipo de cotización con el que arranca cada usuario nuevo.
   - Ninguna de estas claves cambia a los usuarios que ya existen. Sin fila guardada, se usa el valor por defecto de antes.
   - El plan por defecto no es una clave: vive en `Plan.isDefault` (fase 19).
-- **Actividad:** se registra con un *interceptor* global en lugar de un *middleware*. El middleware corre antes del guard de autenticación y todavía no conoce al usuario. Un mapa en memoria evita escribir más de una vez por usuario y día, y la escritura no frena el pedido.
+- **Actividad:** se registra con un *interceptor* global en lugar de un *middleware*. El middleware corre antes del guard de autenticación y todavía no conoce al usuario. Un mapa en memoria evita escribir más de una vez por usuario y día. Esa única escritura diaria se espera antes de seguir con el pedido (así no queda nada corriendo después de la respuesta), pero si falla no lo rompe.
 - **"Uso por funcionalidad":** un usuario cuenta si tiene al menos una tarjeta sin archivar, una meta activa, un fijo sin pausar, un apartado de inversión o un apartado de ahorro sin archivar.
 - **Altas por semana:** semanas de lunes a domingo en hora de Buenos Aires (`countByWeek` en `libs/domain`).
 - **Borrar un usuario:** las relaciones financieras son `Restrict`, así que `deleteUserData` borra todo en orden, de hijos a padres, dentro de la transacción del borrado. No se cambiaron las claves foráneas.
