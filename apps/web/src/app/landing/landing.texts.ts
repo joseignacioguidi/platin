@@ -5,6 +5,7 @@ export const LANDING_TEXTS = {
   plans: 'Planes',
   login: 'Ingresar',
   register: 'Crear cuenta',
+  openApp: 'Ir a la app',
   registerFree: 'Crear cuenta gratis',
   faceLabel: 'La cara de platin guiñando un ojo',
   bubbleBefore: 'Este mes te quedan',

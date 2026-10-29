@@ -71,6 +71,7 @@ export const PLANS_TEXTS = {
     loading: 'Cargando planes…',
     login: 'Ingresar',
     register: 'Crear cuenta',
+    openApp: 'Ir a la app',
   },
   resources: [
     'accounts',

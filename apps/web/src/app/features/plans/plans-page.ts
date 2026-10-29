@@ -5,6 +5,7 @@ import type { PublicPlan } from '@platin/contracts';
 import { PlMoney, PlWink } from '@platin/web-ui';
 import { firstValueFrom } from 'rxjs';
 import { API } from '../../core/api';
+import { sessionHint } from '../../core/auth/session-hint';
 import { LIMIT_KEYS, limitLabel, PLANS_TEXTS } from './plans.texts';
 
 const CARD_TONES = ['bg-brand-soft', 'bg-card-soft', 'bg-savings-soft', 'bg-pending-soft'];
@@ -29,16 +30,24 @@ const CARD_TONES = ['bg-brand-soft', 'bg-card-soft', 'bg-savings-soft', 'bg-pend
           platin
         </a>
         <div class="flex items-center gap-1 sm:gap-2">
-          <a
-            routerLink="/ingresar"
-            class="flex min-h-11 items-center px-3 font-semibold hover:text-brand-strong sm:px-4"
-            >{{ t.page.login }}</a
-          >
-          <a
-            routerLink="/registro"
-            class="flex min-h-11 items-center whitespace-nowrap rounded-full border-2 border-ink bg-brand px-5 font-bold hover:bg-brand-soft"
-            >{{ t.page.register }}</a
-          >
+          @if (hasSession()) {
+            <a
+              routerLink="/app"
+              class="flex min-h-11 items-center whitespace-nowrap rounded-full border-2 border-ink bg-brand px-5 font-bold hover:bg-brand-soft"
+              >{{ t.page.openApp }}</a
+            >
+          } @else {
+            <a
+              routerLink="/ingresar"
+              class="flex min-h-11 items-center px-3 font-semibold hover:text-brand-strong sm:px-4"
+              >{{ t.page.login }}</a
+            >
+            <a
+              routerLink="/registro"
+              class="flex min-h-11 items-center whitespace-nowrap rounded-full border-2 border-ink bg-brand px-5 font-bold hover:bg-brand-soft"
+              >{{ t.page.register }}</a
+            >
+          }
         </div>
       </nav>
     </header>
@@ -109,6 +118,7 @@ export class PlansPage {
   protected readonly t = PLANS_TEXTS;
   protected readonly plans = signal<PublicPlan[] | null>(null);
   protected readonly failed = signal(false);
+  protected readonly hasSession = sessionHint();
 
   constructor() {
     // Prerendered without data: the plans are read in the browser, so a change shows up at once.

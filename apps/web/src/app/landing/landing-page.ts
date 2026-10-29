@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { PlWink } from '@platin/web-ui';
+import { sessionHint } from '../core/auth/session-hint';
 import { LANDING_TEXTS } from './landing.texts';
 
 /** Heights (%) and fills of the installments chart: the bars drop as plans end. */
@@ -78,16 +79,24 @@ const ROW =
             class="hidden min-h-11 items-center px-4 font-semibold hover:text-brand-strong sm:flex"
             >{{ t.plans }}</a
           >
-          <a
-            routerLink="/ingresar"
-            class="flex min-h-11 items-center whitespace-nowrap px-3 font-semibold hover:text-brand-strong sm:px-4"
-            >{{ t.login }}</a
-          >
-          <a
-            routerLink="/registro"
-            class="flex min-h-11 items-center whitespace-nowrap rounded-full border-2 border-ink bg-brand px-5 font-bold hover:bg-brand-soft"
-            >{{ t.register }}</a
-          >
+          @if (hasSession()) {
+            <a
+              routerLink="/app"
+              class="flex min-h-11 items-center whitespace-nowrap rounded-full border-2 border-ink bg-brand px-5 font-bold hover:bg-brand-soft"
+              >{{ t.openApp }}</a
+            >
+          } @else {
+            <a
+              routerLink="/ingresar"
+              class="flex min-h-11 items-center whitespace-nowrap px-3 font-semibold hover:text-brand-strong sm:px-4"
+              >{{ t.login }}</a
+            >
+            <a
+              routerLink="/registro"
+              class="flex min-h-11 items-center whitespace-nowrap rounded-full border-2 border-ink bg-brand px-5 font-bold hover:bg-brand-soft"
+              >{{ t.register }}</a
+            >
+          }
         </div>
       </nav>
     </header>
@@ -308,6 +317,8 @@ const ROW =
 })
 export class LandingPage {
   protected readonly t = LANDING_TEXTS;
+  /** Signed in: the nav takes you to the app instead of offering to sign in. */
+  protected readonly hasSession = sessionHint();
   protected readonly bars = INSTALLMENT_BARS;
   protected readonly heading = HEADING;
   protected readonly questionCard = QUESTION_CARD;

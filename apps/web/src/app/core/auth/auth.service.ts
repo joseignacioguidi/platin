@@ -9,6 +9,7 @@ import type {
 } from '@platin/contracts';
 import { firstValueFrom } from 'rxjs';
 import { API } from '../api';
+import { rememberSession } from './session-hint';
 
 /**
  * Session state. The access token lives only in memory (a signal); the refresh token is an
@@ -71,10 +72,12 @@ export class AuthService {
   clear(): void {
     this.token.set(null);
     this.currentUser.set(null);
+    rememberSession(false);
   }
 
   private start(response: AuthResponse): void {
     this.token.set(response.accessToken);
     this.currentUser.set(response.user);
+    rememberSession(true);
   }
 }
