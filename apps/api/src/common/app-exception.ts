@@ -8,6 +8,8 @@ export class AppException extends HttpException {
     status: HttpStatus,
     detail?: string,
     readonly errors?: ProblemFieldError[],
+    /** Extra Problem Details members (RFC 9457 extensions), e.g. { resource, limit, used }. */
+    readonly extensions?: Record<string, unknown>,
   ) {
     super(detail ?? code, status);
   }

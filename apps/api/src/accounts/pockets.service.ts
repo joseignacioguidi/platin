@@ -11,6 +11,7 @@ import { AppException } from '../common/app-exception';
 import { freezeBase } from '../common/base-conversion';
 import { money, toDbDate } from '../common/serialize';
 import { Prisma, type Pocket as PocketRow } from '../generated/prisma/client';
+import { EntitlementsService } from '../plans/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRates } from '../rates/user-rates.service';
 import { toTransactionDto } from '../transactions/transaction.mapper';
@@ -44,6 +45,7 @@ export class PocketsService {
     private readonly prisma: PrismaService,
     private readonly balances: PocketBalancesService,
     private readonly rates: UserRates,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async get(userId: string, id: string): Promise<Pocket> {
@@ -55,6 +57,9 @@ export class PocketsService {
     const account = await this.prisma.account.findFirst({ where: { id: accountId, userId } });
     if (!account) throw AppException.notFound('Account not found');
     if (account.archivedAt) throw this.archived('ACCOUNT_ARCHIVED', 'The account is archived');
+    // The "Disponible" of each account comes with it; added pockets count for the plan.
+    if (request.kind === 'INVESTMENT') await this.entitlements.assertFeature(userId, 'investments');
+    if (request.kind !== 'AVAILABLE') await this.entitlements.assertCanCreate(userId, 'pockets');
     try {
       const row = await this.prisma.pocket.create({
         data: {

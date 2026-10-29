@@ -21,6 +21,7 @@ import { AppException } from '../common/app-exception';
 import { ClockService } from '../common/clock.service';
 import { money, toDbPeriod } from '../common/serialize';
 import type { Prisma } from '../generated/prisma/client';
+import { EntitlementsService } from '../plans/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RatesService } from '../rates/rates.service';
 
@@ -44,6 +45,7 @@ export class GoalsService {
     private readonly balances: PocketBalancesService,
     private readonly rates: RatesService,
     private readonly clock: ClockService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async list(userId: string): Promise<Goal[]> {
@@ -71,6 +73,7 @@ export class GoalsService {
   }
 
   async create(userId: string, request: CreateGoalRequest): Promise<Goal> {
+    await this.entitlements.assertCanCreate(userId, 'goals');
     await this.assertPockets(userId, request.pocketIds ?? []);
     const row = await this.prisma.goal.create({
       data: {

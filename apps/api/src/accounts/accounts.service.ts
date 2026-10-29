@@ -13,6 +13,7 @@ import {
   type Account as AccountRow,
   type Pocket as PocketRow,
 } from '../generated/prisma/client';
+import { EntitlementsService } from '../plans/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PocketBalancesService } from './pocket-balances.service';
 import { toPocketDto } from './pockets.service';
@@ -33,6 +34,7 @@ export class AccountsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly balances: PocketBalancesService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async list(userId: string, includeArchived = false): Promise<AccountsResponse> {
@@ -71,6 +73,7 @@ export class AccountsService {
 
   /** CTA-01/02: the account and its "Disponible" pocket in pesos, with today's balance. */
   async create(userId: string, request: CreateAccountRequest): Promise<Account> {
+    await this.entitlements.assertCanCreate(userId, 'accounts');
     try {
       const id = await this.prisma.$transaction(async (tx) => {
         const account = await tx.account.create({

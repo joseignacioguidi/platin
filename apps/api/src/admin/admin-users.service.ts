@@ -5,6 +5,7 @@ import { AppException } from '../common/app-exception';
 import { ClockService } from '../common/clock.service';
 import { afterCreatedAtCursor, toPage } from '../common/created-at-cursor';
 import type { Prisma } from '../generated/prisma/client';
+import { CurrentPlan, PlansService } from '../plans/plans.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Account data only: the admin never reads a user's financial records, just counts them. */
@@ -24,6 +25,7 @@ export interface AdminUsersFilter {
   query?: string;
   status?: UserStatus;
   role?: 'USER' | 'ADMIN';
+  planId?: string;
   cursor?: string;
   limit: number;
 }
@@ -35,9 +37,12 @@ export class AdminUsersService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly clock: ClockService,
+    private readonly plans: PlansService,
   ) {}
 
   async list(filter: AdminUsersFilter): Promise<AdminUsersPage> {
+    // The plan in force is resolved from the history, so the plan filter goes through it.
+    const planUserIds = filter.planId ? await this.usersWithPlan(filter.planId) : undefined;
     const rows = await this.prisma.user.findMany({
       where: {
         AND: [
@@ -51,6 +56,7 @@ export class AdminUsersService {
             : {},
           filter.status ? { status: filter.status } : {},
           filter.role ? { role: filter.role } : {},
+          planUserIds ? { id: { in: planUserIds } } : {},
           afterCreatedAtCursor(filter.cursor),
         ],
       },
@@ -59,7 +65,11 @@ export class AdminUsersService {
       take: filter.limit + 1,
     });
     const page = toPage(rows, filter.limit);
-    return { items: page.rows.map(toAdminUser), nextCursor: page.nextCursor };
+    const plans = await this.plans.currentFor(page.rows.map((row) => row.id));
+    return {
+      items: page.rows.map((row) => toAdminUser(row, plans.get(row.id) as CurrentPlan)),
+      nextCursor: page.nextCursor,
+    };
   }
 
   async detail(id: string): Promise<AdminUserDetail> {
@@ -91,7 +101,7 @@ export class AdminUsersService {
       }),
     ]);
     return {
-      ...toAdminUser(user),
+      ...toAdminUser(user, await this.plans.current(id)),
       activeSessions,
       counts: {
         accounts,
@@ -168,6 +178,12 @@ export class AdminUsersService {
     return user;
   }
 
+  private async usersWithPlan(planId: string): Promise<string[]> {
+    const ids = (await this.prisma.user.findMany({ select: { id: true } })).map((user) => user.id);
+    const current = await this.plans.currentFor(ids);
+    return ids.filter((id) => current.get(id)?.plan.id === planId);
+  }
+
   private assertNotSelf(actorId: string, id: string, action: string): void {
     if (actorId === id) {
       throw new AppException(
@@ -187,7 +203,7 @@ export class AdminUsersService {
   }
 }
 
-function toAdminUser(user: AccountRow): AdminUser {
+function toAdminUser(user: AccountRow, current: CurrentPlan): AdminUser {
   return {
     id: user.id,
     email: user.email,
@@ -196,6 +212,12 @@ function toAdminUser(user: AccountRow): AdminUser {
     status: user.status,
     createdAt: user.createdAt.toISOString(),
     lastSeenAt: user.lastSeenAt?.toISOString() ?? null,
+    plan: {
+      id: current.plan.id,
+      name: current.plan.name,
+      source: current.assignment?.source ?? 'DEFAULT',
+      endsAt: current.assignment?.endsAt?.toISOString() ?? null,
+    },
   };
 }
 
@@ -219,5 +241,7 @@ export async function deleteUserData(tx: Prisma.TransactionClient, userId: strin
   await tx.category.deleteMany({ where });
   await tx.refreshToken.deleteMany({ where });
   await tx.activityDay.deleteMany({ where });
+  await tx.userPlan.deleteMany({ where });
+  await tx.planRequest.deleteMany({ where });
   await tx.user.delete({ where: { id: userId } });
 }

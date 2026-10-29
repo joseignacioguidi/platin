@@ -12,6 +12,7 @@ import {
   monthsBetween,
   periodOf,
   periodRange,
+  startOfDayIn,
   utcToLocalDate,
 } from './dates';
 import { d, p } from './test-helpers';
@@ -69,5 +70,12 @@ describe('dates', () => {
 
   it('round-trips @db.Date values', () => {
     expect(utcToLocalDate(localDateToUtc(d('2026-10-23')))).toBe('2026-10-23');
+  });
+});
+
+describe('startOfDayIn', () => {
+  it('midnight in Buenos Aires is 03:00 UTC', () => {
+    expect(startOfDayIn(d('2026-11-27')).toISOString()).toBe('2026-11-27T03:00:00.000Z');
+    expect(startOfDayIn(d('2026-11-27'), 'UTC').toISOString()).toBe('2026-11-27T00:00:00.000Z');
   });
 });

@@ -37,4 +37,34 @@ export async function resetDatabase(prisma: PrismaService): Promise<void> {
   if (tables.length === 0) return;
   const list = tables.map(({ tablename }) => `"public"."${tablename}"`).join(', ');
   await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE`);
+  await seedPlans(prisma);
+}
+
+export const UNLIMITED = {
+  maxAccounts: null,
+  maxPockets: null,
+  maxCards: null,
+  maxGoals: null,
+  maxFixed: null,
+  investments: true,
+};
+
+/**
+ * The truncate also empties the plans the migration creates: seed a default "free" plan with no
+ * limits (so suites about other features never hit one) and a "pro". Plan tests set their own.
+ */
+export async function seedPlans(prisma: PrismaService): Promise<void> {
+  await prisma.plan.createMany({
+    data: [
+      {
+        key: 'free',
+        name: 'Gratis',
+        description: '',
+        limits: UNLIMITED,
+        isDefault: true,
+        sortOrder: 0,
+      },
+      { key: 'pro', name: 'Pro', description: '', limits: UNLIMITED, sortOrder: 1 },
+    ],
+  });
 }

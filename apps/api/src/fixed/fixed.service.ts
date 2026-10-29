@@ -11,6 +11,7 @@ import { CategoriesService } from '../categories/categories.service';
 import { AppException } from '../common/app-exception';
 import { ClockService } from '../common/clock.service';
 import { toDbPeriod } from '../common/serialize';
+import { EntitlementsService } from '../plans/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { FIXED_INCLUDE, FixedRow, toFixedDto } from './fixed.mapper';
 
@@ -22,6 +23,7 @@ export class FixedService {
     private readonly pockets: PocketsService,
     private readonly categories: CategoriesService,
     private readonly clock: ClockService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async list(userId: string): Promise<FixedItem[]> {
@@ -39,6 +41,7 @@ export class FixedService {
   }
 
   async create(userId: string, request: CreateFixedRequest): Promise<FixedItem> {
+    await this.entitlements.assertCanCreate(userId, 'fixed');
     const pocket = await this.pockets.getActive(userId, request.pocketId);
     await this.categories.getOwned(userId, request.categoryId, request.kind);
     const row = await this.prisma.fixedItem.create({

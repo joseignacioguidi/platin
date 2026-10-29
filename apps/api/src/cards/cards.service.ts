@@ -12,6 +12,7 @@ import { PocketsService } from '../accounts/pockets.service';
 import { AppException } from '../common/app-exception';
 import { ClockService } from '../common/clock.service';
 import type { CreditCard } from '../generated/prisma/client';
+import { EntitlementsService } from '../plans/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { STATEMENT_PARTS, statementTotals, toStatementSummary } from './statement-math';
 import { StatementsService } from './statements.service';
@@ -23,6 +24,7 @@ export class CardsService {
     private readonly statements: StatementsService,
     private readonly pockets: PocketsService,
     private readonly clock: ClockService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   async list(userId: string, includeArchived = false): Promise<Card[]> {
@@ -38,6 +40,7 @@ export class CardsService {
   }
 
   async create(userId: string, request: CreateCardRequest): Promise<Card> {
+    await this.entitlements.assertCanCreate(userId, 'cards');
     if (request.defaultPaymentPocketId) {
       await this.pockets.getActive(userId, request.defaultPaymentPocketId);
     }

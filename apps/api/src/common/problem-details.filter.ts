@@ -62,6 +62,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
         detail: exception.message,
         code: exception.code,
         ...(exception.errors ? { errors: exception.errors } : {}),
+        ...exception.extensions,
       };
     }
     if (exception instanceof HttpException) {

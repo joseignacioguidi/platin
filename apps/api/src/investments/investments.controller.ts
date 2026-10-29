@@ -9,6 +9,7 @@ import {
 } from '@platin/contracts';
 import { createZodDto, ZodSerializerDto } from 'nestjs-zod';
 import { AuthUser, CurrentUser } from '../common/current-user.decorator';
+import { RequiresFeature } from '../plans/requires-feature.decorator';
 import { InvestmentsService } from './investments.service';
 
 class InvestmentsDto extends createZodDto(investmentsSchema) {}
@@ -16,6 +17,8 @@ class CreateValuationsDto extends createZodDto(createValuationsRequestSchema) {}
 class ValuationsDto extends createZodDto(valuationsResponseSchema) {}
 class IdParamDto extends createZodDto(idParamSchema) {}
 
+// Hidden for plans without investments; existing data is kept and shows up again with them.
+@RequiresFeature('investments')
 @Controller('investments')
 export class InvestmentsController {
   constructor(private readonly investments: InvestmentsService) {}

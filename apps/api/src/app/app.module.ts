@@ -21,6 +21,7 @@ import { GoalsModule } from '../goals/goals.module';
 import { InvestmentsModule } from '../investments/investments.module';
 import { HealthModule } from '../health/health.module';
 import { MovementsModule } from '../movements/movements.module';
+import { PlansModule } from '../plans/plans.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RatesModule } from '../rates/rates.module';
 import { SettingsModule } from '../settings/settings.module';
@@ -71,6 +72,7 @@ const isCredentialRoute = (context: ExecutionContext): boolean =>
     GoalsModule,
     InvestmentsModule,
     SettingsModule,
+    PlansModule,
     ActivityModule,
     AdminModule,
   ],

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { AdminMetrics } from '@platin/contracts';
 import { addDays, countByWeek, localDateAt, localDateToUtc, weekStart } from '@platin/domain';
 import { ClockService } from '../common/clock.service';
+import { AdminPlansService } from '../plans/admin-plans.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 const SIGNUP_WEEKS = 12;
@@ -12,6 +13,7 @@ export class AdminMetricsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly clock: ClockService,
+    private readonly plans: AdminPlansService,
   ) {}
 
   async metrics(): Promise<AdminMetrics> {
@@ -50,7 +52,11 @@ export class AdminMetricsService {
       this.prisma.pocket.groupBy({ by: ['userId'], where: { kind: 'SAVINGS', archivedAt: null } }),
     ]);
 
+    const plans = await this.plans.list();
     return {
+      usersByPlan: plans
+        .filter((plan) => !plan.archived || plan.userCount > 0)
+        .map((plan) => ({ planId: plan.id, name: plan.name, count: plan.userCount })),
       totalUsers,
       suspendedUsers,
       activeLast7Days: active7,

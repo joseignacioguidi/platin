@@ -27,6 +27,11 @@ export const problemDetailsSchema = z.object({
   detail: z.string().optional(),
   code: z.string(),
   errors: z.array(problemFieldErrorSchema).optional(),
+  // Extension members of PLAN_LIMIT_REACHED and FEATURE_NOT_IN_PLAN.
+  resource: z.string().optional(),
+  limit: z.number().int().nullable().optional(),
+  used: z.number().int().optional(),
+  plan: z.string().optional(),
 });
 
 export type ProblemDetails = z.infer<typeof problemDetailsSchema>;

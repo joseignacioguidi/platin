@@ -177,3 +177,20 @@ export function periodToUtc(period: Period): Date {
 export function utcToPeriod(value: Date): Period {
   return periodOf(utcToLocalDate(value));
 }
+
+/** The instant a calendar day starts in a time zone (midnight in Buenos Aires is 03:00 UTC). */
+export function startOfDayIn(date: LocalDate, timeZone: string = APP_TIME_ZONE): Date {
+  const utcMidnight = localDateToUtc(date).getTime();
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).formatToParts(new Date(utcMidnight));
+  const get = (type: string) => Number(parts.find((part) => part.type === type)?.value);
+  const wallClock = Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'));
+  return new Date(utcMidnight - (wallClock - utcMidnight));
+}

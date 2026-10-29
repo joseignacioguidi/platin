@@ -94,6 +94,7 @@ export const adminMetricsSchema = z.object({
     investments: z.number().int(),
     savingsPockets: z.number().int(),
   }),
+  usersByPlan: z.array(z.object({ planId: uuidSchema, name: z.string(), count: z.number().int() })),
 });
 export type AdminMetrics = z.infer<typeof adminMetricsSchema>;
 
@@ -108,6 +109,13 @@ export const adminUserSchema = z.object({
   status: userStatusSchema,
   createdAt: z.string(),
   lastSeenAt: z.string().nullable(),
+  /** The plan in force (PLN-06). */
+  plan: z.object({
+    id: uuidSchema,
+    name: z.string(),
+    source: z.enum(['DEFAULT', 'ADMIN', 'REQUEST', 'PAYMENT']),
+    endsAt: z.string().nullable(),
+  }),
 });
 
 export const adminUserDetailSchema = adminUserSchema.extend({
@@ -130,6 +138,7 @@ export const adminUsersQuerySchema = z.object({
   query: z.string().trim().max(100).optional(),
   status: userStatusSchema.optional(),
   role: roleSchema.optional(),
+  planId: uuidSchema.optional(),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(25),
 });

@@ -456,6 +456,68 @@ model GoalPocket {
   @@id([goalId, pocketId])
 }
 
+// ---------- Plans ----------
+enum PlanSource {
+  DEFAULT
+  ADMIN
+  REQUEST
+  PAYMENT // reserved for real billing
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Plan {
+  id          String    @id @default(uuid()) @db.Uuid
+  key         String    @unique // "free", "pro"
+  name        String
+  description String
+  priceArs    Decimal?  @db.Decimal(18, 2) // reference only, never charged
+  limits      Json // validated with Zod: { maxAccounts, maxPockets, maxCards, maxGoals, maxFixed: int | null; investments: boolean }
+  isDefault   Boolean   @default(false) // exactly one (partial unique index in the migration)
+  isPublic    Boolean   @default(true) // listed on the public plans page
+  sortOrder   Int       @default(0)
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  userPlans UserPlan[]
+  requests  PlanRequest[]
+}
+
+// Plan history of each user; the one in force is the latest that has not expired.
+model UserPlan {
+  id        String     @id @default(uuid()) @db.Uuid
+  userId    String     @db.Uuid
+  planId    String     @db.Uuid
+  source    PlanSource
+  startsAt  DateTime   @default(now())
+  endsAt    DateTime? // first instant it no longer applies
+  grantedBy String?    @db.Uuid // admin who assigned it
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([userId, startsAt])
+}
+
+model PlanRequest {
+  id        String        @id @default(uuid()) @db.Uuid
+  userId    String        @db.Uuid
+  planId    String        @db.Uuid
+  message   String?
+  status    RequestStatus @default(PENDING)
+  decidedBy String?       @db.Uuid
+  decidedAt DateTime?
+  createdAt DateTime      @default(now())
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+  @@index([userId])
+}
+
 // ---------- Administration ----------
 // Global configuration: one row per key, each value validated by its Zod schema in libs/contracts.
 model AppSetting {
