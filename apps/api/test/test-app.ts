@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app/app.module';
 import { configureApp } from '../src/app/configure-app';
+import { OAUTH_PROVIDERS, OAuthProvider } from '../src/auth/oauth/oauth-provider';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { RateProvider } from '../src/rates/rate-provider';
 import { FakeRateProvider } from './fake-rates';
@@ -14,15 +15,26 @@ export interface TestContext {
   rates: FakeRateProvider;
 }
 
+export interface TestAppOptions {
+  /** Sign-in providers to use instead of the ones built from the environment (never Google). */
+  oauthProviders?: OAuthProvider[];
+}
+
 /** Boots the real AppModule against the test database. */
-export async function createTestApp(env: Record<string, string> = {}): Promise<TestContext> {
+export async function createTestApp(
+  env: Record<string, string> = {},
+  options: TestAppOptions = {},
+): Promise<TestContext> {
   loadTestEnv();
   Object.assign(process.env, env);
   const rates = new FakeRateProvider();
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+  let builder = Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(RateProvider)
-    .useValue(rates)
-    .compile();
+    .useValue(rates);
+  if (options.oauthProviders) {
+    builder = builder.overrideProvider(OAUTH_PROVIDERS).useValue(options.oauthProviders);
+  }
+  const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication({ logger: false });
   configureApp(app);
   await app.init();

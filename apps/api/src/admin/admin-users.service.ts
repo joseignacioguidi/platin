@@ -240,6 +240,7 @@ export async function deleteUserData(tx: Prisma.TransactionClient, userId: strin
   await tx.category.deleteMany({ where: { userId, parentId: { not: null } } });
   await tx.category.deleteMany({ where });
   await tx.refreshToken.deleteMany({ where });
+  await tx.authIdentity.deleteMany({ where });
   await tx.activityDay.deleteMany({ where });
   await tx.userPlan.deleteMany({ where });
   await tx.planRequest.deleteMany({ where });

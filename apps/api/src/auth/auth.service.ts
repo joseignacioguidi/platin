@@ -33,7 +33,7 @@ export class AuthService {
 
   async register(request: RegisterRequest): Promise<Session> {
     // With sign-up closed, only the configured admins can still create their account.
-    if (!this.isAdminEmail(request.email) && !(await this.settings.value('registration')).open) {
+    if (!this.isAdminEmail(request.email) && !(await this.registrationOpen())) {
       throw new AppException(
         'REGISTRATION_CLOSED',
         HttpStatus.FORBIDDEN,
@@ -42,19 +42,9 @@ export class AuthService {
     }
     const passwordHash = await this.passwords.hash(request.password);
     try {
-      const user = await this.prisma.$transaction(async (tx) => {
-        const { rateType } = await this.settings.value('default-rate', tx);
-        const created = await tx.user.create({
-          data: {
-            email: request.email,
-            passwordHash,
-            name: request.name ?? null,
-            valuationRate: rateType,
-          },
-        });
-        await this.onboarding.setUp(tx, created.id);
-        return created;
-      });
+      const user = await this.prisma.$transaction((tx) =>
+        this.createUser(tx, { email: request.email, passwordHash, name: request.name ?? null }),
+      );
       return await this.startSession(user.id);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
@@ -96,9 +86,28 @@ export class AuthService {
     if (token) await this.refreshTokens.revokeFamily(token);
   }
 
-  private async startSession(userId: string): Promise<Session> {
+  /**
+   * A new account with the same onboarding for every sign-up method (AUTH-05). Runs inside the
+   * caller's transaction; `passwordHash` is null for accounts created with a provider.
+   */
+  async createUser(
+    tx: Prisma.TransactionClient,
+    data: { email: string; passwordHash: string | null; name: string | null },
+  ): Promise<{ id: string }> {
+    const { rateType } = await this.settings.value('default-rate', tx);
+    const created = await tx.user.create({ data: { ...data, valuationRate: rateType } });
+    await this.onboarding.setUp(tx, created.id);
+    return created;
+  }
+
+  /** The same session as POST /auth/login: an access token plus a new refresh token. */
+  async startSession(userId: string): Promise<Session> {
     const refreshToken = await this.refreshTokens.issue(userId);
     return { response: await this.buildResponse(userId), refreshToken };
+  }
+
+  async registrationOpen(): Promise<boolean> {
+    return (await this.settings.value('registration')).open;
   }
 
   /** Also syncs the role with ADMIN_EMAILS, so a change shows up on the next refresh. */
@@ -113,11 +122,11 @@ export class AuthService {
     return { accessToken, user: toUserDto(user) };
   }
 
-  private isAdminEmail(email: string): boolean {
+  isAdminEmail(email: string): boolean {
     return this.config.env.ADMIN_EMAILS.includes(email.toLowerCase());
   }
 }
 
-function suspended(): AppException {
+export function suspended(): AppException {
   return new AppException('ACCOUNT_SUSPENDED', HttpStatus.FORBIDDEN, 'This account is suspended');
 }

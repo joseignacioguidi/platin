@@ -96,10 +96,17 @@ enum UserStatus {
   SUSPENDED
 }
 
+// External sign-in providers (AUTH-06). Only Google is implemented for now.
+enum AuthProvider {
+  GOOGLE
+  FACEBOOK
+  APPLE
+}
+
 model User {
   id            String     @id @default(uuid()) @db.Uuid
   email         String     @unique
-  passwordHash  String
+  passwordHash  String? // null when the account only signs in with a provider
   name          String?
   baseCurrency  Currency   @default(ARS)
   valuationRate RateType   @default(MEP)
@@ -111,6 +118,7 @@ model User {
   updatedAt     DateTime   @updatedAt
 
   refreshTokens RefreshToken[]
+  identities    AuthIdentity[]
   accounts      Account[]
   pockets       Pocket[]
   categories    Category[]
@@ -136,6 +144,21 @@ model RefreshToken {
 
   @@index([userId])
   @@index([family])
+}
+
+model AuthIdentity {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @db.Uuid
+  provider       AuthProvider
+  providerUserId String // the id_token "sub": stable even if the email changes
+  email          String?
+  createdAt      DateTime     @default(now())
+  lastUsedAt     DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, providerUserId])
+  @@unique([userId, provider]) // one link per provider and user
 }
 
 // ---------- Accounts and pockets ----------

@@ -32,7 +32,7 @@ import { UsersModule } from '../users/users.module';
 
 /** Credential endpoints, the target of brute force. Refresh runs on every app open, so it only
  * gets the general limit. */
-const CREDENTIAL_ROUTES = ['/api/v1/auth/login', '/api/v1/auth/register'];
+const CREDENTIAL_ROUTES = ['/api/v1/auth/login', '/api/v1/auth/register', '/api/v1/auth/password'];
 const isCredentialRoute = (context: ExecutionContext): boolean =>
   CREDENTIAL_ROUTES.includes(
     context.switchToHttp().getRequest<Request>().originalUrl.split('?')[0],

@@ -1,21 +1,20 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common';
 import type { AuthResponse } from '@platin/contracts';
-import type { CookieOptions, Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { ZodSerializerDto } from 'nestjs-zod';
 import { Public } from '../common/public.decorator';
-import { AppConfig } from '../config/app-config';
 import { AuthResponseDto, LoginDto, RegisterDto } from './auth.dto';
 import { AuthService, Session } from './auth.service';
+import { SessionCookie } from './session-cookie';
 
-export const REFRESH_COOKIE = 'platin_rt';
-const REFRESH_COOKIE_PATH = '/api/v1/auth';
+export { REFRESH_COOKIE } from './session-cookie';
 
 @Public()
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly auth: AuthService,
-    private readonly config: AppConfig,
+    private readonly cookie: SessionCookie,
   ) {}
 
   @Post('register')
@@ -45,9 +44,9 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponse> {
     try {
-      return this.respond(await this.auth.refresh(readCookie(req)), res);
+      return this.respond(await this.auth.refresh(this.cookie.read(req)), res);
     } catch (error) {
-      res.clearCookie(REFRESH_COOKIE, this.cookieOptions());
+      this.cookie.clear(res);
       throw error;
     }
   }
@@ -55,30 +54,12 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<void> {
-    await this.auth.logout(readCookie(req));
-    res.clearCookie(REFRESH_COOKIE, this.cookieOptions());
+    await this.auth.logout(this.cookie.read(req));
+    this.cookie.clear(res);
   }
 
   private respond(session: Session, res: Response): AuthResponse {
-    res.cookie(REFRESH_COOKIE, session.refreshToken.token, {
-      ...this.cookieOptions(),
-      expires: session.refreshToken.expiresAt,
-    });
+    this.cookie.set(res, session.refreshToken);
     return session.response;
   }
-
-  private cookieOptions(): CookieOptions {
-    return {
-      httpOnly: true,
-      secure: this.config.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: REFRESH_COOKIE_PATH,
-    };
-  }
-}
-
-function readCookie(req: Request): string | undefined {
-  const cookies = req.cookies as Record<string, unknown> | undefined;
-  const value = cookies?.[REFRESH_COOKIE];
-  return typeof value === 'string' && value ? value : undefined;
 }
