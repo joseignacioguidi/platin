@@ -99,7 +99,12 @@ export class OAuthController {
     try {
       const result = await this.oauth.callback(
         slug,
-        { code: text(query['code']), state: text(query['state']), error: text(query['error']) },
+        {
+          code: text(query['code']),
+          state: text(query['state']),
+          error: text(query['error']),
+          parameters: stringParameters(query),
+        },
         transaction,
       );
       if (result.kind === 'linked') {
@@ -136,6 +141,15 @@ export class OAuthController {
 
 function text(value: unknown): string | undefined {
   return typeof value === 'string' && value ? value : undefined;
+}
+
+/** The single-valued string parameters of a query (repeated ones are dropped, never merged). */
+function stringParameters(query: Record<string, unknown>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(query).filter(
+      (entry): entry is [string, string] => typeof entry[1] === 'string',
+    ),
+  );
 }
 
 /** The signed oauth_tx cookie, or undefined when missing, tampered with or malformed. */

@@ -34,20 +34,19 @@ export class GoogleProvider implements OAuthProvider {
   }
 
   async exchangeCode(exchange: CodeExchange): Promise<OAuthProfile> {
+    // Every parameter Google sent, not only code and state: it also sends "iss" (RFC 9207),
+    // which openid-client requires because Google's metadata announces it.
     const callbackUrl = new URL(exchange.redirectUri);
-    callbackUrl.searchParams.set('code', exchange.code);
-    callbackUrl.searchParams.set('state', exchange.state);
-    const tokens = await oidc.authorizationCodeGrant(
-      await this.config(),
-      callbackUrl,
-      {
-        pkceCodeVerifier: exchange.codeVerifier,
-        expectedState: exchange.state,
-        expectedNonce: exchange.nonce,
-        idTokenExpected: true,
-      },
-      { redirect_uri: exchange.redirectUri },
-    );
+    for (const [name, value] of Object.entries(exchange.parameters)) {
+      callbackUrl.searchParams.set(name, value);
+    }
+    // openid-client takes redirect_uri from this URL (without its query).
+    const tokens = await oidc.authorizationCodeGrant(await this.config(), callbackUrl, {
+      pkceCodeVerifier: exchange.codeVerifier,
+      expectedState: exchange.state,
+      expectedNonce: exchange.nonce,
+      idTokenExpected: true,
+    });
     const claims = tokens.claims();
     if (!claims) throw new Error('Google did not return an id_token');
     return {

@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { as, refreshCookie, registerUser, TestUser } from '../../../test/auth-helpers';
-import { FakeGoogleProvider } from '../../../test/fake-oauth';
+import { FAKE_ISSUER, FakeGoogleProvider } from '../../../test/fake-oauth';
 import { createTestApp, resetDatabase, TestContext } from '../../../test/test-app';
 import { ClockService } from '../../common/clock.service';
 
@@ -51,7 +51,9 @@ describe('sign in with a provider (AUTH-06 to 08)', () => {
   }
 
   async function callback(query: string, txCookie?: string) {
-    const req = http().get(`/api/v1/auth/oauth/google/callback${query}`);
+    // Like Google, the provider adds "iss" to every callback.
+    const iss = `&iss=${encodeURIComponent(FAKE_ISSUER)}`;
+    const req = http().get(`/api/v1/auth/oauth/google/callback${query}${iss}`);
     if (txCookie) req.set('Cookie', txCookie);
     return req.expect(302);
   }

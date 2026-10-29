@@ -32,6 +32,8 @@ export interface CallbackQuery {
   code?: string;
   state?: string;
   error?: string;
+  /** All the string parameters of the callback, passed on to the provider as received. */
+  parameters: Record<string, string>;
 }
 
 export type CallbackResult =
@@ -102,12 +104,13 @@ export class OAuthService {
       profile = await provider.exchangeCode({
         code: query.code,
         state: query.state,
+        parameters: query.parameters,
         codeVerifier: transaction.codeVerifier,
         nonce: transaction.nonce,
         redirectUri: this.redirectUri(provider),
       });
     } catch (error) {
-      this.logger.warn(`Code exchange with ${provider.provider} failed: ${String(error)}`);
+      this.logger.warn(`Code exchange with ${provider.provider} failed: ${describeError(error)}`);
       throw oauthError('OAUTH_FAILED', 'Could not complete the sign-in with the provider');
     }
 
@@ -293,6 +296,20 @@ function signInError(code: string): AppException {
     default:
       return oauthError(code, 'The provider did not confirm the email');
   }
+}
+
+/** The error and its causes (openid-client wraps the useful detail), without tokens. */
+function describeError(error: unknown): string {
+  const parts: string[] = [];
+  let current: unknown = error;
+  while (current instanceof Error && parts.length < 4) {
+    const code = (current as { code?: unknown }).code;
+    parts.push(
+      `${current.name}: ${current.message}${typeof code === 'string' ? ` [${code}]` : ''}`,
+    );
+    current = current.cause;
+  }
+  return parts.length > 0 ? parts.join(' <- ') : String(error);
 }
 
 function isUniqueViolation(error: unknown): boolean {

@@ -10,6 +10,8 @@ export interface AuthorizationRequest {
 export interface CodeExchange {
   code: string;
   state: string;
+  /** Every query parameter of the callback (code, state, iss, scope...), as received. */
+  parameters: Record<string, string>;
   codeVerifier: string;
   nonce: string;
   redirectUri: string;
