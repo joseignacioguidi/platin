@@ -8,9 +8,23 @@ export const LANDING_TEXTS = {
   openApp: 'Ir a la app',
   registerFree: 'Crear cuenta gratis',
   faceLabel: 'La cara de platin guiñando un ojo',
-  bubbleBefore: 'Este mes te quedan',
-  bubbleAmount: '$ 412.300',
-  bubbleAfter: 'libres. Vas bien.',
+  /** What the wink says, in turns. `amount` parts are set in the monospace font. */
+  bubbles: [
+    [
+      { text: 'Este mes te quedan ' },
+      { text: '$ 412.300', amount: true },
+      { text: ' libres. Vas bien.' },
+    ],
+    [
+      { text: 'La heladera se termina de pagar en ' },
+      { text: 'abril', amount: true },
+      { text: '.' },
+    ],
+    [{ text: 'Para el auto, guardá ' }, { text: 'USD 771', amount: true }, { text: ' por mes.' }],
+    [{ text: 'Tenés ' }, { text: '3', amount: true }, { text: ' fijos para confirmar este mes.' }],
+    [{ text: 'Entró el sueldo: ' }, { text: '+ $ 1.850.000', amount: true }, { text: '.' }],
+    [{ text: 'En la reserva en dólares hay ' }, { text: 'USD 670', amount: true }, { text: '.' }],
+  ] as readonly (readonly { text: string; amount?: boolean }[])[],
   taglineTop: 'Tu plata,',
   taglineBottom: 'más clara.',
   pitch:

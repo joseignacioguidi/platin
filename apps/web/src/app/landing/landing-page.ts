@@ -1,8 +1,9 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { PlWink } from '@platin/web-ui';
 import { sessionHint } from '../core/auth/session-hint';
 import { LANDING_TEXTS } from './landing.texts';
+import { WinkBubble } from './wink-bubble';
 
 /** Heights (%) and fills of the installments chart: the bars drop as plans end. */
 const INSTALLMENT_BARS = [
@@ -22,12 +23,13 @@ const ROW =
 
 /**
  * LAN-01: public landing, prerendered and always light. Coral, sky and rose are used only here.
- * One main movement: the wink in the hero (with its bubble) and the floating stickers;
+ * One main movement: the wink in the hero (with its bubble typing what platin tells you) and the
+ * floating stickers;
  * everything stays still under `prefers-reduced-motion`.
  */
 @Component({
   selector: 'pl-landing-page',
-  imports: [RouterLink, PlWink],
+  imports: [RouterLink, PlWink, WinkBubble],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'pl-light block min-h-dvh overflow-x-clip bg-surface text-ink' },
   styles: `
@@ -106,13 +108,11 @@ const ROW =
         class="mx-auto flex max-w-[1240px] flex-col items-center gap-7 px-4 pb-18 pt-6 text-center sm:px-6 sm:pt-10"
       >
         <div class="relative flex flex-col items-center gap-4 sm:block sm:pr-2">
-          <pl-wink class="w-[150px] sm:w-[190px]" [animated]="true" [label]="t.faceLabel" />
+          <pl-wink class="w-[150px] sm:w-[190px]" [winkTrigger]="winks()" [label]="t.faceLabel" />
           <p
-            class="bubble m-0 w-[250px] rounded-[26px_26px_26px_6px] border-2 border-ink bg-surface px-5 py-4 text-left leading-snug sm:absolute sm:left-full sm:top-1.5"
+            class="bubble m-0 min-h-[84px] w-[250px] rounded-[26px_26px_26px_6px] border-2 border-ink bg-surface px-5 py-4 text-left leading-snug sm:absolute sm:left-full sm:top-1.5"
           >
-            {{ t.bubbleBefore }}
-            <span class="font-amount whitespace-nowrap font-semibold">{{ t.bubbleAmount }}</span>
-            {{ t.bubbleAfter }}
+            <pl-wink-bubble [messages]="t.bubbles" (said)="winks.update((n) => n + 1)" />
           </p>
         </div>
 
@@ -319,6 +319,8 @@ export class LandingPage {
   protected readonly t = LANDING_TEXTS;
   /** Signed in: the nav takes you to the app instead of offering to sign in. */
   protected readonly hasSession = sessionHint();
+  /** One wink per message of the bubble. */
+  protected readonly winks = signal(0);
   protected readonly bars = INSTALLMENT_BARS;
   protected readonly heading = HEADING;
   protected readonly questionCard = QUESTION_CARD;
