@@ -8,6 +8,11 @@ export const appRoutes: Route[] = [
     loadComponent: () => import('./landing/landing-page').then((m) => m.LandingPage),
   },
   {
+    path: 'planes',
+    title: 'Planes · platin',
+    loadComponent: () => import('./features/plans/plans-page').then((m) => m.PlansPage),
+  },
+  {
     path: 'ingresar',
     canActivate: [guestGuard],
     loadComponent: () => import('./features/auth/login-page').then((m) => m.LoginPage),

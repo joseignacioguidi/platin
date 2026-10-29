@@ -12,6 +12,7 @@ import { authInterceptor } from './core/auth/auth.interceptor';
 import { provideAppIcons } from './core/icons';
 import { provideSyncOnStart } from './core/session/sync-on-start';
 import { Today } from './core/today';
+import { planLimitInterceptor } from './features/plans/plan-limit.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -21,7 +22,7 @@ export const appConfig: ApplicationConfig = {
       withComponentInputBinding(),
       withInMemoryScrolling({ scrollPositionRestoration: 'top' }),
     ),
-    provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
+    provideHttpClient(withFetch(), withInterceptors([authInterceptor, planLimitInterceptor])),
     provideClientHydration(withEventReplay(), withIncrementalHydration()),
     provideAppIcons(),
     provideSyncOnStart(),

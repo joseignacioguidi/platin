@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { RouterLink } from '@angular/router';
 import { LucideChevronRight, LucideDynamicIcon } from '@lucide/angular';
 import { AuthService } from '../../core/auth/auth.service';
+import { PlanStore } from '../plans/plan.store';
 import { SETTINGS_TEXTS } from './settings.texts';
 
 interface MoreLink {
@@ -37,6 +38,7 @@ interface MoreLink {
 })
 export class MorePage {
   private readonly auth = inject(AuthService);
+  private readonly plan = inject(PlanStore);
   protected readonly texts = SETTINGS_TEXTS.more;
   protected readonly links: MoreLink[] = [
     { path: '/app/ahorros', label: SETTINGS_TEXTS.more.savings, icon: 'piggy-bank' },
@@ -48,10 +50,16 @@ export class MorePage {
     { path: '/app/categorias', label: SETTINGS_TEXTS.more.categories, icon: 'tag' },
     { path: '/app/perfil', label: SETTINGS_TEXTS.more.profile, icon: 'user' },
   ];
-  /** The admin panel shows up only for administrators (the API checks again). */
-  protected readonly visibleLinks = computed(() =>
-    this.auth.user()?.role === 'ADMIN'
-      ? [...this.links, { path: '/admin', label: SETTINGS_TEXTS.more.admin, icon: 'shield-check' }]
-      : this.links,
-  );
+  /**
+   * Features outside the plan are hidden; the admin panel shows up only for administrators.
+   * The API checks both again.
+   */
+  protected readonly visibleLinks = computed(() => {
+    const links = this.links.filter(
+      (link) => link.path !== '/app/inversiones' || this.plan.hasInvestments(),
+    );
+    return this.auth.user()?.role === 'ADMIN'
+      ? [...links, { path: '/admin', label: SETTINGS_TEXTS.more.admin, icon: 'shield-check' }]
+      : links;
+  });
 }

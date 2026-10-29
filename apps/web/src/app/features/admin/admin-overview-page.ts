@@ -51,6 +51,28 @@ type FeatureKey = keyof AdminMetrics['featureUsage'];
         </div>
       </section>
 
+      <section class="mt-4 rounded-card bg-surface p-5" aria-labelledby="plans-title">
+        <h2 id="plans-title" class="text-lg font-bold">{{ t.plans }}</h2>
+        <ul class="mt-3 flex flex-col">
+          @for (plan of m.usersByPlan; track plan.planId) {
+            <li
+              class="flex min-h-12 items-center justify-between gap-4 border-b border-line-soft last:border-b-0"
+            >
+              <span>{{ plan.name }}</span>
+              <span class="flex items-center gap-3">
+                <span class="hidden h-2 w-32 overflow-hidden rounded-full bg-line-soft sm:block">
+                  <span
+                    class="block h-full rounded-full bg-brand"
+                    [style.width.%]="share(plan.count, m.totalUsers)"
+                  ></span>
+                </span>
+                <span class="font-amount w-10 text-right font-semibold">{{ plan.count }}</span>
+              </span>
+            </li>
+          }
+        </ul>
+      </section>
+
       <section class="mt-4 rounded-card bg-surface p-5" aria-labelledby="features-title">
         <h2 id="features-title" class="text-lg font-bold">{{ t.features }}</h2>
         <p class="text-sm text-muted">{{ t.featuresHint }}</p>

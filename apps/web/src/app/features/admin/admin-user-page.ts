@@ -8,6 +8,7 @@ import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { errorMessage } from '../../core/errors';
 import { AdminConfirmData, AdminConfirmSheet } from './admin-confirm-sheet';
+import { AdminUserPlan } from './admin-user-plan';
 import { ADMIN_API, AdminApi, formatInstant, UserAction } from './admin.api';
 import { ADMIN_TEXTS } from './admin.texts';
 
@@ -16,7 +17,7 @@ type CountKey = keyof AdminUserDetail['counts'];
 /** ADM-03/04: account data, record counts and the actions on a user. */
 @Component({
   selector: 'pl-admin-user-page',
-  imports: [RouterLink, LucideArrowLeft, PlButton, PlSkeleton, PlErrorState],
+  imports: [RouterLink, LucideArrowLeft, PlButton, PlSkeleton, PlErrorState, AdminUserPlan],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <a
@@ -68,6 +69,8 @@ type CountKey = keyof AdminUserDetail['counts'];
           </dl>
         </section>
       </div>
+
+      <pl-admin-user-plan class="mt-4" [user]="u" (changed)="updated.set($event)" />
 
       <section class="mt-4 rounded-card bg-surface p-5" aria-labelledby="actions-title">
         <h2 id="actions-title" class="mb-3 text-lg font-bold">{{ t.actions }}</h2>
@@ -131,7 +134,7 @@ export class AdminUserPage {
   protected readonly detail = httpResource<AdminUserDetail>(
     () => `${ADMIN_API}/users/${this.id()}`,
   );
-  private readonly updated = signal<AdminUserDetail | null>(null);
+  protected readonly updated = signal<AdminUserDetail | null>(null);
   protected readonly user = computed(() => {
     const fresh = this.updated();
     return fresh?.id === this.id() ? fresh : this.detail.value();

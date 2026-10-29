@@ -1,7 +1,12 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import type {
+  AdminPlan,
+  AdminPlanRequest,
   AdminUserDetail,
+  AssignPlanRequest,
+  CreatePlanRequest,
+  UpdatePlanRequest,
   AdminUsersPage,
   AdminUsersQuery,
   AuditPage,
@@ -39,6 +44,38 @@ export class AdminApi {
   deleteUser(id: string, confirmEmail: string): Promise<void> {
     return firstValueFrom(
       this.http.delete<void>(`${ADMIN_API}/users/${id}`, { body: { confirmEmail } }),
+    );
+  }
+
+  plans(): Promise<AdminPlan[]> {
+    return firstValueFrom(this.http.get<AdminPlan[]>(`${ADMIN_API}/plans`));
+  }
+
+  createPlan(request: CreatePlanRequest): Promise<AdminPlan> {
+    return firstValueFrom(this.http.post<AdminPlan>(`${ADMIN_API}/plans`, request));
+  }
+
+  updatePlan(id: string, changes: UpdatePlanRequest): Promise<AdminPlan> {
+    return firstValueFrom(this.http.patch<AdminPlan>(`${ADMIN_API}/plans/${id}`, changes));
+  }
+
+  assignPlan(userId: string, request: AssignPlanRequest): Promise<AdminUserDetail> {
+    return firstValueFrom(
+      this.http.post<AdminUserDetail>(`${ADMIN_API}/users/${userId}/plan`, request),
+    );
+  }
+
+  planRequests(status?: AdminPlanRequest['status']): Promise<AdminPlanRequest[]> {
+    const params = status ? new HttpParams().set('status', status) : undefined;
+    return firstValueFrom(
+      this.http.get<AdminPlanRequest[]>(`${ADMIN_API}/plan-requests`, { params }),
+    );
+  }
+
+  decidePlanRequest(id: string, approve: boolean): Promise<AdminPlanRequest> {
+    const action = approve ? 'approve' : 'reject';
+    return firstValueFrom(
+      this.http.post<AdminPlanRequest>(`${ADMIN_API}/plan-requests/${id}/${action}`, null),
     );
   }
 

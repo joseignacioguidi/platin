@@ -8,12 +8,21 @@ import { AuthService } from '../../core/auth/auth.service';
 import { errorMessage } from '../../core/errors';
 import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { ThemeService } from '../../core/theme/theme.service';
+import { PlanSummary } from '../plans/plan-summary';
 import { SETTINGS_TEXTS } from './settings.texts';
 
-/** AUTH-04: name, base currency and preferred rate; plus appearance and logout. */
+/** AUTH-04: name, base currency and preferred rate; the plan (PLN-03); appearance and logout. */
 @Component({
   selector: 'pl-profile-page',
-  imports: [ReactiveFormsModule, FormField, PlButton, PlSegmented, LucideLogOut, LucideMoon],
+  imports: [
+    ReactiveFormsModule,
+    FormField,
+    PlButton,
+    PlSegmented,
+    LucideLogOut,
+    LucideMoon,
+    PlanSummary,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1 class="mb-4 text-xl font-bold">{{ texts.title }}</h1>
@@ -74,6 +83,8 @@ import { SETTINGS_TEXTS } from './settings.texts';
         {{ saving() ? texts.saving : texts.save }}
       </button>
     </form>
+
+    <pl-plan-summary class="mt-4" />
 
     <section class="mt-4 flex flex-col gap-1 rounded-card bg-surface p-3">
       <h2 class="sr-only">{{ texts.appearance }}</h2>

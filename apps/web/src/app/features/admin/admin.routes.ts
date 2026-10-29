@@ -19,6 +19,16 @@ export const adminRoutes: Route[] = [
     loadComponent: () => import('./admin-user-page').then((m) => m.AdminUserPage),
   },
   {
+    path: 'planes',
+    title: 'Planes · Administración · platin',
+    loadComponent: () => import('./admin-plans-page').then((m) => m.AdminPlansPage),
+  },
+  {
+    path: 'solicitudes',
+    title: 'Solicitudes · Administración · platin',
+    loadComponent: () => import('./admin-requests-page').then((m) => m.AdminRequestsPage),
+  },
+  {
     path: 'configuracion',
     title: 'Configuración · Administración · platin',
     loadComponent: () => import('./admin-settings-page').then((m) => m.AdminSettingsPage),

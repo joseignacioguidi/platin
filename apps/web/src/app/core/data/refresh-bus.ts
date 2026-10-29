@@ -9,7 +9,8 @@ export type DataKey =
   | 'fixed'
   | 'commitments'
   | 'dashboard'
-  | 'goals';
+  | 'goals'
+  | 'plan';
 
 /**
  * After each write, the feature calls `invalidate(...)` with what it affected; stores that

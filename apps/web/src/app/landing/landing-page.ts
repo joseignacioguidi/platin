@@ -74,6 +74,11 @@ const ROW =
             >{{ t.howItWorks }}</a
           >
           <a
+            routerLink="/planes"
+            class="hidden min-h-11 items-center px-4 font-semibold hover:text-brand-strong sm:flex"
+            >{{ t.plans }}</a
+          >
+          <a
             routerLink="/ingresar"
             class="flex min-h-11 items-center whitespace-nowrap px-3 font-semibold hover:text-brand-strong sm:px-4"
             >{{ t.login }}</a
@@ -291,6 +296,11 @@ const ROW =
       <span
         ><strong class="text-ink">{{ t.brand }}</strong
         >. {{ t.footerTagline }}</span
+      >
+      <a
+        routerLink="/planes"
+        class="-my-3 inline-flex min-h-11 items-center font-semibold text-ink hover:text-brand-strong"
+        >{{ t.plans }}</a
       >
       <span>{{ t.footerMade }}</span>
     </footer>

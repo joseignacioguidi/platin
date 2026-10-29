@@ -57,6 +57,7 @@ type StatusFilter = UserStatus | 'ALL';
               <th scope="col" class="px-4 py-3 font-medium">{{ t.columns.user }}</th>
               <th scope="col" class="px-4 py-3 font-medium">{{ t.columns.createdAt }}</th>
               <th scope="col" class="px-4 py-3 font-medium">{{ t.columns.lastSeen }}</th>
+              <th scope="col" class="px-4 py-3 font-medium">{{ t.columns.plan }}</th>
               <th scope="col" class="px-4 py-3 font-medium">{{ t.columns.status }}</th>
             </tr>
           </thead>
@@ -90,6 +91,10 @@ type StatusFilter = UserStatus | 'ALL';
                 <td class="font-amount text-sm md:px-4 md:py-3">
                   <span class="text-muted md:hidden">{{ t.columns.lastSeen }}: </span>
                   {{ when(user.lastSeenAt) ?? t.never }}
+                </td>
+                <td class="text-sm md:px-4 md:py-3">
+                  <span class="text-muted md:hidden">{{ t.columns.plan }}: </span>
+                  {{ user.plan.name }}
                 </td>
                 <td class="pt-1 md:px-4 md:py-3">
                   <span

@@ -86,6 +86,8 @@ export class AdminLayout {
   protected readonly items: AdminNavItem[] = [
     { path: '/admin', label: ADMIN_TEXTS.nav.overview, icon: 'layout-dashboard', exact: true },
     { path: '/admin/usuarios', label: ADMIN_TEXTS.nav.users, icon: 'users', exact: false },
+    { path: '/admin/planes', label: ADMIN_TEXTS.nav.plans, icon: 'layers', exact: false },
+    { path: '/admin/solicitudes', label: ADMIN_TEXTS.nav.requests, icon: 'inbox', exact: false },
     {
       path: '/admin/configuracion',
       label: ADMIN_TEXTS.nav.settings,
