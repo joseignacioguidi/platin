@@ -60,6 +60,10 @@ Trece módulos; cada caso de uso tiene un código para referenciarlo en el plan 
 - **AUTH-04** Configurar moneda base y cotización preferida para valuar dólares.
 - **AUTH-05** Onboarding inicial: crear primeras cuentas, tarjetas y categorías sugeridas.
 
+* **AUTH-06** Registrarse e ingresar con una cuenta externa. Por ahora, Google; la estructura admite sumar Facebook y Apple sin cambiar el resto de la app. Los botones de proveedores aparecen solo si están habilitados en el servidor.
+* **AUTH-07** Ver en el perfil las formas de ingreso de la cuenta (contraseña y proveedores), vincular un proveedor nuevo y desvincular uno, siempre que quede al menos una forma de ingresar.
+* **AUTH-08** Una cuenta creada con un proveedor puede definir una contraseña después, para tener una segunda forma de ingresar.
+
 ### 2. Cuentas y apartados
 
 - **CTA-01** Crear, editar y archivar cuentas: una por institución o lugar (Mercado Pago, Santander, efectivo, un broker), con su tipo (banco, billetera, efectivo, broker).
@@ -259,6 +263,17 @@ Comprometido del mes M = cuotas de resúmenes que vencen en M + fijos de gasto a
 - Toda acción del administrador que cambia algo queda en la auditoría, en la misma transacción que el cambio.
 - El administrador no puede suspenderse ni quitarse el rol a sí mismo.
 
+### Ingreso con proveedores
+
+- Una cuenta de platin puede tener contraseña, uno o más proveedores vinculados, o ambos. Siempre tiene al menos uno: desvincular el último método se rechaza.
+- Un proveedor identifica a la persona por su ID en ese proveedor, no por el email: si el email cambia en Google, la cuenta sigue siendo la misma.
+- Primer ingreso con un proveedor:
+  - Si ese proveedor ya está vinculado a una cuenta, se ingresa a esa cuenta.
+  - Si no hay ninguna cuenta con ese email, se crea una nueva, con el mismo onboarding que el registro con contraseña.
+  - Si ya existe una cuenta con ese email, **no se vincula sola**: se le pide a la persona que ingrese con su contraseña y vincule el proveedor desde el perfil. Así nadie puede tomar una cuenta ajena registrando antes ese email.
+- Solo se aceptan emails que el proveedor marca como verificados.
+- Las reglas de usuario suspendido y registro cerrado se aplican igual que en el ingreso con contraseña.
+
 ## Alcance: MVP, backlog y fuera de alcance
 
 El MVP es lo mínimo para dejar de usar la versión actual: cuentas, movimientos, tarjetas con cuotas, fijos, compromisos y metas. Presupuestos, inversiones y reportes completos van en una segunda tanda.
@@ -299,11 +314,12 @@ La base de datos se recrea desde cero: no se migran los datos cargados durante e
 
 ### Iteración 3 (octubre 2026)
 
-Tres pilares para que platin se parezca más a un producto:
+Cuatro frentes para que platin se parezca más a un producto:
 
 - Una landing con más identidad y movimiento (LAN-01 y la sección "Landing"), a partir de tres direcciones visuales en el canvas de mockups.
 - Un usuario administrador con métricas, gestión de usuarios y configuración global (ADM-01 a 07).
 - Planes con límites, asignados por el administrador y sin cobro (PLN-01 a 06). El cobro real con Mercado Pago queda fuera de alcance por ahora.
+- Ingreso con proveedores externos (AUTH-06 a 08): la arquitectura admite varios, y por ahora se implementa solo Google.
 
 ## Identidad visual y UX
 

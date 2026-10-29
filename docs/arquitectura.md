@@ -468,6 +468,64 @@ Auth propio con dos tokens: un JWT de acceso corto que vive en memoria y un refr
 - Todo servicio filtra por `userId` en cada consulta; acceder a un recurso de otro usuario devuelve 404, no 403, para no revelar que existe.
 - Un test e2e por módulo verifica que el usuario B no puede leer ni modificar datos del usuario A.
 
+### Ingreso con proveedores externos
+
+Cada proveedor es una implementación de una misma interfaz, y el flujo OAuth vive entero en el backend: termina emitiendo la misma sesión (refresh token en cookie) que el login con contraseña, así que el resto de la app no cambia. Por ahora se implementa Google; Facebook y Apple se suman agregando su clase y sus variables de entorno.
+
+```prisma
+enum AuthProvider { GOOGLE FACEBOOK APPLE }
+
+// En User: passwordHash pasa a ser opcional (String?).
+
+model AuthIdentity {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @db.Uuid
+  provider       AuthProvider
+  providerUserId String       // "sub" del id_token: estable aunque cambie el email
+  email          String?
+  createdAt      DateTime     @default(now())
+  lastUsedAt     DateTime?
+  @@unique([provider, providerUserId])
+  @@unique([userId, provider])        // un vínculo por proveedor y usuario
+}
+```
+
+Piezas del backend (módulo `auth`):
+
+- `OAuthProvider`: `buildAuthorizationUrl({ state, codeChallenge, nonce, redirectUri })` y `exchangeCode({ code, codeVerifier, nonce, redirectUri })`, que devuelve `{ providerUserId, email, emailVerified, name }`.
+- `GoogleProvider` con la librería `openid-client`: descubrimiento OIDC, PKCE y verificación del `id_token` (firma, audiencia, emisor y `nonce`). Scopes: `openid email profile`, los básicos que Google no obliga a verificar ([Google](https://support.google.com/cloud/answer/15549945?hl=es)).
+- `OAuthProviderRegistry`: un proveedor está habilitado solo si sus variables de entorno están definidas. `GET /auth/providers` (público) devuelve los habilitados y el front dibuja los botones a partir de esa lista.
+
+Flujo:
+
+1. El botón "Continuar con Google" navega (navegación completa, no un pedido XHR) a `/api/v1/auth/oauth/google/start?returnTo=/app`.
+2. La API genera `state`, el verificador PKCE y un `nonce`; los guarda en una cookie firmada `oauth_tx` (httpOnly, Secure, `SameSite=Lax`, `Path=/api/v1/auth/oauth`, 10 minutos) y redirige a Google.
+3. Google vuelve a `GET /api/v1/auth/oauth/google/callback?code=&state=`. La API compara el `state` con la cookie, canjea el código, verifica el `id_token` y borra la cookie.
+4. Resuelve el usuario con la regla "Ingreso con proveedores" de la especificación: identidad existente, cuenta nueva, o error `ACCOUNT_EXISTS_LINK_REQUIRED` si el email ya tiene cuenta. Aplica las reglas de suspensión y registro cerrado.
+5. Emite la sesión igual que `POST /auth/login` (cookie de refresh) y redirige a `/auth/listo?returnTo=/app`. Esa página del front llama a `/auth/refresh`, obtiene el token de acceso y navega. Ningún token viaja en la URL.
+6. Cualquier error redirige a `/ingresar?error=<CODE>` y la pantalla de ingreso muestra el mensaje.
+
+Vincular desde el perfil: como una navegación completa no lleva el token de acceso, el front pide antes `POST /auth/oauth/:provider/link-ticket` (autenticado), que devuelve un ticket de un solo uso válido por 60 segundos, y navega a `/start?mode=link&ticket=...`. El callback vincula la identidad a ese usuario en lugar de iniciar sesión.
+
+| Método y ruta | Caso de uso |
+| --- | --- |
+| `GET /auth/providers` | AUTH-06 (botones habilitados) |
+| `GET /auth/oauth/:provider/start`, `GET /auth/oauth/:provider/callback` | AUTH-06 |
+| `POST /auth/oauth/:provider/link-ticket` | AUTH-07 (vincular) |
+| `GET /auth/identities`, `DELETE /auth/identities/:id` | AUTH-07 (rechaza con `LAST_SIGN_IN_METHOD` si es el último) |
+| `POST /auth/password` | AUTH-08 (solo si la cuenta no tiene contraseña) |
+
+Direcciones y entornos:
+
+- La dirección de retorno se arma con la variable `PUBLIC_APP_URL`, no con el host del pedido: `https://<app>.vercel.app/api/v1/auth/oauth/google/callback` en producción y `http://localhost:4200/api/v1/auth/oauth/google/callback` en local (por el proxy del front). Las dos se registran en Google Cloud.
+- Variables nuevas: `PUBLIC_APP_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` y `OAUTH_COOKIE_SECRET`.
+- Todas las respuestas de `/auth/*` llevan `Cache-Control: no-store`: Vercel respeta las cabeceras de caché del origen en los reenvíos ([Vercel](https://vercel.com/docs/rewrites)) y una respuesta de autenticación nunca debe quedar cacheada.
+
+Para sumar después:
+
+- **Facebook**: su ingreso web no es OIDC estándar; su clase pide el perfil a la Graph API. Puede no devolver email: en ese caso el front pide el email en un paso extra antes de crear la cuenta.
+- **Apple**: no acepta `localhost` como dirección de retorno, así que en local se prueba con un túnel HTTPS ([Better Auth](https://better-auth.com/docs/authentication/apple)). Vuelve con un POST (`response_mode=form_post`), por lo que su cookie `oauth_tx` necesita `SameSite=None`. El client secret es un JWT que la API firma en el momento con la clave `.p8`, sin renovarlo a mano. Entrega nombre y email solo en el primer ingreso y el email puede ser un relay privado de Apple.
+
 ### Protecciones adicionales
 
 - Rate limiting con `@nestjs/throttler`: estricto en `/auth/*` (por ejemplo, 5 intentos por minuto por IP), general en el resto.
@@ -539,7 +597,6 @@ Vercel y Render despliegan solos al hacer push a `main` (integración con GitHub
 | `ORIGIN_SECRET` | Render y Vercel | Cabecera secreta que solo agrega Vercel |
 | `APP_ORIGIN` | Render | Dominio de la app, para CORS de `/health` |
 | `RATES_BASE_URL` | Render | `https://dolarapi.com` |
-| `ADMIN_EMAILS` | Render | Emails separados por coma que reciben el rol de administrador al ingresar |
 | `API_DIRECT_URL` | Vercel (build) | URL de Render para el pedido de `/health` |
 
 En local: `docker compose` con Postgres, `.env` a partir de `.env.example`, y `nx serve api` + `nx serve web` con proxy de `/api` al puerto de la API.

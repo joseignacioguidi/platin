@@ -649,6 +649,47 @@ Forma de trabajo:
 - Rama feat/fase-19-planes. Todo en verde antes del PR, con capturas de la hoja de límite, /planes y el panel de planes.
 ```
 
+## Fase 20 — Ingreso con Google
+
+Ingreso y registro con Google sobre una estructura que admite más proveedores. Es independiente de las fases 17 a 19 y puede hacerse en cualquier momento; si la 18 ya está hecha, respeta la suspensión y el registro cerrado.
+
+**Antes de empezar (vos):**
+
+1. En [Google Cloud Console](https://console.cloud.google.com/), crear un proyecto "platin".
+2. Configurar la pantalla de consentimiento: tipo Externo, nombre platin, tu email de soporte y los scopes `openid`, `email` y `profile`. Con solo esos scopes no hace falta verificación.
+3. Crear credenciales "ID de cliente de OAuth" de tipo "Aplicación web" con dos URI de redireccionamiento autorizadas:
+   - `http://localhost:4200/api/v1/auth/oauth/google/callback`
+   - `https://<tu-app>.vercel.app/api/v1/auth/oauth/google/callback`
+4. Guardar el ID y el secreto en Render y en tu `.env` local como `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET`. Definir también `PUBLIC_APP_URL` (la URL de Vercel en Render, `http://localhost:4200` en local) y `OAUTH_COOKIE_SECRET` (un valor aleatorio largo).
+
+**Terminado cuando:** en local y en producción creo una cuenta con Google y la segunda vez ingreso a la misma; si ya tengo cuenta con contraseña y ese email, la app me pide ingresar con la contraseña y vincular Google desde el perfil, y después puedo ingresar de las dos formas; no puedo desvincular mi última forma de ingreso; sin las variables de Google, el botón no aparece.
+
+```
+Leé CLAUDE.md, AUTH-06 a 08 y la regla "Ingreso con proveedores" de docs/especificacion.md, y la sección "Auth y seguridad > Ingreso con proveedores externos" de docs/arquitectura.md.
+
+Vamos a hacer la Fase 20 de docs/plan.md: ingreso con Google sobre una estructura preparada para sumar Facebook y Apple después. Implementá solo Google; no dejes código a medias de los otros proveedores, pero sí el enum y la interfaz listos para ellos.
+
+Backend:
+1. Esquema: AuthProvider, AuthIdentity y passwordHash opcional en User, según la arquitectura. Migración. El login con contraseña debe rechazar con el mismo error genérico de credenciales inválidas a una cuenta sin contraseña.
+2. Interfaz OAuthProvider, GoogleProvider con openid-client (descubrimiento OIDC, PKCE, state y nonce, verificación del id_token) y OAuthProviderRegistry que habilita un proveedor solo si sus variables de entorno están definidas.
+3. Endpoints de la tabla de la arquitectura: GET /auth/providers, start y callback, link-ticket, GET y DELETE /auth/identities, POST /auth/password.
+4. Cookie oauth_tx firmada con OAUTH_COOKIE_SECRET, httpOnly, Secure (salvo en local), SameSite=Lax, Path=/api/v1/auth/oauth, 10 minutos; se borra en el callback. La dirección de retorno sale de PUBLIC_APP_URL, nunca del host del pedido. returnTo solo acepta rutas internas que empiecen con "/" (sin "//"), para no permitir redirecciones abiertas.
+5. Resolución del usuario exactamente como la regla de la especificación: identidad existente; cuenta nueva con el mismo onboarding que el registro; o ACCOUNT_EXISTS_LINK_REQUIRED si el email ya tiene cuenta. Solo emails verificados por Google. Respetá ACCOUNT_SUSPENDED y REGISTRATION_CLOSED si existen.
+6. El callback emite la misma sesión que POST /auth/login y redirige a /auth/listo?returnTo=...; los errores redirigen a /ingresar?error=CODE. Ningún token en la URL. Cache-Control: no-store en todo /auth/*.
+7. Sumá las variables nuevas a .env.example, a la validación de configuración y a la tabla de variables de docs/arquitectura.md.
+8. Tests: unitarios de la resolución de usuario y de la validación de returnTo; e2e del flujo completo con un GoogleProvider falso inyectado (sin llamar a Google): cuenta nueva, segundo ingreso, email existente, state inválido, vincular con ticket, ticket vencido o reusado, desvincular el último método, definir contraseña.
+
+Web:
+9. En /ingresar y /registro, un botón "Continuar con Google" por cada proveedor de GET /auth/providers, siguiendo las pautas de marca de Google (logo oficial, texto y colores permitidos), con un separador "o" antes del formulario de email.
+10. Página /auth/listo: llama a /auth/refresh, ejecuta el arranque habitual (sync) y navega a returnTo.
+11. Mensajes de error en /ingresar según el código, en español: por ejemplo, para ACCOUNT_EXISTS_LINK_REQUIRED, "Ya tenés una cuenta con ese email. Ingresá con tu contraseña y vinculá Google desde tu perfil."
+12. Perfil, sección "Formas de ingreso": contraseña (definir si no tiene) y proveedores con vincular y desvincular; desvincular el último método está deshabilitado con la explicación.
+
+Forma de trabajo:
+- Plan primero, esperame. Confirmá en el repo el puerto del front en local antes de dar por buena la URI de retorno.
+- Rama feat/fase-20-google. Todo en verde antes del PR, con capturas del login y del perfil, y los pasos para probarlo en local con mis credenciales.
+```
+
 ## Después del MVP
 
 La segunda tanda de la especificación, en fases chicas que se pueden hacer en cualquier orden. Los prompts siguen el mismo molde que las fases anteriores: leer `CLAUDE.md` y la sección de la especificación, plan primero, rama propia, PR con todo en verde.
