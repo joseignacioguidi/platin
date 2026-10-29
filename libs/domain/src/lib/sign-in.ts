@@ -70,6 +70,8 @@ export function safeReturnPath(path: string | null | undefined, fallback = '/app
   if (!path || path.length > 512) return fallback;
   if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) return fallback;
   // Control characters (tabs, newlines) are stripped by URL parsers and could form "//".
-  if (/[\u0000-\u001f\u007f]/.test(path)) return fallback;
+  if ([...path].some((char) => char.charCodeAt(0) < 0x20 || char.charCodeAt(0) === 0x7f)) {
+    return fallback;
+  }
   return path;
 }

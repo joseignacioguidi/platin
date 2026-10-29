@@ -597,6 +597,10 @@ Vercel y Render despliegan solos al hacer push a `main` (integración con GitHub
 | `ORIGIN_SECRET` | Render y Vercel | Cabecera secreta que solo agrega Vercel |
 | `APP_ORIGIN` | Render | Dominio de la app, para CORS de `/health` |
 | `RATES_BASE_URL` | Render | `https://dolarapi.com` |
+| `ADMIN_EMAILS` | Render | Emails separados por coma que reciben el rol de administrador al ingresar |
+| `PUBLIC_APP_URL` | Render, local | URL pública de la app (`https://<app>.vercel.app`; `http://localhost:4200` en local). Con ella se arman la dirección de retorno de OAuth y las redirecciones después del ingreso |
+| `OAUTH_COOKIE_SECRET` | Render, local | Firma de la cookie `oauth_tx` (32 caracteres o más) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Render, local | Credenciales OAuth de Google. Sin ellas, el ingreso con Google está apagado y el botón no aparece. Si están, `PUBLIC_APP_URL` y `OAUTH_COOKIE_SECRET` son obligatorias |
 | `API_DIRECT_URL` | Vercel (build) | URL de Render para el pedido de `/health` |
 
 En local: `docker compose` con Postgres, `.env` a partir de `.env.example`, y `nx serve api` + `nx serve web` con proxy de `/api` al puerto de la API.

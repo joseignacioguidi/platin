@@ -23,6 +23,12 @@ export const appRoutes: Route[] = [
     loadComponent: () => import('./features/auth/register-page').then((m) => m.RegisterPage),
   },
   {
+    // Rendered in the browser: it refreshes with the cookie the API just set (AUTH-06).
+    path: 'auth/listo',
+    title: 'Ingresando · platin',
+    loadComponent: () => import('./features/auth/auth-done-page').then((m) => m.AuthDonePage),
+  },
+  {
     path: 'app',
     canActivate: [authGuard],
     loadComponent: () => import('./layout/shell').then((m) => m.Shell),

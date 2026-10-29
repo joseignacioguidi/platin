@@ -19,13 +19,15 @@ import { ServerWake } from '../../core/session/server-wake.service';
 import { SessionService } from '../../core/session/session.service';
 import { AuthLayout } from './auth-layout';
 import { AUTH_TEXTS } from './auth.texts';
+import { ProviderButtons } from './provider-buttons';
 
 @Component({
   selector: 'pl-register-page',
-  imports: [AuthLayout, ReactiveFormsModule, FormField, PlButton, RouterLink],
+  imports: [AuthLayout, ReactiveFormsModule, FormField, PlButton, RouterLink, ProviderButtons],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-auth-layout [heading]="texts.register.title">
+      <pl-provider-buttons />
       <form class="flex flex-col gap-4" [formGroup]="form" (ngSubmit)="submit()" novalidate>
         <pl-form-field [label]="texts.name" controlId="name">
           <input

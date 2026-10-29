@@ -35,6 +35,11 @@
   --pl-on-ink: #ffffff; /* text on ink-filled buttons */
   --pl-on-card: #181818; /* text on the violet card */
 
+  /* "Continue with Google" button, in the colors Google's brand guidelines allow */
+  --pl-google-surface: #ffffff;
+  --pl-google-stroke: #747775;
+  --pl-google-text: #1f1f1f;
+
   /* Landing-only accents */
   --pl-coral: #fe8363;
   --pl-sky: #7de2f2;
@@ -63,6 +68,10 @@
   --pl-line: #3a3a37;
   --pl-line-soft: #2e2e2c;
   --pl-on-ink: #181818;
+
+  --pl-google-surface: #131314;
+  --pl-google-stroke: #8e918f;
+  --pl-google-text: #e3e3e3;
 
   color-scheme: dark;
 }
@@ -100,6 +109,10 @@
   --color-line-soft: var(--pl-line-soft);
   --color-on-ink: var(--pl-on-ink);
   --color-on-card: var(--pl-on-card);
+
+  --color-google-surface: var(--pl-google-surface);
+  --color-google-stroke: var(--pl-google-stroke);
+  --color-google-text: var(--pl-google-text);
 
   --color-coral: var(--pl-coral);
   --color-sky: var(--pl-sky);

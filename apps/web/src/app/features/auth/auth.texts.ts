@@ -19,4 +19,12 @@ export const AUTH_TEXTS = {
     toLogin: 'Ingresá',
   },
   slowServer: 'El servidor se está despertando, puede tardar un minuto…',
+  providers: {
+    continueWith: 'Continuar con',
+    or: 'o',
+  },
+  done: {
+    title: 'Ingresando…',
+    loading: 'Estamos preparando tu cuenta.',
+  },
 } as const;

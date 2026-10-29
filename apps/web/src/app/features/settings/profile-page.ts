@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, input, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { LucideLogOut, LucideMoon } from '@lucide/angular';
@@ -10,6 +10,7 @@ import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { ThemeService } from '../../core/theme/theme.service';
 import { PlanSummary } from '../plans/plan-summary';
 import { SETTINGS_TEXTS } from './settings.texts';
+import { SignInMethods } from './sign-in-methods';
 
 /** AUTH-04: name, base currency and preferred rate; the plan (PLN-03); appearance and logout. */
 @Component({
@@ -22,6 +23,7 @@ import { SETTINGS_TEXTS } from './settings.texts';
     LucideLogOut,
     LucideMoon,
     PlanSummary,
+    SignInMethods,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -76,8 +78,8 @@ import { SETTINGS_TEXTS } from './settings.texts';
       @if (message()) {
         <p class="rounded-2xl bg-brand-soft px-4 py-3 text-sm" role="status">{{ message() }}</p>
       }
-      @if (error()) {
-        <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">{{ error() }}</p>
+      @if (saveError()) {
+        <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">{{ saveError() }}</p>
       }
       <button plButton size="lg" type="submit" [disabled]="saving()">
         {{ saving() ? texts.saving : texts.save }}
@@ -85,6 +87,8 @@ import { SETTINGS_TEXTS } from './settings.texts';
     </form>
 
     <pl-plan-summary class="mt-4" />
+
+    <pl-sign-in-methods class="mt-4 block" [linked]="vinculado()" [linkError]="error()" />
 
     <section class="mt-4 flex flex-col gap-1 rounded-card bg-surface p-3">
       <h2 class="sr-only">{{ texts.appearance }}</h2>
@@ -111,6 +115,10 @@ import { SETTINGS_TEXTS } from './settings.texts';
   `,
 })
 export class ProfilePage {
+  /** Set by the API after linking a provider (AUTH-07): `?vinculado=google` or `?error=CODE`. */
+  readonly vinculado = input<string>();
+  readonly error = input<string>();
+
   protected readonly texts = SETTINGS_TEXTS.profile;
   protected readonly inputClass = INPUT_CLASS;
   protected readonly auth = inject(AuthService);
@@ -129,7 +137,7 @@ export class ProfilePage {
   protected readonly valuationRate = signal<RateType>('MEP');
   protected readonly saving = signal(false);
   protected readonly message = signal<string | null>(null);
-  protected readonly error = signal<string | null>(null);
+  protected readonly saveError = signal<string | null>(null);
 
   constructor() {
     effect(() => {
@@ -144,7 +152,7 @@ export class ProfilePage {
   protected async save(): Promise<void> {
     this.saving.set(true);
     this.message.set(null);
-    this.error.set(null);
+    this.saveError.set(null);
     try {
       const name = this.form.controls.name.value.trim();
       await this.auth.updateProfile({
@@ -154,7 +162,7 @@ export class ProfilePage {
       });
       this.message.set(this.texts.saved);
     } catch (error) {
-      this.error.set(errorMessage(error));
+      this.saveError.set(errorMessage(error));
     } finally {
       this.saving.set(false);
     }

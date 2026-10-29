@@ -22,6 +22,20 @@ const MESSAGES: Record<string, string> = {
   PLAN_ARCHIVED: 'El plan está archivado.',
   PLAN_REQUEST_DECIDED: 'La solicitud ya fue respondida.',
   FORBIDDEN: 'No tenés permiso para hacer eso.',
+  // Sign-in with providers (AUTH-06 to 08); they arrive as /ingresar?error=CODE.
+  ACCOUNT_EXISTS_LINK_REQUIRED:
+    'Ya tenés una cuenta con ese email. Ingresá con tu contraseña y vinculá Google desde tu perfil.',
+  EMAIL_NOT_VERIFIED: 'Tu cuenta de Google no tiene el email verificado.',
+  OAUTH_CANCELLED: 'Cancelaste el ingreso. Probá de nuevo cuando quieras.',
+  OAUTH_STATE_INVALID: 'El ingreso venció o se abrió en otra pestaña. Probá de nuevo.',
+  OAUTH_FAILED: 'No pudimos completar el ingreso con Google. Probá de nuevo.',
+  OAUTH_PROVIDER_DISABLED: 'Esa forma de ingreso no está disponible.',
+  LINK_TICKET_INVALID: 'El vínculo venció. Tocá "Vincular" de nuevo.',
+  IDENTITY_IN_USE: 'Esa cuenta de Google ya está vinculada a otro usuario de platin.',
+  PROVIDER_ALREADY_LINKED: 'Ya tenés otra cuenta de Google vinculada.',
+  LAST_SIGN_IN_METHOD: 'Es tu única forma de ingresar: no la podés desvincular.',
+  PASSWORD_ALREADY_SET: 'Tu cuenta ya tiene contraseña.',
+  SESSION_INVALID: 'No pudimos iniciar tu sesión. Ingresá de nuevo.',
   SERVICE_UNAVAILABLE: 'El servidor no está disponible. Probá de nuevo en un rato.',
 };
 
@@ -32,6 +46,12 @@ export function problemOf(error: unknown): ProblemDetails | undefined {
   if (!(error instanceof HttpErrorResponse)) return undefined;
   const parsed = problemDetailsSchema.safeParse(error.error);
   return parsed.success ? parsed.data : undefined;
+}
+
+/** Message for a code that arrived in the URL (`?error=CODE`); null when there is none. */
+export function messageForCode(code: string | undefined): string | null {
+  if (!code) return null;
+  return MESSAGES[code] ?? FALLBACK;
 }
 
 /** Message to show for any error coming from the API. */
