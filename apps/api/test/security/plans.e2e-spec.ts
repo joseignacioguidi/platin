@@ -87,7 +87,9 @@ describe('security: plans and limits', () => {
     expectLimit(await fixed('Gas', account.pockets[0].id), 'fixed');
   });
 
-  it('SEC-PLAN-02 ten parallel creations one below the limit (documents how many get through)', async () => {
+  // Was finding SEC-F06: the limit was read and the row inserted in separate statements, with
+  // no lock, so parallel requests at the limit all passed the check (12 cards with a limit of 3).
+  it('SEC-PLAN-02 ten parallel creations one below the limit create exactly one [SEC-F06]', async () => {
     await ctx.prisma.plan.update({
       where: { id: freeId },
       data: { limits: { ...LIMIT_ONE, maxCards: 3 } },
@@ -95,22 +97,8 @@ describe('security: plans and limits', () => {
     await card('Visa 1').expect(201);
     await card('Visa 2').expect(201);
     const results = await Promise.all(Array.from({ length: 10 }, (_, i) => card(`Carrera ${i}`)));
-    const created = results.filter((r) => r.status === 201).length;
-    // Documented in the report (SEC-F06): the check and the insert are not atomic.
-    expect(await ctx.prisma.creditCard.count({ where: { userId: user.id } })).toBe(2 + created);
-    expect(created).toBeGreaterThanOrEqual(1);
-  });
-
-  // Finding SEC-F06: the limit is read and the row inserted in separate statements, with no
-  // lock, so parallel requests at the limit all pass the check.
-  it.skip('SEC-PLAN-02 parallel creations never exceed the limit [SEC-F06]', async () => {
-    await ctx.prisma.plan.update({
-      where: { id: freeId },
-      data: { limits: { ...LIMIT_ONE, maxCards: 3 } },
-    });
-    await card('Visa 1').expect(201);
-    await card('Visa 2').expect(201);
-    await Promise.all(Array.from({ length: 10 }, (_, i) => card(`Carrera ${i}`)));
+    expect(results.filter((r) => r.status === 201)).toHaveLength(1);
+    expect(results.filter((r) => r.status === 403)).toHaveLength(9);
     expect(
       await ctx.prisma.creditCard.count({ where: { userId: user.id, archivedAt: null } }),
     ).toBe(3);
@@ -126,9 +114,9 @@ describe('security: plans and limits', () => {
     ).toBe(0);
   });
 
-  // Finding SEC-F05: restoring what is archived, paused or finished goes over the limit,
-  // because limits are only checked on POST.
-  it.skip('SEC-PLAN-03 restoring an archived account, pocket or card, or resuming a fixed item, respects the limit [SEC-F05]', async () => {
+  // Was finding SEC-F05: restoring what is archived, paused or finished went over the limit,
+  // because limits were only checked on POST.
+  it('SEC-PLAN-03 restoring an archived account, pocket or card, or resuming a fixed item, respects the limit [SEC-F05]', async () => {
     const first = await createAccount(ctx.app, user, { name: 'Primera' });
     await api().patch(`/api/v1/accounts/${first.id}`).send({ archived: true }).expect(200);
     const second = await createAccount(ctx.app, user, { name: 'Segunda' });
@@ -162,6 +150,49 @@ describe('security: plans and limits', () => {
     );
   });
 
+  it('SEC-PLAN-03 reactivating a goal, or restoring an account with its pockets, respects the limit [SEC-F05]', async () => {
+    const auto = (await goal('Auto').expect(201)).body;
+    await api().patch(`/api/v1/goals/${auto.id}`).send({ status: 'CANCELLED' }).expect(200);
+    await goal('Casa').expect(201);
+    expectLimit(
+      await api().patch(`/api/v1/goals/${auto.id}`).send({ status: 'ACTIVE' }),
+      'reactivate goal',
+    );
+
+    // Room for the account, but not for the pocket it brings back.
+    const bank = await createAccount(ctx.app, user, { name: 'Banco' });
+    await addPocket(ctx.app, user, bank.id, { name: 'Ahorro' });
+    await api().patch(`/api/v1/accounts/${bank.id}`).send({ archived: true }).expect(200);
+    // The pocket slot is now taken by a pocket in the sign-up 'Efectivo' account.
+    const cash = (await api().get('/api/v1/accounts').expect(200)).body.items[0];
+    await addPocket(ctx.app, user, cash.id, { name: 'Ahorro 2' });
+    const restore = await api().patch(`/api/v1/accounts/${bank.id}`).send({ archived: false });
+    expectLimit(restore, 'restore account with pockets');
+    expect(restore.body.resource).toBe('pockets');
+    // Nothing half-restored: the account and its pocket are still archived.
+    const row = await ctx.prisma.account.findUniqueOrThrow({
+      where: { id: bank.id },
+      include: { pockets: true },
+    });
+    expect(row.archivedAt).not.toBeNull();
+    expect(row.pockets.every((p) => p.archivedAt)).toBe(true);
+  });
+
+  it('SEC-PLAN-03 under the limit, restoring and resuming still work', async () => {
+    await ctx.prisma.plan.update({
+      where: { id: freeId },
+      data: { limits: { ...LIMIT_ONE, maxCards: 2, maxFixed: 2 } },
+    });
+    const visa = (await card('Visa').expect(201)).body;
+    await api().patch(`/api/v1/cards/${visa.id}`).send({ archived: true }).expect(200);
+    await card('Master').expect(201);
+    await api().patch(`/api/v1/cards/${visa.id}`).send({ archived: false }).expect(200);
+    const account = await createAccount(ctx.app, user);
+    const luz = (await fixed('Luz', account.pockets[0].id)).body;
+    await api().patch(`/api/v1/fixed/${luz.id}`).send({ paused: true }).expect(200);
+    await api().patch(`/api/v1/fixed/${luz.id}`).send({ paused: false }).expect(200);
+  });
+
   it('SEC-PLAN-04 without investments, the overview, valuations and new investment pockets are refused', async () => {
     const account = await createAccount(ctx.app, user);
     const refused = [
@@ -180,9 +211,9 @@ describe('security: plans and limits', () => {
     // Allowed on purpose (ADR 0015): viewing the history and deleting a valuation of existing data.
   });
 
-  // Finding SEC-F07: turning a savings pocket into an investment one with PATCH skips the
-  // feature check that POST does.
-  it.skip('SEC-PLAN-04 a pocket cannot become an investment through PATCH without the feature [SEC-F07]', async () => {
+  // Was finding SEC-F07: turning a savings pocket into an investment one with PATCH skipped
+  // the feature check that POST does.
+  it('SEC-PLAN-04 a pocket cannot become an investment through PATCH without the feature [SEC-F07]', async () => {
     await ctx.prisma.plan.update({
       where: { id: freeId },
       data: { limits: { ...LIMIT_ONE, maxPockets: 5 } },

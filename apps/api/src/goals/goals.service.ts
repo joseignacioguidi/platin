@@ -73,27 +73,30 @@ export class GoalsService {
   }
 
   async create(userId: string, request: CreateGoalRequest): Promise<Goal> {
-    await this.entitlements.assertCanCreate(userId, 'goals');
     await this.assertPockets(userId, request.pocketIds ?? []);
-    const row = await this.prisma.goal.create({
-      data: {
-        userId,
-        name: request.name,
-        targetAmount: Money.of(request.targetAmount, request.currency).toString(),
-        currency: request.currency,
-        targetPeriod: toDbPeriod(parsePeriod(request.targetPeriod)),
-        createdAt: this.clock.now(),
-        pockets: { create: (request.pocketIds ?? []).map((pocketId) => ({ pocketId })) },
-      },
-      include: GOAL_INCLUDE,
-    });
+    const row = await this.entitlements.withinLimits(userId, { goals: 1 }, (tx) =>
+      tx.goal.create({
+        data: {
+          userId,
+          name: request.name,
+          targetAmount: Money.of(request.targetAmount, request.currency).toString(),
+          currency: request.currency,
+          targetPeriod: toDbPeriod(parsePeriod(request.targetPeriod)),
+          createdAt: this.clock.now(),
+          pockets: { create: (request.pocketIds ?? []).map((pocketId) => ({ pocketId })) },
+        },
+        include: GOAL_INCLUDE,
+      }),
+    );
     return this.toDto(userId, row, await this.todayRate(userId));
   }
 
   async update(userId: string, id: string, changes: UpdateGoalRequest): Promise<Goal> {
     const row = await this.getOwned(userId, id);
     if (changes.pocketIds) await this.assertPockets(userId, changes.pocketIds);
-    await this.prisma.$transaction(async (tx) => {
+    // Only active goals count: reactivating an achieved or cancelled one counts again (SEC-F05).
+    const needs = changes.status === 'ACTIVE' && row.status !== 'ACTIVE' ? { goals: 1 } : {};
+    await this.entitlements.withinLimits(userId, needs, async (tx) => {
       await tx.goal.update({
         where: { id },
         data: {

@@ -36,17 +36,19 @@ export interface LimitCheck {
 }
 
 /**
- * Whether one more record of a resource can be created. Limits are only checked on creation:
- * at the limit or above it (after a downgrade) nothing new is created, but what exists stays.
- * `used` must not count archived records.
+ * Whether `adding` more records of a resource fit in the plan. Limits are checked when a record
+ * is created or starts counting again (restored, resumed, reactivated): at the limit or above it
+ * (after a downgrade) nothing else counts, but what exists stays. `used` must not count
+ * archived records.
  */
 export function checkLimit(
   limits: PlanLimits,
   resource: LimitedResource,
   used: number,
+  adding = 1,
 ): LimitCheck {
   const limit = limitOf(limits, resource);
-  return { allowed: limit === null || used < limit, resource, limit, used };
+  return { allowed: limit === null || used + adding <= limit, resource, limit, used };
 }
 
 export function hasFeature(limits: PlanLimits, feature: PlanFeature): boolean {

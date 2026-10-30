@@ -73,9 +73,8 @@ export class AccountsService {
 
   /** CTA-01/02: the account and its "Disponible" pocket in pesos, with today's balance. */
   async create(userId: string, request: CreateAccountRequest): Promise<Account> {
-    await this.entitlements.assertCanCreate(userId, 'accounts');
     try {
-      const id = await this.prisma.$transaction(async (tx) => {
+      const id = await this.entitlements.withinLimits(userId, { accounts: 1 }, async (tx) => {
         const account = await tx.account.create({
           data: {
             userId,
@@ -121,8 +120,16 @@ export class AccountsService {
         );
       }
     }
+    // Restoring an account brings back its pockets too: all of them must fit the plan (SEC-F05).
+    const restoring = archived === false && current.archivedAt !== null;
+    const needs = restoring
+      ? {
+          accounts: 1,
+          pockets: current.pockets.filter((p) => p.kind !== 'AVAILABLE' && p.archivedAt).length,
+        }
+      : {};
     try {
-      await this.prisma.$transaction(async (tx) => {
+      await this.entitlements.withinLimits(userId, needs, async (tx) => {
         await tx.account.update({
           where: { id },
           data: {

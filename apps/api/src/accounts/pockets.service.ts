@@ -59,22 +59,24 @@ export class PocketsService {
     if (account.archivedAt) throw this.archived('ACCOUNT_ARCHIVED', 'The account is archived');
     // The "Disponible" of each account comes with it; added pockets count for the plan.
     if (request.kind === 'INVESTMENT') await this.entitlements.assertFeature(userId, 'investments');
-    if (request.kind !== 'AVAILABLE') await this.entitlements.assertCanCreate(userId, 'pockets');
+    const needs = request.kind === 'AVAILABLE' ? {} : { pockets: 1 };
     try {
-      const row = await this.prisma.pocket.create({
-        data: {
-          userId,
-          accountId,
-          name: request.name,
-          kind: request.kind,
-          currency: request.currency,
-          instrument: request.kind === 'INVESTMENT' ? (request.instrument ?? 'OTHER') : null,
-          initialBalance: request.initialBalance ?? '0',
-          includeInNetWorth: request.includeInNetWorth ?? true,
-          sortOrder: await this.prisma.pocket.count({ where: { accountId } }),
-        },
-        include: WITH_ACCOUNT,
-      });
+      const row = await this.entitlements.withinLimits(userId, needs, async (tx) =>
+        tx.pocket.create({
+          data: {
+            userId,
+            accountId,
+            name: request.name,
+            kind: request.kind,
+            currency: request.currency,
+            instrument: request.kind === 'INVESTMENT' ? (request.instrument ?? 'OTHER') : null,
+            initialBalance: request.initialBalance ?? '0',
+            includeInNetWorth: request.includeInNetWorth ?? true,
+            sortOrder: await tx.pocket.count({ where: { accountId } }),
+          },
+          include: WITH_ACCOUNT,
+        }),
+      );
       return toPocketDto(row, Money.of(row.initialBalance.toFixed(2), row.currency));
     } catch (error) {
       throw this.duplicate(error);
@@ -101,17 +103,28 @@ export class PocketsService {
     const nextKind = kind ?? current.kind;
     const nextInstrument =
       nextKind === 'INVESTMENT' ? (instrument ?? current.instrument ?? 'OTHER') : null;
+    // Becoming an investment needs the feature, as creating one does (SEC-F07).
+    if (nextKind === 'INVESTMENT' && current.kind !== 'INVESTMENT') {
+      await this.entitlements.assertFeature(userId, 'investments');
+    }
+    // A pocket counts for the plan while active and not the "Disponible": restoring it or
+    // turning a "Disponible" into another kind makes it count again (SEC-F05).
+    const countsNow = !current.archivedAt && current.kind !== 'AVAILABLE';
+    const countsAfter = !(archived ?? current.archivedAt !== null) && nextKind !== 'AVAILABLE';
+    const needs = countsAfter && !countsNow ? { pockets: 1 } : {};
     try {
-      const row = await this.prisma.pocket.update({
-        where: { id },
-        data: {
-          ...rest,
-          kind: nextKind,
-          instrument: nextInstrument,
-          ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }),
-        },
-        include: WITH_ACCOUNT,
-      });
+      const row = await this.entitlements.withinLimits(userId, needs, (tx) =>
+        tx.pocket.update({
+          where: { id },
+          data: {
+            ...rest,
+            kind: nextKind,
+            instrument: nextInstrument,
+            ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }),
+          },
+          include: WITH_ACCOUNT,
+        }),
+      );
       return toPocketDto(row, await this.balances.balance(userId, row));
     } catch (error) {
       throw this.duplicate(error);

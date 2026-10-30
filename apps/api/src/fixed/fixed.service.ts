@@ -41,30 +41,31 @@ export class FixedService {
   }
 
   async create(userId: string, request: CreateFixedRequest): Promise<FixedItem> {
-    await this.entitlements.assertCanCreate(userId, 'fixed');
     const pocket = await this.pockets.getActive(userId, request.pocketId);
     await this.categories.getOwned(userId, request.categoryId, request.kind);
-    const row = await this.prisma.fixedItem.create({
-      data: {
-        userId,
-        kind: request.kind,
-        name: request.name,
-        categoryId: request.categoryId,
-        pocketId: pocket.id,
-        currency: pocket.currency,
-        intervalMonths: request.intervalMonths ?? 1,
-        dayOfMonth: request.dayOfMonth,
-        startPeriod: toDbPeriod(parsePeriod(request.startPeriod)),
-        endPeriod: request.endPeriod ? toDbPeriod(parsePeriod(request.endPeriod)) : null,
-        amounts: {
-          create: {
-            amount: Money.of(request.amount, pocket.currency).toString(),
-            effectiveFrom: toDbPeriod(parsePeriod(request.startPeriod)),
+    const row = await this.entitlements.withinLimits(userId, { fixed: 1 }, (tx) =>
+      tx.fixedItem.create({
+        data: {
+          userId,
+          kind: request.kind,
+          name: request.name,
+          categoryId: request.categoryId,
+          pocketId: pocket.id,
+          currency: pocket.currency,
+          intervalMonths: request.intervalMonths ?? 1,
+          dayOfMonth: request.dayOfMonth,
+          startPeriod: toDbPeriod(parsePeriod(request.startPeriod)),
+          endPeriod: request.endPeriod ? toDbPeriod(parsePeriod(request.endPeriod)) : null,
+          amounts: {
+            create: {
+              amount: Money.of(request.amount, pocket.currency).toString(),
+              effectiveFrom: toDbPeriod(parsePeriod(request.startPeriod)),
+            },
           },
         },
-      },
-      include: FIXED_INCLUDE,
-    });
+        include: FIXED_INCLUDE,
+      }),
+    );
     return toFixedDto(row, periodOf(this.clock.today()));
   }
 
@@ -83,15 +84,21 @@ export class FixedService {
     }
     const { paused, endPeriod, ...rest } = changes;
     const current = periodOf(this.clock.today());
-    const updated = await this.prisma.fixedItem.update({
-      where: { id },
-      data: {
-        ...rest,
-        ...(endPeriod === undefined ? {} : { endPeriod: endPeriod ? toDbPeriod(endPeriod) : null }),
-        ...(paused === undefined ? {} : this.pauseChange(row, paused, current)),
-      },
-      include: FIXED_INCLUDE,
-    });
+    // Resuming a paused item makes it count for the plan again (SEC-F05).
+    const needs = paused === false && row.pausedAt ? { fixed: 1 } : {};
+    const updated = await this.entitlements.withinLimits(userId, needs, (tx) =>
+      tx.fixedItem.update({
+        where: { id },
+        data: {
+          ...rest,
+          ...(endPeriod === undefined
+            ? {}
+            : { endPeriod: endPeriod ? toDbPeriod(endPeriod) : null }),
+          ...(paused === undefined ? {} : this.pauseChange(row, paused, current)),
+        },
+        include: FIXED_INCLUDE,
+      }),
+    );
     return toFixedDto(updated, current);
   }
 

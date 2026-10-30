@@ -48,6 +48,17 @@ describe('plans', () => {
     expect(checkLimit(free, 'accounts', 1).allowed).toBe(true);
   });
 
+  it('several records at once (restoring an account with its pockets) must all fit', () => {
+    expect(checkLimit(free, 'pockets', 1, 2).allowed).toBe(true);
+    expect(checkLimit(free, 'pockets', 2, 2)).toEqual({
+      allowed: false,
+      resource: 'pockets',
+      limit: 3,
+      used: 2,
+    });
+    expect(checkLimit(pro, 'pockets', 50, 20).allowed).toBe(true);
+  });
+
   it('features are enabled per plan', () => {
     expect(hasFeature(free, 'investments')).toBe(false);
     expect(hasFeature(pro, 'investments')).toBe(true);

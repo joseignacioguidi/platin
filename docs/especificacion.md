@@ -157,7 +157,7 @@ Los planes existen y limitan el uso, pero todavía no se cobra: el plan lo asign
 - **PLN-02** Todo usuario nuevo recibe el plan por defecto, configurable por el administrador.
 - **PLN-03** El usuario ve su plan y su uso contra cada límite en el perfil, y qué incluye cada plan en una página pública de planes.
 - **PLN-04** Al llegar a un límite, la app dice cuál es y ofrece pedir otro plan. La solicitud le llega al administrador.
-- **PLN-05** Bajar de plan nunca borra datos: lo que excede el límite se sigue viendo y editando, pero no se pueden crear nuevos.
+- **PLN-05** Bajar de plan nunca borra datos: lo que excede el límite se sigue viendo y editando, pero no se pueden crear nuevos ni volver a activar lo archivado.
 - **PLN-06** El administrador cambia el plan de un usuario, con vencimiento opcional (por ejemplo, Pro de prueba por 30 días); al vencer, vuelve al plan por defecto.
 
 ### 13. Administración
@@ -251,8 +251,9 @@ Comprometido del mes M = cuotas de resúmenes que vencen en M + fijos de gasto a
 
 ### Planes
 
-- Los límites se verifican solo al crear: si el usuario está en el límite o por encima, no puede crear otro de ese recurso, pero puede seguir editando, archivando y borrando lo existente.
-- Lo archivado no cuenta para el límite.
+- Los límites se verifican al crear y al volver a contar: si el usuario está en el límite o por encima, no puede crear otro de ese recurso ni hacer que uno vuelva a contar, pero puede seguir editando, archivando y borrando lo existente.
+- Lo archivado no cuenta para el límite. Vuelve a contar al restaurarlo (una cuenta restaurada trae sus apartados, que también tienen que entrar), al reanudar un fijo pausado, al reactivar una meta cumplida o cancelada y al convertir el "Disponible" en otro tipo de apartado.
+- Convertir un apartado en inversión requiere la funcionalidad de inversiones, igual que crearlo.
 - Una funcionalidad deshabilitada oculta su pantalla y sus acciones; los datos que ya existían se conservan y vuelven a verse al habilitarla.
 - El plan vigente es el último asignado que no venció; si no hay ninguno, el plan por defecto.
 

@@ -40,22 +40,23 @@ export class CardsService {
   }
 
   async create(userId: string, request: CreateCardRequest): Promise<Card> {
-    await this.entitlements.assertCanCreate(userId, 'cards');
     if (request.defaultPaymentPocketId) {
       await this.pockets.getActive(userId, request.defaultPaymentPocketId);
     }
-    const card = await this.prisma.creditCard.create({
-      data: {
-        userId,
-        name: request.name,
-        issuer: request.issuer ?? null,
-        last4: request.last4 ?? null,
-        creditLimit: request.creditLimit ?? null,
-        closingDay: request.closingDay,
-        dueDay: request.dueDay,
-        defaultPaymentPocketId: request.defaultPaymentPocketId ?? null,
-      },
-    });
+    const card = await this.entitlements.withinLimits(userId, { cards: 1 }, (tx) =>
+      tx.creditCard.create({
+        data: {
+          userId,
+          name: request.name,
+          issuer: request.issuer ?? null,
+          last4: request.last4 ?? null,
+          creditLimit: request.creditLimit ?? null,
+          closingDay: request.closingDay,
+          dueDay: request.dueDay,
+          defaultPaymentPocketId: request.defaultPaymentPocketId ?? null,
+        },
+      }),
+    );
     return this.toDto(card);
   }
 
@@ -64,18 +65,22 @@ export class CardsService {
    * ones keep their dates (they may already hold installments).
    */
   async update(userId: string, id: string, changes: UpdateCardRequest): Promise<Card> {
-    await this.getOwned(userId, id);
+    const current = await this.getOwned(userId, id);
     if (changes.defaultPaymentPocketId) {
       await this.pockets.getActive(userId, changes.defaultPaymentPocketId);
     }
     const { archived, ...rest } = changes;
-    const card = await this.prisma.creditCard.update({
-      where: { id },
-      data: {
-        ...rest,
-        ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }),
-      },
-    });
+    // Restoring an archived card makes it count for the plan again (SEC-F05).
+    const needs = archived === false && current.archivedAt ? { cards: 1 } : {};
+    const card = await this.entitlements.withinLimits(userId, needs, (tx) =>
+      tx.creditCard.update({
+        where: { id },
+        data: {
+          ...rest,
+          ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }),
+        },
+      }),
+    );
     return this.toDto(card);
   }
 

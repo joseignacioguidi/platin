@@ -20,6 +20,7 @@ La fase 19 suma planes con límites, asignados por el administrador y sin cobro 
 - **Usuarios que ya existían:** no tienen `UserPlan`, así que les corresponde el plan por defecto (Gratis). No pierden datos (PLN-05).
   - Si tenían inversiones, la pantalla se oculta hasta que el administrador les asigne Pro.
   - Esto incluye al propio administrador: después de desplegar, asignate Pro desde el panel.
+- **Cuándo se verifica** (actualizado el 2026-10-30, hallazgos F05 y F06 del informe de seguridad): al crear y al volver a contar (restaurar, reanudar, reactivar). El chequeo y la escritura van en una transacción que bloquea la fila del usuario (`SELECT … FOR UPDATE`), así los pedidos en paralelo no pasan todos el límite. `EntitlementsService.withinLimits` es el único punto de entrada.
 - **Qué cuenta para cada límite** (lo archivado no cuenta):
   - **Cuentas:** las que no están archivadas.
   - **Apartados:** solo los que agrega el usuario (ahorro e inversión). El "Disponible" de cada cuenta viene con ella y no cuenta.
@@ -27,7 +28,7 @@ La fase 19 suma planes con límites, asignados por el administrador y sin cobro 
   - **Metas:** las activas. Las cumplidas o canceladas no cuentan.
   - **Fijos:** los que no están pausados.
 - **Inversiones deshabilitadas:**
-  - `GET /investments` y `POST /investments/valuations` responden `FEATURE_NOT_IN_PLAN`, y también la creación de un apartado de inversión.
+  - `GET /investments` y `POST /investments/valuations` responden `FEATURE_NOT_IN_PLAN`, y también la creación de un apartado de inversión y convertir un apartado en inversión con `PATCH` (hallazgo F07).
   - Siguen permitidos borrar una valuación y ver el historial de un apartado, como con los demás datos existentes.
 - **Vencimiento:**
   - El administrador elige el **último día** del plan. `endsAt` guarda el primer instante en que ya no aplica, que es la medianoche siguiente en Buenos Aires (`startOfDayIn`).
