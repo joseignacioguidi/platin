@@ -529,7 +529,8 @@ Para sumar después:
 ### Protecciones adicionales
 
 - Rate limiting con `@nestjs/throttler`: estricto en `/auth/*` (por ejemplo, 5 intentos por minuto por IP), general en el resto. La IP sale de `X-Forwarded-For` confiando solo en `TRUST_PROXY_HOPS` proxies, nunca en toda la cadena.
-- `helmet` para cabeceras de seguridad.
+- `helmet` para cabeceras de seguridad en la API, y `Cache-Control: no-store` en todas sus respuestas salvo `/plans` y `/health`.
+- La web recibe sus cabeceras desde `vercel.ts`: CSP (`default-src 'self'`, `frame-ancestors 'none'`, `object-src 'none'`, `base-uri` y `form-action` propios, `connect-src` con la URL de Render para el wake-up), `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy` y `Permissions-Policy`. `script-src` admite `'unsafe-inline'` porque las páginas prerenderizadas llevan scripts inline y el `autoCsp` de Angular todavía no funciona junto con el prerender.
 - El origen en Render solo acepta pedidos que traen la cabecera secreta que agrega Vercel, salvo `/health` ([restringir el origen a Vercel](https://vercel.com/docs/rewrites)).
 - CORS cerrado: solo el dominio de la app, y solo para `/health` (el resto llega por el mismo origen).
 - Secretos solo en variables de entorno; nunca en el repo.

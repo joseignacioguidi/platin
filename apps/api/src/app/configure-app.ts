@@ -7,6 +7,9 @@ import { AppConfig } from '../config/app-config';
 
 export const API_PREFIX = 'api/v1';
 
+/** Paths under the prefix whose responses hold no user data. */
+const PUBLIC_CACHEABLE = ['/plans', '/health'];
+
 /** Shared HTTP setup for main.ts and the e2e tests. */
 export function configureApp(app: INestApplication): void {
   const config = app.get(AppConfig);
@@ -24,9 +27,13 @@ export function configureApp(app: INestApplication): void {
   app.use(helmet());
   // The secret signs only the oauth_tx cookie (sign-in with a provider in progress).
   app.use(cookieParser(config.env.OAUTH_COOKIE_SECRET));
-  // An authentication response must never be cached (Vercel honours the origin's headers).
-  app.use(`/${API_PREFIX}/auth`, (_req: unknown, res: Response, next: () => void) => {
-    res.setHeader('Cache-Control', 'no-store');
+  // Sessions and financial data must never be cached by a proxy or the browser, whatever sits in
+  // front of the API (Vercel adds the same header, but the API should not depend on it: SEC-F12).
+  // Only the public plan list and /health are not user data.
+  app.use(`/${API_PREFIX}`, (req: Request, res: Response, next: () => void) => {
+    if (!PUBLIC_CACHEABLE.includes(req.path.replace(/\/$/, ''))) {
+      res.setHeader('Cache-Control', 'no-store');
+    }
     next();
   });
   // Only /health is called cross-origin (wake-up); everything else arrives through the same origin.

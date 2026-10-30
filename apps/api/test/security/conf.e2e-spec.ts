@@ -142,9 +142,9 @@ describe('security: configuration, errors and infrastructure', () => {
     expect(JSON.stringify(down.body)).not.toMatch(/ECONNREFUSED|5432|neondb|password/);
   });
 
-  // Finding SEC-F12 (informative): the API itself only sets Cache-Control on /auth/*; the
-  // rest relies on the Vercel rewrite adding "no-store" (vercel.ts, checked in SEC-PROD-04).
-  it.skip('SEC-CONF-09 every /api response with user data says Cache-Control: no-store, even without Vercel [SEC-F12]', async () => {
+  // Was finding SEC-F12 (informative): the API itself only set Cache-Control on /auth/*; the
+  // rest relied on the Vercel rewrite adding "no-store" (vercel.ts, checked in SEC-PROD-04).
+  it('SEC-CONF-09 every /api response with user data says Cache-Control: no-store, even without Vercel [SEC-F12]', async () => {
     for (const url of [
       '/api/v1/accounts',
       '/api/v1/users/me',
@@ -153,6 +153,13 @@ describe('security: configuration, errors and infrastructure', () => {
     ]) {
       const res = await as(ctx.app, s.a.user).get(url).expect(200);
       expect(res.headers['cache-control'], url).toMatch(/no-store/);
+    }
+    // Errors with user context too, and the only public data stays cacheable.
+    const missing = await as(ctx.app, s.a.user).get('/api/v1/no-existe');
+    expect(missing.headers['cache-control']).toBe('no-store');
+    for (const url of ['/api/v1/plans', '/api/v1/health']) {
+      const res = await request(server()).get(url).expect(200);
+      expect(res.headers['cache-control'], url).toBeUndefined();
     }
   });
 
