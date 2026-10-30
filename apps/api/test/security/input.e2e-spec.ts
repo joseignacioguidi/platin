@@ -60,16 +60,16 @@ describe('security: input validation', () => {
     await api().delete(`/api/v1/transactions/${res.body.id}`).expect(204);
   });
 
-  // Finding SEC-F10 (a): a valid USD amount times a valid rate does not fit Decimal(18,2) in
+  // Was finding SEC-F10 (a): a valid USD amount times a valid rate does not fit Decimal(18,2) in
   // base currency; the database rejects it and the API answers 500.
-  it.skip('SEC-INPUT-01 an amount whose base conversion overflows Decimal(18,2) is a 4xx, not a 500 [SEC-F10]', async () => {
+  it('SEC-INPUT-01 an amount whose base conversion overflows Decimal(18,2) is a 4xx, not a 500 [SEC-F10]', async () => {
     const res = await expense({
       pocketId: s.a.usd.id,
       amount: '9999999999999999.99',
       exchangeRate: '1500',
     });
-    expect(res.status).toBeGreaterThanOrEqual(400);
-    expect(res.status).toBeLessThan(500);
+    expect(res.status).toBe(422);
+    expect(res.body.code).toBe('AMOUNT_TOO_LARGE');
   });
 
   it.each([
@@ -88,10 +88,10 @@ describe('security: input validation', () => {
   });
 
   it.each(['0001-01-01', '1900-01-01', '9999-12-31'])(
-    'SEC-INPUT-02 extreme year %s never gives a 500',
+    'SEC-INPUT-02 years outside 1900-2999 are a 400; the bounds are fine (%s)',
     async (date) => {
       const res = await expense({ date });
-      expect(res.status).toBeLessThan(500);
+      expect(res.status).toBe(date === '1900-01-01' ? 201 : 400);
       if (res.status === 201) await api().delete(`/api/v1/transactions/${res.body.id}`).expect(204);
     },
   );
@@ -123,21 +123,21 @@ describe('security: input validation', () => {
       pocketId: s.a.ars.id,
       amount: '1',
       dayOfMonth: 31,
-      startPeriod: '9999-12',
+      startPeriod: '2999-12',
     });
-    expect(fixed.status).toBeLessThan(500);
+    expect(fixed.status).toBe(201);
     expect((await api().post('/api/v1/sync')).status).toBe(200);
     expect((await api().get('/api/v1/commitments')).status).toBe(200);
     if (fixed.status === 201) await api().delete(`/api/v1/fixed/${fixed.body.id}`).expect(204);
   });
 
-  // Finding SEC-F10 (b): near year 9999 the next period is "10000-01", which the domain
+  // Was finding SEC-F10 (b): near year 9999 the next period is "10000-01", which the domain
   // rejects with a plain Error, so the API answers 500.
-  it.skip('SEC-INPUT-02 statements and charges near year 9999 are a 4xx, not a 500 [SEC-F10]', async () => {
+  it('SEC-INPUT-02 statements and charges near year 9999 are a 4xx, not a 500 [SEC-F10]', async () => {
     const range = await api().get(
       `/api/v1/cards/${s.a.card.id}/statements?from=0001-01&to=9999-12`,
     );
-    expect(range.status).toBeLessThan(500);
+    expect(range.status).toBe(400);
     const charge = await api().post(`/api/v1/cards/${s.a.card.id}/charges`).send({
       categoryId: s.a.expenseCategory.id,
       currency: 'ARS',
@@ -146,7 +146,17 @@ describe('security: input validation', () => {
       totalAmount: '10',
       installmentsCount: 12,
     });
-    expect(charge.status).toBeLessThan(500);
+    expect(charge.status).toBe(400);
+    // The last year in range still works: a charge in 2999-12 spills into 3000-01 internally.
+    const late = await api().post(`/api/v1/cards/${s.a.card.id}/charges`).send({
+      categoryId: s.a.expenseCategory.id,
+      currency: 'ARS',
+      description: 'Tardía',
+      date: '2999-12-31',
+      totalAmount: '10',
+      installmentsCount: 3,
+    });
+    expect(late.status).toBe(201);
   });
 
   it('SEC-INPUT-03 unknown enum values and nulls are a 400; extra fields are dropped', async () => {
@@ -190,11 +200,13 @@ describe('security: input validation', () => {
     ).toBe(0);
   });
 
-  // Finding SEC-F10 (c): body-parser's PayloadTooLargeError is not an HttpException, so the
+  // Was finding SEC-F10 (c): body-parser's PayloadTooLargeError is not an HttpException, so the
   // Problem Details filter turns it into a 500 instead of a 413.
-  it.skip('SEC-INPUT-04 a body over the limit is a 413 [SEC-F10]', async () => {
+  it('SEC-INPUT-04 a body over the limit is a 413 [SEC-F10]', async () => {
     const big = await expense({ description: 'a'.repeat(1024 * 1024) });
     expect(big.status).toBe(413);
+    expect(big.body.code).toBe('PAYLOAD_TOO_LARGE');
+    expect(big.headers['content-type']).toMatch(/application\/problem\+json/);
   });
 
   it('SEC-INPUT-04 malformed JSON is a 400 without internals', async () => {
@@ -269,13 +281,19 @@ describe('security: input validation', () => {
     expect(results[JSON.stringify('Cafe\u0301')]).toBe(201);
   });
 
-  // Finding SEC-F10 (d): Postgres rejects the NUL character in text columns and the API
+  // Was finding SEC-F10 (d): Postgres rejects the NUL character in text columns and the API
   // answers 500 instead of a 400.
-  it.skip('SEC-INPUT-09 a NUL character in any text is a 400 [SEC-F10]', async () => {
+  it('SEC-INPUT-09 a NUL character in any text is a 400 [SEC-F10]', async () => {
     const category = await api()
       .post('/api/v1/categories')
       .send({ name: 'Null\u0000byte', kind: 'EXPENSE', icon: 'paw-print', color: 'card' });
     expect(category.status).toBe(400);
     expect((await expense({ description: 'a\u0000b' })).status).toBe(400);
+    // Also on sign-up (it used to be a 500 there too) and in query strings.
+    const signUp = await request(ctx.app.getHttpServer())
+      .post('/api/v1/auth/register')
+      .send({ email: 'nul@security.platin', password: 'una-clave-segura', name: 'a\u0000b' });
+    expect(signUp.status).toBe(400);
+    expect((await api().get('/api/v1/movements?q=a%00b')).status).toBe(400);
   });
 });

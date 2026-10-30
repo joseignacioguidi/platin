@@ -92,7 +92,7 @@ Trece módulos; cada caso de uso tiene un código para referenciarlo en el plan 
 - **TAR-05** Ver las cuotas activas: qué compra, cuál cuota va, cuántas faltan y cuánto resta pagar.
 - **TAR-06** Ajustar fechas de cierre y vencimiento de un resumen puntual (el banco las corre por feriados).
 - **TAR-07** Cerrar un resumen y comparar el total calculado contra el del banco; la diferencia se carga como ajuste (intereses, impuestos, sellos).
-- **TAR-08** Pagar un resumen total o parcialmente desde una cuenta, en pesos y en dólares por separado.
+- **TAR-08** Pagar un resumen total o parcialmente desde una cuenta, en pesos y en dólares por separado. Un pago no puede superar lo pendiente de esa moneda.
 - **TAR-09** Cargar fijos en la tarjeta (suscripciones) que se suman a cada resumen.
 - **TAR-10** Ver el límite disponible: límite menos lo consumido y cuotas pendientes.
 

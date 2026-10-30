@@ -15,6 +15,7 @@ import { DashboardModule } from '../dashboard/dashboard.module';
 import { FixedModule } from '../fixed/fixed.module';
 import { OriginSecretMiddleware } from '../common/origin-secret.middleware';
 import { ProblemDetailsFilter } from '../common/problem-details.filter';
+import { RejectNulPipe } from '../common/reject-nul.pipe';
 import { AppConfig } from '../config/app-config';
 import { ConfigModule } from '../config/config.module';
 import { GoalsModule } from '../goals/goals.module';
@@ -77,6 +78,8 @@ const isCredentialRoute = (context: ExecutionContext): boolean =>
     AdminModule,
   ],
   providers: [
+    // Global pipes run in order: NUL characters are refused before the Zod schemas.
+    { provide: APP_PIPE, useClass: RejectNulPipe },
     { provide: APP_PIPE, useClass: ZodValidationPipe },
     { provide: APP_INTERCEPTOR, useClass: ZodSerializerInterceptor },
     { provide: APP_FILTER, useClass: ProblemDetailsFilter },

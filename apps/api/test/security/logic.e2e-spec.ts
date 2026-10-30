@@ -109,15 +109,30 @@ describe('security: business logic', () => {
     expect(open.status).toBe(422);
     expect(open.body.code).toBe('STATEMENT_NOT_CLOSED');
 
-    // Documented (SEC-F11, to decide): paying more than the total is accepted; the statement
-    // ends PAID with nothing pending, and the extra money leaves the pocket.
+    // Was SEC-F11: paying more than the pending amount was accepted. Now TAR-08 refuses it.
+    const before = await balanceOf(ctx.app, s.a.user, s.a.ars.id);
     const over = await api()
       .post(`/api/v1/statements/${closed.id}/payments`)
       .send({ pocketId: s.a.ars.id, currency: 'ARS', amount: '99999999', date: '2026-10-22' });
-    expect(over.status).toBe(201);
+    expect(over.status).toBe(422);
+    expect(over.body).toMatchObject({ code: 'PAYMENT_EXCEEDS_PENDING', currency: 'ARS' });
+    expect(await balanceOf(ctx.app, s.a.user, s.a.ars.id)).toBe(before);
+    // Exactly the pending amount is fine and leaves the statement paid.
+    const pending = (await api().get(`/api/v1/statements/${closed.id}`).expect(200)).body.pending
+      .ARS;
+    expect(over.body.pending).toBe(pending);
+    await api()
+      .post(`/api/v1/statements/${closed.id}/payments`)
+      .send({ pocketId: s.a.ars.id, currency: 'ARS', amount: pending, date: '2026-10-22' })
+      .expect(201);
     const detail = (await api().get(`/api/v1/statements/${closed.id}`).expect(200)).body;
     expect(detail.status).toBe('PAID');
-    expect(Number(detail.pending.ARS)).toBeGreaterThanOrEqual(0);
+    expect(detail.pending.ARS).toBe('0.00');
+    // Nothing left to pay: even one cent is too much now.
+    const extra = await api()
+      .post(`/api/v1/statements/${closed.id}/payments`)
+      .send({ pocketId: s.a.ars.id, currency: 'ARS', amount: '0.01', date: '2026-10-22' });
+    expect(extra.body.code).toBe('PAYMENT_EXCEEDS_PENDING');
   });
 
   it('SEC-LOGIC-06 amount, date and installments of a charge in a closed statement cannot change; description and category can', async () => {

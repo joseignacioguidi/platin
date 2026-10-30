@@ -259,6 +259,17 @@ export class StatementsService {
         'Close the statement before paying it',
       );
     }
+    // TAR-08: a payment covers at most what is pending in its currency (SEC-F11).
+    const pending = statementTotals(row).pending[request.currency];
+    if (Money.of(request.amount, request.currency).greaterThan(pending)) {
+      throw new AppException(
+        'PAYMENT_EXCEEDS_PENDING',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        `The payment is more than the ${pending.toString()} pending in ${request.currency}`,
+        undefined,
+        { pending: pending.toString(), currency: request.currency },
+      );
+    }
     const pocket = await this.pockets.getActive(userId, request.pocketId);
     let amountOut = request.amount;
     if (pocket.currency !== request.currency) {
