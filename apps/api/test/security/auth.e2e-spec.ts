@@ -112,7 +112,16 @@ describe('security: authentication and sessions', () => {
     });
 
     it('SEC-AUTH-05 in production the refresh cookie is also Secure', async () => {
-      const prod = await createTestApp({ ...SECURITY_ENV, NODE_ENV: 'production' });
+      // Production refuses placeholder secrets and a missing ORIGIN_SECRET (SEC-F09).
+      const saved = { ...process.env };
+      const prod = await createTestApp({
+        ...SECURITY_ENV,
+        NODE_ENV: 'production',
+        JWT_ACCESS_SECRET: 'prod-like-access-secret-0123456789abcdef',
+        REFRESH_TOKEN_PEPPER: 'prod-like-refresh-pepper-0123456789abcdef',
+        ALLOW_DIRECT_ACCESS: 'true',
+        TRUST_PROXY_HOPS: '0',
+      });
       try {
         const res = await request(prod.app.getHttpServer())
           .post('/api/v1/auth/login')
@@ -125,7 +134,7 @@ describe('security: authentication and sessions', () => {
         expect(cookie).toMatch(/;\s*HttpOnly/i);
       } finally {
         await prod.app.close();
-        process.env.NODE_ENV = 'test';
+        process.env = saved;
       }
     });
 

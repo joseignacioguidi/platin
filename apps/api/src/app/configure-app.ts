@@ -1,7 +1,7 @@
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, Logger } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import helmet from 'helmet';
 import { AppConfig } from '../config/app-config';
 
@@ -11,9 +11,16 @@ export const API_PREFIX = 'api/v1';
 export function configureApp(app: INestApplication): void {
   const config = app.get(AppConfig);
   app.setGlobalPrefix(API_PREFIX);
-  // Requests arrive through Vercel and Render's proxies: use the client IP they forward
-  // (rate limiting is per IP).
-  (app as NestExpressApplication).set('trust proxy', true);
+  // Rate limiting is per IP. Trust only the proxies we know of (Vercel and Render), never the
+  // whole X-Forwarded-For chain: its left part is whatever the client sent (SEC-F01).
+  (app as NestExpressApplication).set('trust proxy', config.env.TRUST_PROXY_HOPS ?? 0);
+  if (config.env.LOG_CLIENT_IP) {
+    const logger = new Logger('ClientIp');
+    app.use(`/${API_PREFIX}/auth/login`, (req: Request, _res: Response, next: () => void) => {
+      logger.log(`ip=${req.ip} hops=${req.ips.length} xff=${req.header('x-forwarded-for') ?? ''}`);
+      next();
+    });
+  }
   app.use(helmet());
   // The secret signs only the oauth_tx cookie (sign-in with a provider in progress).
   app.use(cookieParser(config.env.OAUTH_COOKIE_SECRET));

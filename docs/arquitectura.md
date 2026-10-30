@@ -528,7 +528,7 @@ Para sumar después:
 
 ### Protecciones adicionales
 
-- Rate limiting con `@nestjs/throttler`: estricto en `/auth/*` (por ejemplo, 5 intentos por minuto por IP), general en el resto.
+- Rate limiting con `@nestjs/throttler`: estricto en `/auth/*` (por ejemplo, 5 intentos por minuto por IP), general en el resto. La IP sale de `X-Forwarded-For` confiando solo en `TRUST_PROXY_HOPS` proxies, nunca en toda la cadena.
 - `helmet` para cabeceras de seguridad.
 - El origen en Render solo acepta pedidos que traen la cabecera secreta que agrega Vercel, salvo `/health` ([restringir el origen a Vercel](https://vercel.com/docs/rewrites)).
 - CORS cerrado: solo el dominio de la app, y solo para `/health` (el resto llega por el mismo origen).
@@ -594,7 +594,10 @@ Vercel y Render despliegan solos al hacer push a `main` (integración con GitHub
 | `DIRECT_URL` | Render, local | Conexión directa de Neon (migraciones) |
 | `JWT_ACCESS_SECRET` | Render | Firma de tokens de acceso |
 | `REFRESH_TOKEN_PEPPER` | Render | Hash de refresh tokens |
-| `ORIGIN_SECRET` | Render y Vercel | Cabecera secreta que solo agrega Vercel |
+| `ORIGIN_SECRET` | Render y Vercel | Cabecera secreta que solo agrega Vercel. Obligatoria en producción, salvo `ALLOW_DIRECT_ACCESS=true` |
+| `ALLOW_DIRECT_ACCESS` | VPS | `true` para producción sin Vercel adelante (sin `ORIGIN_SECRET`) |
+| `TRUST_PROXY_HOPS` | Render, VPS | Cantidad de proxies que agregan una entrada a `X-Forwarded-For` (Vercel + Render = 2; vacía = 0, solo fuera de producción). Obligatoria en producción. El rate limiting usa la IP que está a esa distancia desde la derecha; lo que está más a la izquierda lo manda el cliente |
+| `LOG_CLIENT_IP` | Render (temporal) | `true` para loguear la IP que ve la API en cada login y confirmar `TRUST_PROXY_HOPS` |
 | `APP_ORIGIN` | Render | Dominio de la app, para CORS de `/health` |
 | `RATES_BASE_URL` | Render | `https://dolarapi.com` |
 | `ADMIN_EMAILS` | Render | Emails separados por coma que reciben el rol de administrador al ingresar |
@@ -774,7 +777,8 @@ Caddy cumple en el VPS el mismo papel que Vercel en el plan gratuito: un solo do
 
 - Toda la configuración por variables de entorno; nada del proveedor dentro del código.
 - La API escucha en `PORT` y escribe logs en JSON a la salida estándar.
-- `ORIGIN_SECRET` es opcional: si no está definida, el chequeo de cabecera se desactiva.
+- `ORIGIN_SECRET` es obligatoria en producción. Un VPS sin Vercel adelante la desactiva de forma explícita con `ALLOW_DIRECT_ACCESS=true`, y ajusta `TRUST_PROXY_HOPS` a su propio proxy (por ejemplo, 1 con Caddy).
+- En producción la API no arranca con los secretos de ejemplo (`change-me…`), con un solo carácter repetido ni con `JWT_ACCESS_SECRET` igual a `REFRESH_TOKEN_PEPPER`.
 - `/health` sirve para todos: Docker `HEALTHCHECK`, Render y el wake-up del front.
 - Las migraciones corren al arrancar el contenedor, igual en todos los entornos.
 

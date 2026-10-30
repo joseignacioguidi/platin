@@ -20,6 +20,8 @@ describe('security: rate limiting', () => {
       ...SECURITY_ENV,
       THROTTLE_AUTH_LIMIT: String(AUTH_LIMIT),
       THROTTLE_LIMIT: String(GENERAL_LIMIT),
+      // As in production: Vercel and Render each append one X-Forwarded-For entry.
+      TRUST_PROXY_HOPS: '2',
     });
     await resetDatabase(ctx.prisma);
   });
@@ -86,9 +88,9 @@ describe('security: rate limiting', () => {
       .expect(429);
   });
 
-  // Finding SEC-F01: with `trust proxy: true` the API takes the client IP from the first
-  // X-Forwarded-For entry, which the client controls. Rotating it bypasses the limit.
-  it.skip('SEC-AUTH-11 a client cannot reset the limit by forging X-Forwarded-For [SEC-F01]', async () => {
+  // Was finding SEC-F01: with `trust proxy: true` the API took the client IP from the first
+  // X-Forwarded-For entry, which the client controls. Rotating it bypassed the limit.
+  it('SEC-AUTH-11 a client cannot reset the limit by forging X-Forwarded-For [SEC-F01]', async () => {
     const result: number[] = [];
     for (let i = 0; i <= AUTH_LIMIT * 2; i++) {
       const res = await request(server())

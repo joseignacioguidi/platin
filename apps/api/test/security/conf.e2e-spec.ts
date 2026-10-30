@@ -172,20 +172,45 @@ describe('security: configuration, errors and infrastructure', () => {
     expect(() => loadEnv({ ...base, GOOGLE_CLIENT_ID: 'id' })).toThrow();
   });
 
-  // Finding SEC-F09: the placeholders of .env.example are 47 characters long and pass the
-  // check, so a deploy that copies them signs tokens with a public secret.
-  it.skip('SEC-CONF-11 the API refuses the known placeholder secrets of .env.example, in production [SEC-F09]', () => {
-    const env = {
+  // Was finding SEC-F09: the placeholders of .env.example are 47 characters long and passed
+  // the check, so a deploy that copied them would sign tokens with a public secret.
+  it('SEC-CONF-11 the API refuses the known placeholder secrets of .env.example, in production [SEC-F09]', () => {
+    const good = {
       NODE_ENV: 'production',
       DATABASE_URL: 'postgresql://x:y@localhost:5432/z',
-      JWT_ACCESS_SECRET: 'change-me-access-secret-at-least-32-characters',
-      REFRESH_TOKEN_PEPPER: 'change-me-refresh-pepper-at-least-32-characters',
+      JWT_ACCESS_SECRET: 'R7f0kQ2vX9mB4tL8sW1pZ6nC3yH5jD0a',
+      REFRESH_TOKEN_PEPPER: 'G4uE8rT1oY6iP3aS9dF2gH7jK0lZ5xC1',
+      ORIGIN_SECRET: 'e3b0c44298fc1c149afbf4c8996fb924',
+      TRUST_PROXY_HOPS: '2',
     };
-    expect(() => loadEnv(env)).toThrow();
-    expect(() => loadEnv({ ...env, JWT_ACCESS_SECRET: 'k'.repeat(48) })).toThrow();
+    expect(() => loadEnv(good)).not.toThrow();
+    const refused: Record<string, string>[] = [
+      { JWT_ACCESS_SECRET: 'change-me-access-secret-at-least-32-characters' },
+      { REFRESH_TOKEN_PEPPER: 'change-me-refresh-pepper-at-least-32-characters' },
+      { JWT_ACCESS_SECRET: 'k'.repeat(48) },
+      { OAUTH_COOKIE_SECRET: 'x'.repeat(40) },
+      { REFRESH_TOKEN_PEPPER: good.JWT_ACCESS_SECRET },
+      { ORIGIN_SECRET: '' },
+      { TRUST_PROXY_HOPS: '' },
+    ];
+    for (const change of refused) {
+      expect(() => loadEnv({ ...good, ...change }), JSON.stringify(change)).toThrow(
+        /Invalid environment variables/,
+      );
+    }
+    // Without Vercel in front (VPS), the missing origin secret has to be explicit.
     expect(() =>
-      loadEnv({ ...env, JWT_ACCESS_SECRET: 'a'.repeat(48), REFRESH_TOKEN_PEPPER: 'a'.repeat(48) }),
-    ).toThrow();
+      loadEnv({ ...good, ORIGIN_SECRET: '', ALLOW_DIRECT_ACCESS: 'true' }),
+    ).not.toThrow();
+    // Outside production the placeholders keep working for local development.
+    expect(() =>
+      loadEnv({
+        ...good,
+        NODE_ENV: 'development',
+        ORIGIN_SECRET: '',
+        JWT_ACCESS_SECRET: 'change-me-access-secret-at-least-32-characters',
+      }),
+    ).not.toThrow();
   });
 
   it('SEC-PRIV-02 no response carries password or token hashes or internal columns', async () => {
