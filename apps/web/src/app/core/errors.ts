@@ -31,6 +31,8 @@ const MESSAGES: Record<string, string> = {
   OAUTH_FAILED: 'No pudimos completar el ingreso con Google. Probá de nuevo.',
   OAUTH_PROVIDER_DISABLED: 'Esa forma de ingreso no está disponible.',
   LINK_TICKET_INVALID: 'El vínculo venció. Tocá "Vincular" de nuevo.',
+  LINK_SESSION_MISMATCH:
+    'Para vincular Google tenés que estar con tu sesión abierta en este navegador. Tocá "Vincular" desde tu perfil.',
   IDENTITY_IN_USE: 'Esa cuenta de Google ya está vinculada a otro usuario de platin.',
   PROVIDER_ALREADY_LINKED: 'Ya tenés otra cuenta de Google vinculada.',
   LAST_SIGN_IN_METHOD: 'Es tu única forma de ingresar: no la podés desvincular.',

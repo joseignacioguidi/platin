@@ -505,7 +505,7 @@ Flujo:
 5. Emite la sesión igual que `POST /auth/login` (cookie de refresh) y redirige a `/auth/listo?returnTo=/app`. Esa página del front llama a `/auth/refresh`, obtiene el token de acceso y navega. Ningún token viaja en la URL.
 6. Cualquier error redirige a `/ingresar?error=<CODE>` y la pantalla de ingreso muestra el mensaje.
 
-Vincular desde el perfil: como una navegación completa no lleva el token de acceso, el front pide antes `POST /auth/oauth/:provider/link-ticket` (autenticado), que devuelve un ticket de un solo uso válido por 60 segundos, y navega a `/start?mode=link&ticket=...`. El callback vincula la identidad a ese usuario en lugar de iniciar sesión.
+Vincular desde el perfil: como una navegación completa no lleva el token de acceso, el front pide antes `POST /auth/oauth/:provider/link-ticket` (autenticado), que devuelve un ticket de un solo uso válido por 60 segundos, y navega a `/start?mode=link&ticket=...`. `/start` exige además que la cookie de refresh de ese navegador (su path `/api/v1/auth` cubre `/auth/oauth`) sea una sesión viva del mismo usuario del ticket; si no, `LINK_SESSION_MISMATCH`. Así, un link con el ticket de otra persona no vincula nada (CSRF de vinculación, hallazgo F04 del informe de seguridad). El callback vincula la identidad a ese usuario en lugar de iniciar sesión.
 
 | Método y ruta | Caso de uso |
 | --- | --- |

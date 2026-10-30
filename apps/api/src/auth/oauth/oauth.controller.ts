@@ -66,6 +66,7 @@ export class OAuthController {
   async start(
     @Param('provider') slug: string,
     @Query() query: Record<string, unknown>,
+    @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
     const linking = query['mode'] === 'link';
@@ -74,6 +75,7 @@ export class OAuthController {
         returnTo: text(query['returnTo']),
         mode: text(query['mode']),
         ticket: text(query['ticket']),
+        sessionToken: linking ? this.session.read(req) : undefined,
       });
       res.cookie(OAUTH_TX_COOKIE, JSON.stringify(transaction), {
         ...this.txCookieOptions(),

@@ -19,7 +19,7 @@ La fase 20 suma el ingreso con Google (AUTH-06 a 08) según "Auth y seguridad > 
 - **Códigos de error nuevos:**
   - `OAUTH_PROVIDER_DISABLED`, `OAUTH_STATE_INVALID`, `OAUTH_CANCELLED` (la persona canceló en Google), `OAUTH_FAILED`.
   - `EMAIL_NOT_VERIFIED`, `ACCOUNT_EXISTS_LINK_REQUIRED`.
-  - `LINK_TICKET_INVALID`, `IDENTITY_IN_USE` (esa cuenta de Google ya está vinculada a otro usuario) y `PROVIDER_ALREADY_LINKED` (el usuario ya tiene otra cuenta de Google).
+  - `LINK_TICKET_INVALID`, `LINK_SESSION_MISMATCH` (agregado el 2026-10-30, hallazgo F04: el ticket solo vale en el navegador con la sesión de su dueño), `IDENTITY_IN_USE` (esa cuenta de Google ya está vinculada a otro usuario) y `PROVIDER_ALREADY_LINKED` (el usuario ya tiene otra cuenta de Google).
   - `LAST_SIGN_IN_METHOD` y `PASSWORD_ALREADY_SET`.
 - **`returnTo`** acepta solo rutas que empiezan con `/`, sin `//`, sin `\` y sin caracteres de control (los navegadores convierten `/\host` en otro sitio). Si no, `/app`. La regla vive en `libs/domain` (`safeReturnPath`).
 - **Variables:** si `GOOGLE_CLIENT_ID` está definida, la validación exige `GOOGLE_CLIENT_SECRET`, `PUBLIC_APP_URL` y `OAUTH_COOKIE_SECRET`; el API no arranca con la configuración a medias.

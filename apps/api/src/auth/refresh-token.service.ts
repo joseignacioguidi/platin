@@ -54,6 +54,16 @@ export class RefreshTokenService {
     return { userId: current.userId, next };
   }
 
+  /** The user of a live token (not revoked, not expired), without rotating it. */
+  async ownerOf(token: string | undefined): Promise<string | undefined> {
+    if (!token) return undefined;
+    const current = await this.prisma.refreshToken.findUnique({
+      where: { tokenHash: this.hash(token) },
+    });
+    if (!current || current.revokedAt || current.expiresAt <= new Date()) return undefined;
+    return current.userId;
+  }
+
   /** Revokes the family of a token (logout). Unknown tokens are ignored. */
   async revokeFamily(token: string): Promise<void> {
     const current = await this.prisma.refreshToken.findUnique({

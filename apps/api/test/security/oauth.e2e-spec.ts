@@ -64,8 +64,12 @@ describe('security: sign-in with Google (fake provider, never Google)', () => {
   async function signIn(
     profile: { sub: string; email?: string; emailVerified?: boolean },
     startQuery = '',
+    sessionCookie?: string,
   ) {
-    const { state, txCookie } = await start(startQuery);
+    const { state, txCookie } = await start(
+      startQuery,
+      sessionCookie ? { Cookie: sessionCookie } : {},
+    );
     const code = google.code({
       providerUserId: profile.sub,
       email: profile.email ?? `${profile.sub}@gmail.com`,
@@ -219,7 +223,7 @@ describe('security: sign-in with Google (fake provider, never Google)', () => {
     expect(cookieFrom(invented.headers['set-cookie'], 'oauth_tx')).toBeUndefined();
 
     const ticket = await ticketFor(ana);
-    await start(`?mode=link&ticket=${ticket}`);
+    await start(`?mode=link&ticket=${ticket}`, { Cookie: ana.cookie });
     const reused = await http()
       .get(`/api/v1/auth/oauth/google/start?mode=link&ticket=${ticket}`)
       .expect(302);
@@ -239,20 +243,33 @@ describe('security: sign-in with Google (fake provider, never Google)', () => {
     await http().post('/api/v1/auth/oauth/google/link-ticket').expect(401);
   });
 
-  // Finding SEC-F04: the ticket alone decides which account gets linked, so whoever opens the
-  // link URL links THEIR Google account to the ticket owner's platin account (link CSRF).
-  it.skip('SEC-OAUTH-08 a link ticket only works in the browser of the user who asked for it [SEC-F04]', async () => {
+  // Was finding SEC-F04: the ticket alone decided which account got linked, so whoever opened
+  // the link URL linked THEIR Google account to the ticket owner's platin account (link CSRF).
+  it('SEC-OAUTH-08 a link ticket only works in the browser of the user who asked for it [SEC-F04]', async () => {
     const attacker = await registerUser(ctx.app, {
       email: 'atacante@security.platin',
       password: PASSWORD,
     });
+    const victimLinks = async (cookie?: string) => {
+      const ticket = await ticketFor(attacker);
+      const req = http().get(`/api/v1/auth/oauth/google/start?mode=link&ticket=${ticket}`);
+      if (cookie) req.set('Cookie', cookie);
+      return req.expect(302);
+    };
+    // The victim's browser opens the attacker's link: without a session, or with their own.
+    for (const res of [await victimLinks(), await victimLinks(ana.cookie)]) {
+      expect(res.headers['location']).toBe(`${APP}/app/perfil?error=LINK_SESSION_MISMATCH`);
+      expect(cookieFrom(res.headers['set-cookie'], 'oauth_tx')).toBeUndefined();
+    }
+    // A logged-out (revoked) session of the attacker does not count either.
     const ticket = await ticketFor(attacker);
-    // The victim's browser opens the attacker's link: no platin session cookie of the attacker.
-    const res = await http()
+    await http().post('/api/v1/auth/logout').set('Cookie', attacker.cookie).expect(204);
+    const revoked = await http()
       .get(`/api/v1/auth/oauth/google/start?mode=link&ticket=${ticket}`)
+      .set('Cookie', attacker.cookie)
       .expect(302);
-    expect(new URL(res.headers['location']).origin).toBe(APP);
-    expect(res.headers['location']).toContain('error=');
+    expect(revoked.headers['location']).toBe(`${APP}/app/perfil?error=LINK_SESSION_MISMATCH`);
+    expect(await ctx.prisma.authIdentity.count({ where: { userId: attacker.id } })).toBe(0);
   });
 
   it('SEC-OAUTH-09 an identity linked to A cannot be linked to B; A keeps it', async () => {
@@ -261,7 +278,11 @@ describe('security: sign-in with Google (fake provider, never Google)', () => {
     });
     const beto = await registerUser(ctx.app, { email: 'beto@security.platin', password: PASSWORD });
     const ticket = await ticketFor(beto);
-    const res = await signIn({ sub: 'g-ana', email: ana.email }, `?mode=link&ticket=${ticket}`);
+    const res = await signIn(
+      { sub: 'g-ana', email: ana.email },
+      `?mode=link&ticket=${ticket}`,
+      beto.cookie,
+    );
     expect(res.headers['location']).toBe(`${APP}/app/perfil?error=IDENTITY_IN_USE`);
     const identity = await ctx.prisma.authIdentity.findFirstOrThrow({
       where: { providerUserId: 'g-ana' },

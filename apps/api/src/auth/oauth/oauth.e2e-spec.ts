@@ -37,8 +37,11 @@ describe('sign in with a provider (AUTH-06 to 08)', () => {
   });
 
   /** GET /start: returns the state sent to the provider and the oauth_tx cookie. */
-  async function start(query = '') {
-    const res = await http().get(`/api/v1/auth/oauth/google/start${query}`).expect(302);
+  /** GET /start; `cookie` is the browser's session (needed to link). */
+  async function start(query = '', cookie?: string) {
+    const req = http().get(`/api/v1/auth/oauth/google/start${query}`);
+    if (cookie) req.set('Cookie', cookie);
+    const res = await req.expect(302);
     const location = new URL(res.headers['location']);
     const setCookie = cookieFrom(res.headers['set-cookie'], 'oauth_tx');
     return {
@@ -244,7 +247,7 @@ describe('sign in with a provider (AUTH-06 to 08)', () => {
 
     async function link(user: TestUser, sub: string, email = `${sub}@gmail.com`) {
       const ticket = await linkTicket(user);
-      const { state, txCookie } = await start(`?mode=link&ticket=${ticket}`);
+      const { state, txCookie } = await start(`?mode=link&ticket=${ticket}`, user.cookie);
       const code = google.code({ providerUserId: sub, email });
       return callback(`?code=${code}&state=${state}`, txCookie);
     }
@@ -287,7 +290,7 @@ describe('sign in with a provider (AUTH-06 to 08)', () => {
     it('a ticket works once and only for 60 seconds', async () => {
       const ana = await registerUser(ctx.app);
       const ticket = await linkTicket(ana);
-      await start(`?mode=link&ticket=${ticket}`);
+      await start(`?mode=link&ticket=${ticket}`, ana.cookie);
       const reused = await http()
         .get(`/api/v1/auth/oauth/google/start?mode=link&ticket=${ticket}`)
         .expect(302);

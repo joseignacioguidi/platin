@@ -7,6 +7,7 @@ import { AppConfig } from '../../config/app-config';
 import { AuthProvider, Prisma } from '../../generated/prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthService, Session, suspended } from '../auth.service';
+import { RefreshTokenService } from '../refresh-token.service';
 import { LinkTicketService } from './link-ticket.service';
 import type { OAuthProfile, OAuthProvider } from './oauth-provider';
 import { OAuthProviderRegistry } from './oauth-provider.registry';
@@ -26,6 +27,8 @@ export interface StartRequest {
   returnTo?: string;
   mode?: string;
   ticket?: string;
+  /** The browser's refresh token (platin_rt), required to link: see `linkingUser`. */
+  sessionToken?: string;
 }
 
 export interface CallbackQuery {
@@ -53,6 +56,7 @@ export class OAuthService {
     private readonly registry: OAuthProviderRegistry,
     private readonly tickets: LinkTicketService,
     private readonly auth: AuthService,
+    private readonly refreshTokens: RefreshTokenService,
     private readonly clock: ClockService,
     private readonly config: AppConfig,
   ) {}
@@ -70,7 +74,7 @@ export class OAuthService {
       codeVerifier: randomToken(),
       nonce: randomToken(),
       returnTo: linking ? PROFILE_PATH : safeReturnPath(request.returnTo),
-      linkUserId: linking ? this.tickets.consume(request.ticket, provider.provider) : undefined,
+      linkUserId: linking ? await this.linkingUser(request, provider) : undefined,
       expiresAt: this.clock.now().getTime() + OAUTH_TX_TTL_MS,
     };
     const authorizationUrl = await provider.buildAuthorizationUrl({
@@ -119,6 +123,24 @@ export class OAuthService {
       return { kind: 'linked', provider: provider.provider, returnTo: transaction.returnTo };
     }
     return this.signIn(provider, profile, transaction.returnTo);
+  }
+
+  /**
+   * AUTH-07: the user to link to. The ticket says who asked for it; the session cookie proves
+   * this browser is theirs. Without the second check, whoever opens a link with someone else's
+   * ticket would link their own provider account to that account (link CSRF).
+   */
+  private async linkingUser(request: StartRequest, provider: OAuthProvider): Promise<string> {
+    const ticketUser = this.tickets.consume(request.ticket, provider.provider);
+    const sessionUser = await this.refreshTokens.ownerOf(request.sessionToken);
+    if (sessionUser !== ticketUser) {
+      throw new AppException(
+        'LINK_SESSION_MISMATCH',
+        HttpStatus.BAD_REQUEST,
+        'Linking needs the session of the user who asked for it in this browser',
+      );
+    }
+    return ticketUser;
   }
 
   /** Absolute URL inside the app (PUBLIC_APP_URL, never the request's host). */
