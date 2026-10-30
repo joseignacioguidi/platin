@@ -26,7 +26,7 @@ Todo dinero vive en un apartado de una **cuenta** o en una **tarjeta**; los movi
 
 | Entidad | Qué representa | Campos clave |
 | --- | --- | --- |
-| Usuario | Persona con su espacio de datos | email, contraseña, moneda base, cotización preferida para valuar (oficial, MEP, blue) |
+| Usuario | Persona con su espacio de datos | email, contraseña, moneda base, monedas que usa, cotización preferida para valuar dólares (oficial, MEP, blue), accesos del inicio |
 | Cuenta | La institución o el lugar donde está la plata: Mercado Pago, Santander, Ualá, efectivo, un broker | nombre, tipo (banco, billetera, efectivo, broker), color, archivada |
 | Apartado | Plata separada dentro de una cuenta, con su moneda y su propósito: el disponible, una reserva, una inversión | cuenta, nombre, moneda, tipo (disponible, ahorro, inversión), instrumento (solo inversión), saldo inicial, cuenta para patrimonio, archivado |
 | Categoría | Clasificación de ingresos y gastos, propia de cada usuario | nombre, tipo (ingreso/gasto), ícono, color, categoría padre opcional, de sistema, archivada |
@@ -50,7 +50,7 @@ Pagar un resumen es una transferencia de un apartado a la tarjeta; por eso el ga
 
 ## Módulos y casos de uso
 
-Trece módulos; cada caso de uso tiene un código para referenciarlo en el plan de implementación.
+Catorce módulos; cada caso de uso tiene un código para referenciarlo en el plan de implementación.
 
 ### 1. Autenticación y perfil
 
@@ -86,17 +86,20 @@ Trece módulos; cada caso de uso tiene un código para referenciarlo en el plan 
 ### 4. Tarjetas de crédito
 
 - **TAR-01** Alta de tarjeta con día de cierre, día de vencimiento y límite.
-- **TAR-02** Cargar un consumo en 1 o N cuotas; la app reparte las cuotas en los resúmenes que correspondan.
+- **TAR-02** Cargar un consumo en 1 o N cuotas, indicando el monto total o el valor de cada cuota (como figura en el resumen del banco); la app reparte las cuotas en los resúmenes que correspondan y muestra el otro valor calculado.
 - **TAR-03** Cargar un consumo en cuotas ya empezado ("voy por la 4 de 12"), para migrar compras existentes.
 - **TAR-04** Ver el resumen actual (abierto) y los próximos, con el detalle de cuotas y consumos de cada uno.
 - **TAR-05** Ver las cuotas activas: qué compra, cuál cuota va, cuántas faltan y cuánto resta pagar.
 - **TAR-06** Ajustar fechas de cierre y vencimiento de un resumen puntual (el banco las corre por feriados).
 - **TAR-07** Cerrar un resumen y comparar el total calculado contra el del banco; la diferencia se carga como ajuste (intereses, impuestos, sellos).
 - **TAR-08** Pagar un resumen total o parcialmente desde una cuenta, en pesos y en dólares por separado. Un pago no puede superar lo pendiente de esa moneda.
-- **TAR-09** Cargar fijos en la tarjeta (suscripciones) que se suman a cada resumen.
+- **TAR-09** Cargar fijos en la tarjeta (suscripciones, planes): cada período se cargan solos como un consumo de un pago, en pesos o en dólares, en el resumen que corresponde a su día.
 - **TAR-10** Ver el límite disponible: límite menos lo consumido y cuotas pendientes.
 
 * **TAR-11** Editar o borrar un consumo desde el detalle de la tarjeta o desde Movimientos. Si alguna cuota ya está en un resumen cerrado, solo se puede editar la descripción y la categoría.
+
+- **TAR-12** Ver el historial de resúmenes de una tarjeta: todos los anteriores con período, cierre, vencimiento, totales en pesos y dólares, pagos y estado; al entrar a uno, sus consumos, cuotas, ajustes y pagos.
+- **TAR-13** Ver el historial de compras: todos los consumos de una tarjeta (o de todas), con búsqueda y filtro por fecha, mostrando el total, la cuota, en qué cuota va ("4 de 12") y si ya terminó.
 
 ### 5. Fijos
 
@@ -141,6 +144,8 @@ Trece módulos; cada caso de uso tiene un código para referenciarlo en el plan 
 - **LAN-01** Landing pública con la identidad de platin: propuesta de valor, el producto en acción, funcionalidades y llamado a registrarse. Usa la cara del guiño, la paleta completa y un movimiento principal (ver "Identidad visual y UX > Landing").
 - **LAN-02** Páginas de login y registro con la misma identidad visual.
 
+* **DAS-04** Accesos rápidos en el inicio a las demás funciones (cuentas, tarjetas, fijos, compromisos, ahorros, inversiones, categorías, presupuestos cuando existan). Cada usuario elige cuáles ver y en qué orden; hay un conjunto por defecto.
+
 ### 11. Categorías
 
 - **CAT-01** Ver las categorías de ingreso y de gasto con su ícono y color. Las sugeridas se crean al registrarse y se editan como cualquier otra: cada usuario tiene las suyas.
@@ -148,6 +153,8 @@ Trece módulos; cada caso de uso tiene un código para referenciarlo en el plan 
 - **CAT-03** Archivar una categoría: deja de ofrecerse al cargar y el histórico se conserva.
 - **CAT-04** Fusionar una categoría en otra: pasa todos sus movimientos, consumos, fijos y presupuestos a la otra y la archiva.
 - **CAT-05** Las categorías de sistema (Ajustes, Rendimientos) no se pueden editar ni archivar.
+
+* **CAT-06** Crear una categoría sin salir de lo que se está cargando: todo selector de categoría termina con "+ Nueva categoría", que abre el formulario encima; al guardar, la categoría nueva queda elegida y lo cargado no se pierde. En la carga rápida, los chips de recientes se mantienen y el selector reemplaza a "Ver todas".
 
 ### 12. Planes
 
@@ -160,6 +167,8 @@ Los planes existen y limitan el uso, pero todavía no se cobra: el plan lo asign
 - **PLN-05** Bajar de plan nunca borra datos: lo que excede el límite se sigue viendo y editando, pero no se pueden crear nuevos ni volver a activar lo archivado.
 - **PLN-06** El administrador cambia el plan de un usuario, con vencimiento opcional (por ejemplo, Pro de prueba por 30 días); al vencer, vuelve al plan por defecto.
 
+* **PLN-07** Lo que el plan no incluye se ve marcado **antes** de tocarlo: los botones, opciones y accesos de una funcionalidad fuera del plan llevan la marca del plan que la incluye (por ejemplo, "Pro"), y donde hay un límite se muestra el uso ("2 de 2 cuentas"). Al tocar algo marcado se abre la explicación del plan con la opción de pedirlo, sin empezar el formulario.
+
 ### 13. Administración
 
 El administrador gestiona la plataforma, no la plata de los usuarios: ve datos de cuenta y métricas agregadas, nunca movimientos, saldos ni montos.
@@ -171,6 +180,16 @@ El administrador gestiona la plataforma, no la plata de los usuarios: ve datos d
 - **ADM-05** Configuración global: planes y límites, plan por defecto, categorías sugeridas para usuarios nuevos, cotización por defecto, registro abierto o cerrado y un aviso para todos los usuarios con texto y fechas.
 - **ADM-06** Solicitudes de cambio de plan: verlas, aprobarlas o rechazarlas.
 - **ADM-07** Registro de auditoría de cada acción del administrador: quién, qué, cuándo y sobre qué usuario.
+
+### 14. Monedas
+
+Además de pesos y dólares, el usuario puede manejar euros, reales, pesos chilenos y pesos uruguayos, con cotización automática.
+
+- **MON-01** Elegir en el perfil qué monedas usa. Pesos y dólares vienen activados; la moneda base siempre está activada. Solo las monedas activadas aparecen al cargar.
+- **MON-02** Crear apartados, cargar movimientos, transferencias (incluida la compra y venta entre monedas), fijos de apartado, metas e inversiones en cualquier moneda activada.
+- **MON-03** Ver saldos y totales por cada moneda, y el total general valuado en la moneda base.
+- **MON-04** Desactivar una moneda solo si ningún apartado activo, fijo activo ni meta activa la usa; el histórico se conserva.
+- **MON-05** Las tarjetas siguen siendo solo en pesos y dólares, como los resúmenes de los bancos: un consumo en otra moneda se carga en el monto que figura en el resumen.
 
 ## Reglas de negocio
 
@@ -195,6 +214,13 @@ Estas reglas son las que más errores generan si se dejan implícitas; cada una 
 - El patrimonio y los totales actuales se valúan con la cotización del día del tipo que eligió el usuario (oficial, MEP o blue).
 - Las cotizaciones se guardan por día; si la API falla, se usa la última disponible y la UI lo indica.
 
+Varias monedas:
+
+- Monedas posibles: ARS, USD, EUR, BRL, CLP y UYU. La moneda base es ARS o USD.
+- Todas las cotizaciones se guardan contra el peso (cuántos ARS vale una unidad). Para pasar entre dos monedas que no son el peso, se pasa por el peso: EUR → USD = (ARS por EUR) / (ARS por USD).
+- El tipo de cotización preferido (oficial, MEP o blue) aplica solo al dólar; las demás monedas usan su cotización oficial.
+- Los totales por moneda muestran solo las monedas que tienen saldo o movimientos; el total general se valúa en la moneda base.
+
 ### Ciclo de la tarjeta
 
 - Cada mes tiene un resumen. Su cierre por defecto es el día de cierre de la tarjeta en ese mes (si el mes es más corto, el último día). Su vencimiento es el día de vencimiento siguiente al cierre.
@@ -212,11 +238,17 @@ Estas reglas son las que más errores generan si se dejan implícitas; cada una 
 - Editar el consumo regenera las cuotas que todavía no están en un resumen cerrado.
 - Cuotas restantes = N menos cuotas en resúmenes cerrados; monto restante = suma de esas cuotas.
 
+* Carga por valor de cuota: con cuota C y N cuotas, el total es C × N y todas las cuotas valen exactamente C (no hay diferencia de redondeo). Es la forma de cargar compras con interés, donde el banco informa la cuota y no el precio.
+* Un plan de cuotas "terminó" cuando su última cuota está en un resumen cerrado.
+
 ### Fijos y movimientos pendientes
 
 - Los pendientes se generan **cuando el usuario abre la app**, para cada período vencido desde la última generación. No depende de un cron: el backend gratuito se duerme y un cron podría no correr.
 - Un pendiente no impacta saldos ni presupuestos hasta que se confirma; al confirmar se puede corregir el monto.
 - Un cambio de monto aplica desde el período indicado en adelante; los períodos anteriores conservan su monto.
+
+* Un fijo en tarjeta no genera un pendiente: al sincronizar, crea directamente un consumo de un pago con su monto vigente, fechado el día del fijo, en el resumen que le corresponde, porque el banco lo debita solo. Se puede editar como cualquier consumo mientras su resumen esté abierto. Es idempotente por fijo y período.
+* Un fijo en tarjeta es en pesos o en dólares, como la tarjeta.
 
 ### Compromisos de un mes
 
@@ -297,6 +329,7 @@ Fuera de alcance por ahora:
 
 - Importar extractos bancarios o resúmenes en PDF/CSV.
 - Cotización automática de inversiones.
+- Criptomonedas como moneda (USDT, BTC). Se pueden seguir como apartados de inversión con valuación manual.
 - Cuentas compartidas entre usuarios (pareja, familia).
 - App móvil nativa o modo offline; la web es responsive.
 - Cobro real de suscripciones: los planes funcionan sin cobrar; la pasarela (Mercado Pago) se suma más adelante.
@@ -321,6 +354,16 @@ Cuatro frentes para que platin se parezca más a un producto:
 - Un usuario administrador con métricas, gestión de usuarios y configuración global (ADM-01 a 07).
 - Planes con límites, asignados por el administrador y sin cobro (PLN-01 a 06). El cobro real con Mercado Pago queda fuera de alcance por ahora.
 - Ingreso con proveedores externos (AUTH-06 a 08): la arquitectura admite varios, y por ahora se implementa solo Google.
+
+### Iteración 4 (octubre 2026)
+
+Ajustes que salieron del uso diario:
+
+- Lo que no incluye el plan se ve marcado antes de tocarlo (PLN-07).
+- Accesos rápidos personalizables en el inicio (DAS-04).
+- Crear categorías sin salir de la carga (CAT-06).
+- Tarjetas: carga por valor de cuota (TAR-02), historial de resúmenes y de compras (TAR-12, 13) y fijos en tarjeta (TAR-09).
+- Varias monedas: euro, real, peso chileno y peso uruguayo (MON-01 a 05).
 
 ## Identidad visual y UX
 
