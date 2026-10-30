@@ -7,6 +7,16 @@ import { AppConfig } from '../config/app-config';
 
 export const API_PREFIX = 'api/v1';
 
+/** Headers LOG_CLIENT_IP prints, to find which proxy header carries the real client IP. */
+const CLIENT_IP_HEADERS = [
+  'x-forwarded-for',
+  'x-real-ip',
+  'x-vercel-forwarded-for',
+  'x-vercel-proxied-for',
+  'cf-connecting-ip',
+  'true-client-ip',
+];
+
 /** Paths under the prefix whose responses hold no user data. */
 const PUBLIC_CACHEABLE = ['/plans', '/health'];
 
@@ -20,7 +30,9 @@ export function configureApp(app: INestApplication): void {
   if (config.env.LOG_CLIENT_IP) {
     const logger = new Logger('ClientIp');
     app.use(`/${API_PREFIX}/auth/login`, (req: Request, _res: Response, next: () => void) => {
-      logger.log(`ip=${req.ip} hops=${req.ips.length} xff=${req.header('x-forwarded-for') ?? ''}`);
+      // Candidate headers for the real client IP: which one survives a forged X-Forwarded-For.
+      const candidates = CLIENT_IP_HEADERS.map((name) => `${name}=${req.header(name) ?? ''}`);
+      logger.log(`ip=${req.ip} hops=${req.ips.length} ${candidates.join(' ')}`);
       next();
     });
   }
