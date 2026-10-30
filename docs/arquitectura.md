@@ -706,7 +706,7 @@ model ActivityDay {
 - El módulo `admin` solo importa `users`, `plans`, `settings`, `audit` y `metrics`; nunca los módulos financieros. Un test e2e verifica que ninguna respuesta de `/admin` contenga montos ni nombres de cuentas.
 - Toda escritura de admin se hace dentro de una transacción que también inserta su `AuditLog`.
 - Un middleware registra `ActivityDay` y `lastSeenAt` como máximo una vez por usuario y día.
-- Suspender revoca todas las familias de refresh tokens y hace que el login responda `ACCOUNT_SUSPENDED`.
+- Suspender revoca todas las familias de refresh tokens y hace que el login responda `ACCOUNT_SUSPENDED`. El guard de JWT consulta el estado del usuario en cada pedido: el access token de un suspendido o de un usuario borrado responde 401 enseguida, sin esperar los 15 minutos de vida del token.
 
 | Método y ruta | Caso de uso |
 | --- | --- |

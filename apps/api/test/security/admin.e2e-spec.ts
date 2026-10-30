@@ -131,12 +131,12 @@ describe('security: administration', () => {
     await asAdmin().get('/api/v1/admin/users').expect(200);
     await ctx.prisma.user.update({ where: { id: admin.id }, data: { role: 'USER' } });
     await asAdmin().get('/api/v1/admin/users').expect(403);
-    // A suspended admin is out too.
+    // A suspended admin is out too: their token stops working altogether (SEC-F02).
     await ctx.prisma.user.update({
       where: { id: admin.id },
       data: { role: 'ADMIN', status: 'SUSPENDED' },
     });
-    await asAdmin().get('/api/v1/admin/users').expect(403);
+    await asAdmin().get('/api/v1/admin/users').expect(401);
   });
 
   it('SEC-ADM-04 no admin response contains amounts, balances, descriptions, categories or account names', async () => {

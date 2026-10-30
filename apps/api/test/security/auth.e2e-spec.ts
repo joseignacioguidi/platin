@@ -278,18 +278,21 @@ describe('security: authentication and sessions', () => {
       await refresh(victim.cookie).expect(401);
     });
 
-    // Finding SEC-F02: the access token keeps working until it expires (up to 15 minutes),
-    // because the JWT guard does not look at the user's status.
-    it.skip('SEC-AUTH-13 suspending a user also stops their current access token [SEC-F02]', async () => {
+    // Was finding SEC-F02: the access token kept working until it expired (up to 15 minutes),
+    // because the JWT guard did not look at the user's status.
+    it('SEC-AUTH-13 suspending a user also stops their current access token [SEC-F02]', async () => {
       const victim = await registerUser(ctx.app, { password: PASSWORD });
       const admin = await login(ctx.app, ADMIN_EMAIL);
       await as(ctx.app, admin).post(`/api/v1/admin/users/${victim.id}/suspend`).expect(200);
-      const res = await as(ctx.app, victim).get(ME);
-      expect([401, 403]).toContain(res.status);
+      const res = await as(ctx.app, victim).get(ME).expect(401);
+      expect(res.body.code).toBe('UNAUTHORIZED');
+      // Reactivated, the same token works again (it was never revoked, only refused).
+      await as(ctx.app, admin).post(`/api/v1/admin/users/${victim.id}/reactivate`).expect(200);
+      await as(ctx.app, victim).get(ME).expect(200);
     });
 
-    // Finding SEC-F03: the write hits the foreign key of the deleted user and answers 500.
-    it.skip('SEC-AUTH-13 a deleted user with a still valid access token cannot read or write anything [SEC-F03]', async () => {
+    // Was finding SEC-F03: the write hit the foreign key of the deleted user and answered 500.
+    it('SEC-AUTH-13 a deleted user with a still valid access token cannot read or write anything [SEC-F03]', async () => {
       const victim = await registerUser(ctx.app, { password: PASSWORD });
       const admin = await login(ctx.app, ADMIN_EMAIL);
       await as(ctx.app, admin)
@@ -298,11 +301,11 @@ describe('security: authentication and sessions', () => {
         .expect(204);
       const api = as(ctx.app, victim);
       const me = await api.get(ME);
-      expect([401, 404]).toContain(me.status);
+      expect(me.status).toBe(401);
       const write = await api
         .post('/api/v1/categories')
         .send({ name: 'Fantasma', kind: 'EXPENSE', icon: 'paw-print', color: 'card' });
-      expect(write.status).toBeLessThan(500);
+      expect(write.status).toBe(401);
       expect(await ctx.prisma.category.count({ where: { userId: victim.id } })).toBe(0);
     });
   });
