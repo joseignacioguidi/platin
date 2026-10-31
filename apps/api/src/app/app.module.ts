@@ -42,7 +42,7 @@ const isCredentialRoute = (context: ExecutionContext): boolean =>
 /**
  * The client IP for rate limiting. Behind Vercel, X-Forwarded-For keeps whatever the client
  * sent, so even counting proxies it can be forged (SEC-F01); CLIENT_IP_HEADER names a header the
- * edge proxy always overwrites (x-vercel-forwarded-for). Without it, the IP Express derives with
+ * edge proxy always overwrites (x-vercel-proxied-for). Without it, the IP Express derives with
  * TRUST_PROXY_HOPS.
  */
 export function clientIpOf(req: Request, header: string | undefined): string {

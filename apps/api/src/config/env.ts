@@ -26,8 +26,9 @@ const baseEnvSchema = z.object({
     z.coerce.number().int().min(0).max(10).optional(),
   ),
   // Header with the real client IP that the edge proxy always overwrites, so a client can't forge
-  // it (Vercel: x-vercel-forwarded-for). Rate limiting uses it when present (SEC-F01). Set it only
-  // behind such a proxy, with ORIGIN_SECRET keeping everyone else out.
+  // it (Vercel: x-vercel-proxied-for; x-vercel-forwarded-for sometimes keeps a forged value).
+  // Rate limiting uses it when present (SEC-F01). Set it only behind such a proxy, with
+  // ORIGIN_SECRET keeping everyone else out.
   CLIENT_IP_HEADER: optionalString.pipe(
     z
       .string()
@@ -35,11 +36,6 @@ const baseEnvSchema = z.object({
       .transform((value) => value.toLowerCase())
       .optional(),
   ),
-  // Temporary aid to confirm TRUST_PROXY_HOPS after a deploy: logs the IP the API sees on login.
-  LOG_CLIENT_IP: z
-    .enum(['true', 'false', ''])
-    .optional()
-    .transform((value) => value === 'true'),
   APP_ORIGIN: z.string().default('http://localhost:4200'),
   // Requests per minute and IP: strict on /auth/*, general elsewhere.
   THROTTLE_AUTH_LIMIT: z.coerce.number().int().positive().default(5),

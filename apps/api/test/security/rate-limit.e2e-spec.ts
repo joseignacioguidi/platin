@@ -22,9 +22,10 @@ describe('security: rate limiting', () => {
       THROTTLE_LIMIT: String(GENERAL_LIMIT),
       // As in production (measured on 2026-10-30): X-Forwarded-For arrives as
       // "<client>, <Vercel egress>, <Cloudflare edge>, <Render internal>", and Vercel puts the
-      // real client IP in x-vercel-forwarded-for, which the client cannot set.
+      // real client IP in x-vercel-proxied-for, which the client cannot set (x-vercel-forwarded-for
+      // sometimes kept a forged value).
       TRUST_PROXY_HOPS: '4',
-      CLIENT_IP_HEADER: 'x-vercel-forwarded-for',
+      CLIENT_IP_HEADER: 'x-vercel-proxied-for',
     });
     await resetDatabase(ctx.prisma);
   });
@@ -102,13 +103,13 @@ describe('security: rate limiting', () => {
 
   // Was finding SEC-F01: with `trust proxy: true` the API took the client IP from the first
   // X-Forwarded-For entry, which the client controls, and Vercel forwards a forged one as is.
-  // The fix counts on x-vercel-forwarded-for, which Vercel always overwrites.
+  // The fix counts on x-vercel-proxied-for, which Vercel always overwrites.
   it('SEC-AUTH-11 a client cannot reset the limit by forging X-Forwarded-For [SEC-F01]', async () => {
     const result: number[] = [];
     for (let i = 0; i <= AUTH_LIMIT * 2; i++) {
       const res = await login({
         'X-Forwarded-For': chain(`198.51.100.${i}`, i),
-        'X-Vercel-Forwarded-For': '203.0.113.200',
+        'X-Vercel-Proxied-For': '203.0.113.200',
       });
       result.push(res.status);
     }
@@ -129,9 +130,9 @@ describe('security: rate limiting', () => {
 
   it('SEC-AUTH-11 each real client has its own limit [SEC-F01]', async () => {
     for (let i = 0; i < AUTH_LIMIT; i++) {
-      await login({ 'X-Vercel-Forwarded-For': '203.0.113.202' }).expect(401);
+      await login({ 'X-Vercel-Proxied-For': '203.0.113.202' }).expect(401);
     }
-    await login({ 'X-Vercel-Forwarded-For': '203.0.113.202' }).expect(429);
-    await login({ 'X-Vercel-Forwarded-For': '203.0.113.203' }).expect(401);
+    await login({ 'X-Vercel-Proxied-For': '203.0.113.202' }).expect(429);
+    await login({ 'X-Vercel-Proxied-For': '203.0.113.203' }).expect(401);
   });
 });

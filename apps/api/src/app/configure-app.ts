@@ -1,4 +1,4 @@
-import { INestApplication, Logger } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import type { Request, Response } from 'express';
@@ -6,16 +6,6 @@ import helmet from 'helmet';
 import { AppConfig } from '../config/app-config';
 
 export const API_PREFIX = 'api/v1';
-
-/** Headers LOG_CLIENT_IP prints, to find which proxy header carries the real client IP. */
-const CLIENT_IP_HEADERS = [
-  'x-forwarded-for',
-  'x-real-ip',
-  'x-vercel-forwarded-for',
-  'x-vercel-proxied-for',
-  'cf-connecting-ip',
-  'true-client-ip',
-];
 
 /** Paths under the prefix whose responses hold no user data. */
 const PUBLIC_CACHEABLE = ['/plans', '/health'];
@@ -27,15 +17,6 @@ export function configureApp(app: INestApplication): void {
   // Rate limiting is per IP. Trust only the proxies we know of (Vercel and Render), never the
   // whole X-Forwarded-For chain: its left part is whatever the client sent (SEC-F01).
   (app as NestExpressApplication).set('trust proxy', config.env.TRUST_PROXY_HOPS ?? 0);
-  if (config.env.LOG_CLIENT_IP) {
-    const logger = new Logger('ClientIp');
-    app.use(`/${API_PREFIX}/auth/login`, (req: Request, _res: Response, next: () => void) => {
-      // Candidate headers for the real client IP: which one survives a forged X-Forwarded-For.
-      const candidates = CLIENT_IP_HEADERS.map((name) => `${name}=${req.header(name) ?? ''}`);
-      logger.log(`ip=${req.ip} hops=${req.ips.length} ${candidates.join(' ')}`);
-      next();
-    });
-  }
   app.use(helmet());
   // The secret signs only the oauth_tx cookie (sign-in with a provider in progress).
   app.use(cookieParser(config.env.OAUTH_COOKIE_SECRET));
