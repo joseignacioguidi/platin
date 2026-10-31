@@ -3,6 +3,7 @@ import {
   Component,
   computed,
   inject,
+  Injector,
   input,
   OnInit,
   signal,
@@ -22,6 +23,8 @@ import {
   PlSkeleton,
   PlTone,
 } from '@platin/web-ui';
+import { PlanGate, PlUsage, showPlanBlock } from '../plans/plan-gate';
+import { PlanStore } from '../plans/plan.store';
 import { ACCOUNT_KIND_ICONS, AccountFormSheet } from './account-form-sheet';
 import { AccountsStore } from './accounts.store';
 import { ACCOUNTS_TEXTS } from './accounts.texts';
@@ -40,21 +43,27 @@ import { ACCOUNTS_TEXTS } from './accounts.texts';
     LucidePlus,
     LucideChevronRight,
     LucideDynamicIcon,
+    PlanGate,
+    PlUsage,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
   template: `
     <header class="flex items-center justify-between gap-3">
       <h1 class="text-3xl font-bold">{{ texts.title }}</h1>
-      <button
-        plButton
-        size="sm"
-        type="button"
-        [attr.aria-label]="texts.newLabel"
-        (click)="create()"
-      >
-        <svg lucidePlus [size]="18"></svg>{{ texts.new }}
-      </button>
+      <div class="flex items-center gap-2">
+        <pl-usage resource="accounts" />
+        <button
+          plButton
+          size="sm"
+          type="button"
+          [plPlanGate]="accountGate"
+          [attr.aria-label]="texts.newLabel"
+          (click)="create()"
+        >
+          <svg lucidePlus [size]="18"></svg>{{ texts.new }}
+        </button>
+      </div>
     </header>
 
     @if (store.resource.error() && !store.resource.hasValue()) {
@@ -63,7 +72,9 @@ import { ACCOUNTS_TEXTS } from './accounts.texts';
       <pl-skeleton [heights]="[120, 200, 200]" />
     } @else if (visible().length === 0 && !showArchived()) {
       <pl-empty-state icon="wallet" [heading]="texts.emptyTitle" [description]="texts.emptyBody">
-        <button plButton type="button" (click)="create()">{{ texts.newLabel }}</button>
+        <button plButton type="button" [plPlanGate]="accountGate" (click)="create()">
+          {{ texts.newLabel }}
+        </button>
       </pl-empty-state>
     } @else {
       <section
@@ -166,6 +177,10 @@ export class AccountsPage implements OnInit {
   protected readonly store = inject(AccountsStore);
   private readonly sheet = inject(PlBottomSheet);
   private readonly router = inject(Router);
+  private readonly plan = inject(PlanStore);
+  private readonly injector = inject(Injector);
+  /** A new account also creates its "Disponible" pocket. */
+  protected readonly accountGate = ['accounts', 'pockets'] as const;
 
   protected readonly showArchived = signal(false);
   private readonly archived = signal<Account[]>([]);
@@ -176,7 +191,9 @@ export class AccountsPage implements OnInit {
   ngOnInit(): void {
     if (this.nueva()) {
       void this.router.navigate([], { queryParams: {}, replaceUrl: true });
-      this.create();
+      const block = this.plan.block(this.accountGate);
+      if (block) showPlanBlock(this.injector, block);
+      else this.create();
     }
   }
 

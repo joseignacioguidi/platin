@@ -21,13 +21,23 @@ import { AccountsStore } from '../accounts/accounts.store';
 import { CategoriesStore } from '../categories/categories.store';
 import { FixedStore } from './fixed.store';
 import { FIXED_TEXTS } from './fixed.texts';
+import { PlanGate } from '../plans/plan-gate';
 
 const FREQUENCIES = [1, 2, 3, 6, 12] as const;
 
 /** FIJ-01 and FIJ-03: create, edit, pause, finish or delete a fixed item. */
 @Component({
   selector: 'pl-fixed-form-sheet',
-  imports: [PlSheet, PlButton, PlSegmented, PlSelect, PlPocketSelect, PlCategorySelect, FormField],
+  imports: [
+    PlSheet,
+    PlButton,
+    PlSegmented,
+    PlSelect,
+    PlPocketSelect,
+    PlCategorySelect,
+    FormField,
+    PlanGate,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="fixed ? texts.edit : texts.new">
@@ -60,6 +70,7 @@ const FREQUENCIES = [1, 2, 3, 6, 12] as const;
       <pl-form-field [label]="f.category" controlId="fixed-category">
         <pl-category-select
           inputId="fixed-category"
+          allowCreate
           [label]="f.category"
           [kind]="kind()"
           [categories]="categoriesStore.categories()"
@@ -135,7 +146,13 @@ const FREQUENCIES = [1, 2, 3, 6, 12] as const;
       </button>
       @if (fixed) {
         <div class="grid grid-cols-2 gap-2">
-          <button plButton="secondary" type="button" [disabled]="saving()" (click)="togglePause()">
+          <button
+            plButton="secondary"
+            type="button"
+            [disabled]="saving()"
+            [plPlanGate]="fixed.paused ? 'fixed' : []"
+            (click)="togglePause()"
+          >
             {{ fixed.paused ? f.resume : f.pause }}
           </button>
           <button plButton="secondary" type="button" [disabled]="saving()" (click)="finish()">

@@ -12,8 +12,8 @@ export const INVESTMENTS_TEXTS = {
   invested: (amount: string) => `invertido ${amount}`,
   emptyTitle: 'Todavía no tenés inversiones',
   emptyBody:
-    'Una inversión es un apartado de tipo inversión dentro de una cuenta: CEDEARs, un FCI, un plazo fijo. Creala desde Cuentas e invertí desde su Disponible.',
-  goAccounts: 'Ir a Cuentas',
+    'Una inversión es un apartado de tipo inversión dentro de una cuenta: CEDEARs, un FCI, un plazo fijo. Creala y después invertí desde el Disponible de esa cuenta.',
+  newPocket: '+ Apartado de inversión',
   openPocket: (name: string) => `Ver ${name}`,
   daysAgo: (days: number) => (days === 0 ? 'hoy' : days === 1 ? 'ayer' : `hace ${days} días`),
   updatePage: {

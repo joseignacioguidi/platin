@@ -50,6 +50,7 @@ const INPUT =
             <pl-form-field [label]="texts.category" controlId="movement-category">
               <pl-category-select
                 inputId="movement-category"
+                allowCreate
                 [kind]="kind"
                 [label]="texts.category"
                 [categories]="categoriesStore.categories()"

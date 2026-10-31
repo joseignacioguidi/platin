@@ -1,7 +1,14 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { Goal } from '@platin/contracts';
-import { formatMoney, Money, parsePeriod, progressPercent, toDecimal } from '@platin/domain';
+import {
+  formatMoney,
+  Money,
+  parsePeriod,
+  type PocketKind,
+  progressPercent,
+  toDecimal,
+} from '@platin/domain';
 import {
   displayAmount,
   formatPeriodShort,
@@ -15,6 +22,8 @@ import {
   PlErrorState,
   PlSkeleton,
 } from '@platin/web-ui';
+import { PocketFormData, PocketFormSheet } from '../accounts/pocket-form-sheet';
+import { PlanGate, PlUsage } from '../plans/plan-gate';
 import { GoalFormSheet } from './goal-form-sheet';
 import { SavingsStore } from './savings.store';
 import { SAVINGS_TEXTS } from './savings.texts';
@@ -37,13 +46,15 @@ const PACE_CLASS = {
     PlEmptyState,
     PlProgress,
     PlStackedBar,
+    PlanGate,
+    PlUsage,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
   template: `
     <header class="flex items-center justify-between gap-3">
       <h1 class="text-3xl font-bold">{{ texts.title }}</h1>
-      <a plButton="secondary" size="sm" routerLink="/app/inversiones">
+      <a plButton="secondary" size="sm" routerLink="/app/inversiones" plPlanGate="investments">
         {{ texts.investments }}
       </a>
     </header>
@@ -88,9 +99,17 @@ const PACE_CLASS = {
     <section class="flex flex-col gap-2">
       <div class="flex items-baseline justify-between">
         <h2 class="text-xl font-bold">{{ texts.goals }}</h2>
-        <button type="button" class="min-h-11 font-semibold text-brand-strong" (click)="newGoal()">
-          {{ texts.newGoal }}
-        </button>
+        <div class="flex items-center gap-2">
+          <pl-usage resource="goals" />
+          <button
+            type="button"
+            class="inline-flex min-h-11 items-center gap-1.5 font-semibold text-brand-strong"
+            plPlanGate="goals"
+            (click)="newGoal()"
+          >
+            {{ texts.newGoal }}
+          </button>
+        </div>
       </div>
       @for (goal of store.goals(); track goal.id) {
         <a
@@ -129,7 +148,9 @@ const PACE_CLASS = {
           [heading]="texts.noGoalsTitle"
           [description]="texts.noGoalsBody"
         >
-          <button plButton type="button" (click)="newGoal()">{{ texts.newGoal }}</button>
+          <button plButton type="button" plPlanGate="goals" (click)="newGoal()">
+            {{ texts.newGoal }}
+          </button>
         </pl-empty-state>
       }
     </section>
@@ -165,6 +186,25 @@ const PACE_CLASS = {
           <li class="py-4 text-sm text-muted">{{ texts.noAccounts }}</li>
         }
       </ul>
+      <div class="flex flex-wrap items-center gap-x-4">
+        <button
+          type="button"
+          class="inline-flex min-h-11 items-center gap-1.5 font-semibold text-brand-strong"
+          plPlanGate="pockets"
+          (click)="newPocket('SAVINGS')"
+        >
+          {{ texts.newSavingsPocket }}
+        </button>
+        <button
+          type="button"
+          class="inline-flex min-h-11 items-center gap-1.5 font-semibold text-brand-strong"
+          [plPlanGate]="investmentPocketGate"
+          (click)="newPocket('INVESTMENT')"
+        >
+          {{ texts.newInvestmentPocket }}
+        </button>
+        <pl-usage resource="pockets" />
+      </div>
     </section>
   `,
 })
@@ -217,6 +257,17 @@ export class SavingsPage {
       decimals: false,
     });
     return `${monthly}${this.texts.perMonth} · ${formatPeriodShort(parsePeriod(goal.targetPeriod))}`;
+  }
+
+  /** The plan mark shows the feature first: that's what "Pro" adds. */
+  protected readonly investmentPocketGate = ['investments', 'pockets'] as const;
+
+  protected newPocket(kind: PocketKind): void {
+    this.sheet.open(PocketFormSheet, {
+      data: { kind } satisfies PocketFormData,
+      ariaLabel:
+        kind === 'INVESTMENT' ? this.texts.newInvestmentPocket : this.texts.newSavingsPocket,
+    });
   }
 
   protected newGoal(): void {

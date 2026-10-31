@@ -28,6 +28,7 @@ import {
   PlSelect,
   PlSelectOption,
   PlPocketSelect,
+  PlCategorySelect,
   pocketSelectOptions,
   HideAmounts,
   PlSheet,
@@ -59,6 +60,7 @@ type Mode = 'EXPENSE' | 'INCOME' | 'TRANSFER';
     PlEmptyState,
     PlSelect,
     PlPocketSelect,
+    PlCategorySelect,
     PlDateField,
     LucidePencil,
   ],
@@ -108,9 +110,7 @@ type Mode = 'EXPENSE' | 'INCOME' | 'TRANSFER';
         @if (mode() !== 'TRANSFER') {
           <!-- Categories -->
           <section class="flex flex-col gap-2">
-            <h3 class="text-sm text-muted">
-              {{ showAllCategories() ? texts.categoryAll : texts.categoryRecent }}
-            </h3>
+            <h3 class="text-sm text-muted">{{ texts.categoryRecent }}</h3>
             <div class="flex flex-wrap gap-2">
               @for (category of visibleCategories(); track category.id) {
                 <button
@@ -121,10 +121,18 @@ type Mode = 'EXPENSE' | 'INCOME' | 'TRANSFER';
                   {{ category.name }}
                 </button>
               }
-              <button plChip tone="dashed" (click)="showAllCategories.set(!showAllCategories())">
-                {{ showAllCategories() ? texts.less : texts.more }}
-              </button>
             </div>
+            <!-- CAT-06: every category, plus "+ Nueva categoría"; what was typed stays. -->
+            <pl-category-select
+              allowCreate
+              [kind]="mode() === 'INCOME' ? 'INCOME' : 'EXPENSE'"
+              [label]="texts.categoryAll"
+              [placeholder]="texts.categorySearch"
+              [categories]="categoriesStore.categories()"
+              [recentIds]="categoriesStore.recentIds()"
+              [value]="categoryId()"
+              (valueChange)="categoryId.set($event)"
+            />
           </section>
 
           <div class="grid grid-cols-[1fr_auto] gap-2">
@@ -270,7 +278,7 @@ export class QuickEntrySheet {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   protected readonly today = inject(Today);
   protected readonly accountsStore = inject(AccountsStore);
-  private readonly categoriesStore = inject(CategoriesStore);
+  protected readonly categoriesStore = inject(CategoriesStore);
   private readonly cardsStore = inject(CardsStore);
   private readonly ratesStore = inject(RatesStore);
   private readonly transactions = inject(TransactionsStore);
@@ -290,7 +298,6 @@ export class QuickEntrySheet {
   protected readonly date = signal<LocalDate>(this.today.date());
   protected readonly note = signal('');
   protected readonly showNote = signal(false);
-  protected readonly showAllCategories = signal(false);
   protected readonly receivedText = signal('');
   protected readonly rateText = signal('');
   protected readonly saving = signal(false);
@@ -335,7 +342,6 @@ export class QuickEntrySheet {
     const mode = this.mode();
     if (mode === 'TRANSFER') return [];
     const all = this.categoriesStore.ofKind(mode);
-    if (this.showAllCategories()) return all;
     const recent = this.categoriesStore.recent(mode);
     const selected = all.find((c) => c.id === this.categoryId());
     return selected && !recent.includes(selected) ? [selected, ...recent.slice(0, 4)] : recent;

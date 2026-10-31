@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LucidePlus } from '@lucide/angular';
 import { PlBottomSheet, PlButton, PlEmptyState, PlErrorState, PlSkeleton } from '@platin/web-ui';
+import { PlanGate, PlUsage } from '../plans/plan-gate';
 import { CardFormSheet } from './card-form-sheet';
 import { CardVisual } from './card-visual';
 import { CardsStore } from './cards.store';
@@ -10,15 +11,28 @@ import { CARDS_TEXTS } from './cards.texts';
 /** /app/tarjetas: every card with its open statement. */
 @Component({
   selector: 'pl-cards-page',
-  imports: [PlSkeleton, PlErrorState, RouterLink, PlButton, PlEmptyState, CardVisual, LucidePlus],
+  imports: [
+    PlSkeleton,
+    PlErrorState,
+    RouterLink,
+    PlButton,
+    PlEmptyState,
+    CardVisual,
+    LucidePlus,
+    PlanGate,
+    PlUsage,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
   template: `
     <header class="flex items-center justify-between gap-3">
       <h1 class="text-3xl font-bold">{{ texts.title }}</h1>
-      <button plButton size="sm" type="button" (click)="create()">
-        <svg lucidePlus [size]="18"></svg>{{ texts.new }}
-      </button>
+      <div class="flex items-center gap-2">
+        <pl-usage resource="cards" />
+        <button plButton size="sm" type="button" plPlanGate="cards" (click)="create()">
+          <svg lucidePlus [size]="18"></svg>{{ texts.new }}
+        </button>
+      </div>
     </header>
     @if (store.resource.error() && !store.resource.hasValue()) {
       <pl-error-state (retry)="store.resource.reload()" />
@@ -30,7 +44,9 @@ import { CARDS_TEXTS } from './cards.texts';
         [heading]="texts.emptyTitle"
         [description]="texts.emptyBody"
       >
-        <button plButton type="button" (click)="create()">{{ texts.new }}</button>
+        <button plButton type="button" plPlanGate="cards" (click)="create()">
+          {{ texts.new }}
+        </button>
       </pl-empty-state>
     } @else {
       <ul class="flex flex-col gap-3">

@@ -12,6 +12,7 @@ import { authInterceptor } from './core/auth/auth.interceptor';
 import { provideAppIcons } from './core/icons';
 import { provideSyncOnStart } from './core/session/sync-on-start';
 import { Today } from './core/today';
+import { provideCategoryCreator } from './features/categories/category-creator';
 import { planLimitInterceptor } from './features/plans/plan-limit.interceptor';
 
 export const appConfig: ApplicationConfig = {
@@ -26,6 +27,7 @@ export const appConfig: ApplicationConfig = {
     provideClientHydration(withEventReplay(), withIncrementalHydration()),
     provideAppIcons(),
     provideSyncOnStart(),
+    provideCategoryCreator(),
     { provide: PL_TODAY, useFactory: () => inject(Today).date },
   ],
 };

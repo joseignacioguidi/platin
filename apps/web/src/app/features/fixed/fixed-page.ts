@@ -12,6 +12,7 @@ import {
   PlErrorState,
   PlSkeleton,
 } from '@platin/web-ui';
+import { PlanGate, PlUsage } from '../plans/plan-gate';
 import { ChangeAmountSheet } from './change-amount-sheet';
 import { FixedFormSheet } from './fixed-form-sheet';
 import { FixedStore } from './fixed.store';
@@ -20,15 +21,28 @@ import { FIXED_TEXTS } from './fixed.texts';
 /** /app/fijos: fixed expenses and incomes with their next occurrence and amount. */
 @Component({
   selector: 'pl-fixed-page',
-  imports: [PlSkeleton, PlErrorState, PlButton, PlEmptyState, PlListItem, PlMoney, LucidePlus],
+  imports: [
+    PlSkeleton,
+    PlErrorState,
+    PlButton,
+    PlEmptyState,
+    PlListItem,
+    PlMoney,
+    LucidePlus,
+    PlanGate,
+    PlUsage,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
   template: `
     <header class="flex items-center justify-between gap-3">
       <h1 class="text-3xl font-bold">{{ texts.title }}</h1>
-      <button plButton size="sm" type="button" (click)="open(null)">
-        <svg lucidePlus [size]="18"></svg>{{ texts.new }}
-      </button>
+      <div class="flex items-center gap-2">
+        <pl-usage resource="fixed" />
+        <button plButton size="sm" type="button" plPlanGate="fixed" (click)="open(null)">
+          <svg lucidePlus [size]="18"></svg>{{ texts.new }}
+        </button>
+      </div>
     </header>
     <p class="text-[15px] text-muted">{{ texts.intro }}</p>
 
@@ -38,7 +52,9 @@ import { FIXED_TEXTS } from './fixed.texts';
       <pl-skeleton [heights]="[72, 72, 72]" />
     } @else if (store.items().length === 0) {
       <pl-empty-state icon="repeat" [heading]="texts.emptyTitle" [description]="texts.emptyBody">
-        <button plButton type="button" (click)="open(null)">{{ texts.new }}</button>
+        <button plButton type="button" plPlanGate="fixed" (click)="open(null)">
+          {{ texts.new }}
+        </button>
       </pl-empty-state>
     } @else {
       @for (group of groups(); track group.title) {

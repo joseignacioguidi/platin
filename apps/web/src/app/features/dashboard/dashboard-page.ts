@@ -23,6 +23,7 @@ import { RefreshBus, reloadOn } from '../../core/data/refresh-bus';
 import { Today } from '../../core/today';
 import { AccountsStore } from '../accounts/accounts.store';
 import { DASHBOARD_TEXTS } from './dashboard.texts';
+import { HomeShortcuts } from './home-shortcuts';
 
 /** DAS-01: "Libre este mes", pending items and the next 30 days (mockup "Inicio"). */
 @Component({
@@ -39,6 +40,7 @@ import { DASHBOARD_TEXTS } from './dashboard.texts';
     LucideEye,
     LucideEyeOff,
     LucideChevronRight,
+    HomeShortcuts,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
@@ -113,6 +115,8 @@ import { DASHBOARD_TEXTS } from './dashboard.texts';
           }
         </dl>
       </section>
+
+      <pl-home-shortcuts />
 
       @if (d.rate?.stale) {
         <p class="rounded-2xl bg-pending-soft px-4 py-2 text-xs text-pending-ink" role="status">

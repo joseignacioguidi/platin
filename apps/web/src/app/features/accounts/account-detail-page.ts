@@ -26,6 +26,7 @@ import { RefreshBus, reloadOn } from '../../core/data/refresh-bus';
 import { MovementGroups } from '../transactions/movement-groups';
 import { MovementSheet } from '../transactions/movement-sheet';
 import { MovementsList } from '../transactions/movements-list';
+import { PlanGate, PlUsage } from '../plans/plan-gate';
 import { AccountFormSheet } from './account-form-sheet';
 import { ACCOUNTS_TEXTS } from './accounts.texts';
 import { MoveSheet, MoveSheetData } from './move-sheet';
@@ -48,6 +49,8 @@ import { PocketFormData, PocketFormSheet } from './pocket-form-sheet';
     LucidePiggyBank,
     LucideTrendingUp,
     LucideArrowDownToLine,
+    PlanGate,
+    PlUsage,
   ],
   providers: [MovementsList],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -95,7 +98,12 @@ import { PocketFormData, PocketFormSheet } from './pocket-form-sheet';
           <button plButton="secondary" type="button" (click)="move('SAVE')">
             <svg lucidePiggyBank [size]="18"></svg>{{ texts.move.titles.SAVE }}
           </button>
-          <button plButton="secondary" type="button" (click)="move('INVEST')">
+          <button
+            plButton="secondary"
+            type="button"
+            plPlanGate="investments"
+            (click)="move('INVEST')"
+          >
             <svg lucideTrendingUp [size]="18"></svg>{{ texts.move.titles.INVEST }}
           </button>
           <button plButton="secondary" type="button" (click)="move('REDEEM')">
@@ -106,15 +114,19 @@ import { PocketFormData, PocketFormSheet } from './pocket-form-sheet';
 
       <div class="flex items-center justify-between">
         <h2 class="text-lg font-bold">{{ texts.detail.pockets }}</h2>
-        <button
-          plButton="ghost"
-          size="sm"
-          type="button"
-          [attr.aria-label]="texts.detail.addPocketLabel"
-          (click)="addPocket()"
-        >
-          <svg lucidePlus [size]="18"></svg>{{ texts.detail.addPocket }}
-        </button>
+        <div class="flex items-center gap-1">
+          <pl-usage resource="pockets" />
+          <button
+            plButton="ghost"
+            size="sm"
+            type="button"
+            plPlanGate="pockets"
+            [attr.aria-label]="texts.detail.addPocketLabel"
+            (click)="addPocket()"
+          >
+            <svg lucidePlus [size]="18"></svg>{{ texts.detail.addPocket }}
+          </button>
+        </div>
       </div>
       <ul class="rounded-tile bg-surface px-4">
         @for (pocket of pockets(); track pocket.id) {

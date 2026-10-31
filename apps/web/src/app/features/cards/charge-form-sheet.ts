@@ -100,6 +100,7 @@ export interface ChargeFormData {
         <pl-form-field [label]="t.category" controlId="charge-category">
           <pl-category-select
             inputId="charge-category"
+            allowCreate
             kind="EXPENSE"
             [label]="t.category"
             [categories]="categoriesStore.categories()"

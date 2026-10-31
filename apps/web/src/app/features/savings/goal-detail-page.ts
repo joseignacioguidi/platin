@@ -20,6 +20,7 @@ import { RefreshBus, reloadOn } from '../../core/data/refresh-bus';
 import { GoalFormSheet } from './goal-form-sheet';
 import { SavingsStore } from './savings.store';
 import { SAVINGS_TEXTS } from './savings.texts';
+import { PlanGate } from '../plans/plan-gate';
 
 /** MET-03/04: ring, saved and remaining, monthly needed, pace and simulator (mockup "Meta"). */
 @Component({
@@ -34,6 +35,7 @@ import { SAVINGS_TEXTS } from './savings.texts';
     LucideChevronLeft,
     LucidePencil,
     LucideClock,
+    PlanGate,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
@@ -208,7 +210,12 @@ import { SAVINGS_TEXTS } from './savings.texts';
             {{ t.cancel }}
           </button>
         } @else {
-          <button plButton="secondary" type="button" (click)="setStatus(g, 'ACTIVE')">
+          <button
+            plButton="secondary"
+            type="button"
+            plPlanGate="goals"
+            (click)="setStatus(g, 'ACTIVE')"
+          >
             {{ t.reactivate }}
           </button>
         }

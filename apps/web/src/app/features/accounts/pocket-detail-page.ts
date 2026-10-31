@@ -32,6 +32,8 @@ import { RefreshBus, reloadOn } from '../../core/data/refresh-bus';
 import { errorMessage } from '../../core/errors';
 import { Today } from '../../core/today';
 import { ValuationHistory } from '../investments/valuation-history';
+import { PlanGate } from '../plans/plan-gate';
+import type { PlanGateKey } from '../plans/plan.store';
 import { MovementGroups } from '../transactions/movement-groups';
 import { MovementSheet } from '../transactions/movement-sheet';
 import { MovementsList } from '../transactions/movements-list';
@@ -63,6 +65,7 @@ const ACTIONS: Record<Pocket['kind'], TransferIntent[]> = {
     ValuationHistory,
     LucideChevronLeft,
     LucideDynamicIcon,
+    PlanGate,
   ],
   providers: [MovementsList],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -110,7 +113,12 @@ const ACTIONS: Record<Pocket['kind'], TransferIntent[]> = {
         @if (!pocket.archived) {
           <div class="flex flex-wrap gap-2">
             @for (intent of actions(); track intent) {
-              <button plButton type="button" (click)="move(intent)">
+              <button
+                plButton
+                type="button"
+                [plPlanGate]="intent === 'INVEST' ? 'investments' : []"
+                (click)="move(intent)"
+              >
                 {{ texts.move.titles[intent] }}
               </button>
             }
@@ -170,6 +178,7 @@ const ACTIONS: Record<Pocket['kind'], TransferIntent[]> = {
           type="button"
           class="self-center"
           [disabled]="archiving()"
+          [plPlanGate]="restoreGate(pocket)"
           (click)="toggleArchive(pocket)"
         >
           {{ pocket.archived ? t.unarchive : t.archive }}
@@ -247,6 +256,12 @@ export class PocketDetailPage {
   constructor() {
     effect(() => void this.list.load({ pocketId: this.id() }));
     reloadOn(this.bus, ['accounts'], () => this.resource.reload());
+  }
+
+  /** Restoring a pocket makes it count again (PLN-05); an investment one needs the feature. */
+  protected restoreGate(pocket: Pocket): PlanGateKey[] {
+    if (!pocket.archived) return [];
+    return pocket.kind === 'INVESTMENT' ? ['pockets', 'investments'] : ['pockets'];
   }
 
   protected move(intent: TransferIntent): void {

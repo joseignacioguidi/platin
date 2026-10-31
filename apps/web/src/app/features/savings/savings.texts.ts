@@ -9,6 +9,8 @@ export const SAVINGS_TEXTS = {
   newGoal: '+ Nueva meta',
   accounts: 'Apartados de ahorro e inversión',
   noAccounts: 'Creá apartados de ahorro o inversión dentro de tus cuentas para verlos acá.',
+  newSavingsPocket: '+ Apartado de ahorro',
+  newInvestmentPocket: '+ Apartado de inversión',
   noGoalsTitle: 'Todavía no tenés metas',
   noGoalsBody: 'Creá una meta y te decimos cuánto ahorrar por mes para llegar.',
   pace: { AHEAD: 'Adelantado', BEHIND: 'Atrasado', ON_TRACK: 'Al día' },

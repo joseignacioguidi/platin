@@ -15,7 +15,7 @@ import { LIMITED_RESOURCES, type LimitedResource } from '@platin/domain';
 import { PlBottomSheet, PlButton, PlSegmented, PlSegmentOption, PlSheet } from '@platin/web-ui';
 import { errorMessage, problemOf } from '../../core/errors';
 import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
-import { PlanStore } from './plan.store';
+import { type PlanBlock, PlanStore } from './plan.store';
 import { LIMIT_KEYS, limitLabel, PLANS_TEXTS } from './plans.texts';
 
 export interface PlanSheetData {
@@ -191,6 +191,18 @@ export function openPlanSheetFor(injector: Injector, error: HttpErrorResponse): 
     reason = { kind: 'feature', plan };
   }
   if (!reason) return;
+  injector.get(PlBottomSheet).open<PlanSheet, PlanSheetData>(PlanSheet, {
+    data: { reason },
+    ariaLabel: PLANS_TEXTS.requestTitle,
+  });
+}
+
+/** PLN-07: opens the sheet before trying, for something the plan already says is blocked. */
+export function openPlanSheet(injector: Injector, block: PlanBlock): void {
+  const reason: PlanSheetData['reason'] =
+    block.kind === 'limit'
+      ? { kind: 'limit', plan: block.plan, resource: block.resource, limit: block.limit }
+      : { kind: 'feature', plan: block.plan };
   injector.get(PlBottomSheet).open<PlanSheet, PlanSheetData>(PlanSheet, {
     data: { reason },
     ariaLabel: PLANS_TEXTS.requestTitle,

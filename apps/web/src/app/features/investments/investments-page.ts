@@ -6,6 +6,7 @@ import { daysBetween, parseLocalDate } from '@platin/domain';
 import {
   HideAmounts,
   moneyText,
+  PlBottomSheet,
   PlButton,
   PlEmptyState,
   PlErrorState,
@@ -16,6 +17,8 @@ import {
 } from '@platin/web-ui';
 import { Today } from '../../core/today';
 import { ACCOUNTS_TEXTS } from '../accounts/accounts.texts';
+import { PocketFormData, PocketFormSheet } from '../accounts/pocket-form-sheet';
+import { PlanGate } from '../plans/plan-gate';
 import { formatRate, INSTRUMENT_TONES, TONE_BG } from './investment-format';
 import { InvestmentsStore } from './investments.store';
 import { INVESTMENTS_TEXTS } from './investments.texts';
@@ -33,6 +36,7 @@ import { INVESTMENTS_TEXTS } from './investments.texts';
     PlStackedBar,
     LucideChevronLeft,
     LucideRefreshCw,
+    PlanGate,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
@@ -54,7 +58,9 @@ import { INVESTMENTS_TEXTS } from './investments.texts';
       <pl-skeleton [heights]="[220, 90, 72, 72]" />
     } @else if (store.pockets().length === 0) {
       <pl-empty-state icon="trending-up" [heading]="t.emptyTitle" [description]="t.emptyBody">
-        <a plButton routerLink="/app/cuentas">{{ t.goAccounts }}</a>
+        <button plButton type="button" [plPlanGate]="pocketGate" (click)="newPocket()">
+          {{ t.newPocket }}
+        </button>
       </pl-empty-state>
     } @else if (data(); as d) {
       <section class="flex flex-col gap-4 rounded-card bg-surface p-5" [attr.aria-label]="t.value">
@@ -167,6 +173,15 @@ export class InvestmentsPage {
   protected readonly store = inject(InvestmentsStore);
   private readonly today = inject(Today);
   private readonly hideAmounts = inject(HideAmounts);
+  private readonly sheet = inject(PlBottomSheet);
+  protected readonly pocketGate = ['investments', 'pockets'] as const;
+
+  protected newPocket(): void {
+    this.sheet.open(PocketFormSheet, {
+      data: { kind: 'INVESTMENT' } satisfies PocketFormData,
+      ariaLabel: this.t.newPocket,
+    });
+  }
 
   protected readonly data = computed(() => this.store.investments());
   protected readonly positive = computed(() => !this.data()?.base.yield.startsWith('-'));

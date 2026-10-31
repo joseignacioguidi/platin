@@ -114,6 +114,8 @@ model User {
   role          Role       @default(USER) // granted by ADMIN_EMAILS, never from the app
   status        UserStatus @default(ACTIVE)
   lastSeenAt    DateTime?
+  /// { homeShortcuts?: string[] }, validated with Zod in libs/contracts (DAS-04)
+  preferences   Json       @default("{}")
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 

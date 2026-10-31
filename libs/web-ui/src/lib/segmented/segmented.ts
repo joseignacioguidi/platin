@@ -4,12 +4,23 @@ import {
   ElementRef,
   input,
   model,
+  output,
   viewChildren,
 } from '@angular/core';
+import { PlPlanBadge } from '../plan-badge/plan-badge';
 
 export interface PlSegmentOption<T> {
   value: T;
   label: string;
+  /**
+   * PLN-07: the option is outside the user's plan. It shows `badge` and, when chosen, emits
+   * `lockedChoose` instead of changing the value.
+   */
+  locked?: boolean;
+  /** Plan mark shown next to a locked option ("Pro"). */
+  badge?: string | null;
+  /** Screen reader text of the lock ("No incluido en tu plan; está en Pro"). */
+  lockedLabel?: string | null;
 }
 
 /**
@@ -18,6 +29,7 @@ export interface PlSegmentOption<T> {
  */
 @Component({
   selector: 'pl-segmented',
+  imports: [PlPlanBadge],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div
@@ -34,12 +46,15 @@ export interface PlSegmentOption<T> {
           role="radio"
           [attr.aria-checked]="option.value === value()"
           [tabIndex]="option.value === value() ? 0 : -1"
-          class="min-h-11 rounded-xl px-3 text-[15px] font-medium transition-colors"
+          class="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-[15px] font-medium transition-colors"
           [class]="option.value === value() ? selectedClass() : 'text-ink hover:bg-surface/60'"
-          (click)="value.set(option.value)"
+          (click)="choose(option)"
           (keydown)="onKeydown($event, i)"
         >
           {{ option.label }}
+          @if (option.locked && option.badge) {
+            <pl-plan-badge [plan]="option.badge" [srLabel]="option.lockedLabel ?? null" />
+          }
         </button>
       }
     </div>
@@ -51,8 +66,15 @@ export class PlSegmented<T> {
   readonly label = input.required<string>();
   /** `ink`: selected option filled with ink (quick entry); `surface`: white pill (tabs). */
   readonly tone = input<'ink' | 'surface'>('ink');
+  /** A locked option was chosen (PLN-07): the value stays as it was. */
+  readonly lockedChoose = output<T>();
 
   private readonly segments = viewChildren<ElementRef<HTMLButtonElement>>('segment');
+
+  protected choose(option: PlSegmentOption<T>): void {
+    if (option.locked) this.lockedChoose.emit(option.value);
+    else this.value.set(option.value);
+  }
 
   protected selectedClass(): string {
     return this.tone() === 'ink'
@@ -65,7 +87,13 @@ export class PlSegmented<T> {
     if (!step) return;
     event.preventDefault();
     const options = this.options();
-    const next = (index + step + options.length) % options.length;
+    // Arrows only move among the options the plan includes; locked ones are reached by click.
+    let next = index;
+    for (let tries = 0; tries < options.length; tries++) {
+      next = (next + step + options.length) % options.length;
+      if (!options[next].locked) break;
+    }
+    if (options[next].locked) return;
     this.value.set(options[next].value);
     this.segments()[next]?.nativeElement.focus();
   }
