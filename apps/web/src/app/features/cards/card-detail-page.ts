@@ -1,7 +1,22 @@
 import { httpResource } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+  untracked,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { LucideChevronLeft, LucidePencil, LucidePlus } from '@lucide/angular';
+import {
+  LucideChevronLeft,
+  LucideChevronRight,
+  LucidePencil,
+  LucidePlus,
+  LucideShoppingBag,
+} from '@lucide/angular';
 import type { ActiveInstallment, Card, StatementDetail, StatementSummary } from '@platin/contracts';
 import {
   addMonths,
@@ -34,6 +49,9 @@ import { CardsStore } from './cards.store';
 import { CARDS_TEXTS } from './cards.texts';
 import { CloseStatementSheet } from './close-statement-sheet';
 import { PayStatementSheet } from './pay-statement-sheet';
+import { StatementDetailData, StatementDetailSheet } from './statement-detail-sheet';
+
+const HISTORY_PAGE = 12;
 
 type Tab = 'summary' | 'upcoming' | 'installments';
 
@@ -82,6 +100,8 @@ const MONTHS_LONG = [
     LucideChevronLeft,
     LucidePlus,
     LucidePencil,
+    LucideShoppingBag,
+    LucideChevronRight,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
@@ -122,6 +142,18 @@ const MONTHS_LONG = [
       </header>
 
       <pl-card-visual [card]="card" />
+
+      <a
+        [routerLink]="['/app/tarjetas', card.id, 'compras']"
+        class="flex min-h-11 items-center justify-between rounded-tile bg-surface px-4 py-3 font-medium"
+        [attr.aria-label]="texts.purchasesLabel(card.name)"
+      >
+        <span class="flex items-center gap-3">
+          <svg lucideShoppingBag [size]="20" class="text-muted" aria-hidden="true"></svg>
+          {{ texts.purchases }}
+        </span>
+        <svg lucideChevronRight [size]="18" class="text-muted" aria-hidden="true"></svg>
+      </a>
 
       @if (card.creditLimit) {
         <section class="flex flex-col gap-2" [attr.aria-label]="texts.available">
@@ -215,6 +247,56 @@ const MONTHS_LONG = [
               {{ texts.closeStatement }}
             </button>
           }
+
+          <!-- TAR-12: the open statement above, the previous ones below. -->
+          <section class="flex flex-col gap-2" aria-labelledby="statement-history">
+            <h2 id="statement-history" class="text-lg font-bold">{{ texts.history.title }}</h2>
+            <ul class="rounded-tile bg-surface px-4">
+              @for (statement of history(); track statement.id) {
+                <li class="border-b border-line-soft last:border-b-0">
+                  <button
+                    type="button"
+                    class="flex min-h-16 w-full items-center justify-between gap-3 py-2 text-left"
+                    [attr.aria-label]="texts.history.open(periodLabel(statement.period))"
+                    (click)="openStatement(card, statement)"
+                  >
+                    <span class="flex min-w-0 flex-col">
+                      <span class="font-semibold">{{ periodLabel(statement.period) }}</span>
+                      <span class="text-sm text-muted"
+                        >{{ texts.due }} {{ dateText(statement.dueDate) }} ·
+                        {{ texts.status[statement.status] }}</span
+                      >
+                    </span>
+                    <span class="font-amount flex flex-col items-end">
+                      <pl-money [amount]="statement.totals.ARS" />
+                      @if (statement.totals.USD !== '0.00') {
+                        <pl-money class="text-sm" [amount]="statement.totals.USD" currency="USD" />
+                      }
+                    </span>
+                  </button>
+                </li>
+              } @empty {
+                @if (!historyLoading()) {
+                  <li class="py-4 text-sm text-muted">{{ texts.history.empty }}</li>
+                }
+              }
+            </ul>
+            @if (historyError()) {
+              <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">
+                {{ historyError() }}
+              </p>
+            }
+            @if (historyCursor()) {
+              <button
+                type="button"
+                class="min-h-11 self-center text-sm font-semibold text-brand-strong"
+                [disabled]="historyLoading()"
+                (click)="loadHistory(false)"
+              >
+                {{ texts.history.more }}
+              </button>
+            }
+          </section>
         }
         @case ('upcoming') {
           <ul class="rounded-tile bg-surface px-4">
@@ -395,12 +477,45 @@ export class CardDetailPage {
     return this.texts.releases(MONTHS_LONG[Number(month.slice(5, 7)) - 1], amount);
   });
 
+  protected readonly history = signal<StatementSummary[]>([]);
+  /** Period of the last statement shown, while there may be more. */
+  protected readonly historyCursor = signal<string | null>(null);
+  protected readonly historyLoading = signal(false);
+  protected readonly historyError = signal<string | null>(null);
+
   constructor() {
+    effect(() => {
+      this.id();
+      untracked(() => void this.loadHistory(true));
+    });
     reloadOn(this.bus, ['cards'], () => {
       this.cardResource.reload();
       this.statementsResource.reload();
       this.plansResource.reload();
       this.openDetailResource.reload();
+      void this.loadHistory(true);
+    });
+  }
+
+  protected async loadHistory(reset: boolean): Promise<void> {
+    this.historyLoading.set(true);
+    this.historyError.set(null);
+    try {
+      const cursor = reset ? undefined : (this.historyCursor() ?? undefined);
+      const page = await this.store.statementHistory(this.id(), cursor, HISTORY_PAGE);
+      this.history.update((list) => (reset ? page : [...list, ...page]));
+      this.historyCursor.set(page.length === HISTORY_PAGE ? page[page.length - 1].period : null);
+    } catch {
+      this.historyError.set(this.texts.history.loadError);
+    } finally {
+      this.historyLoading.set(false);
+    }
+  }
+
+  protected openStatement(card: Card, statement: StatementSummary): void {
+    this.sheet.open(StatementDetailSheet, {
+      data: { card, statement } satisfies StatementDetailData,
+      ariaLabel: this.texts.statement.title(this.periodLabel(statement.period)),
     });
   }
 

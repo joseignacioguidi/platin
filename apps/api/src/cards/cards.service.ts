@@ -87,11 +87,13 @@ export class CardsService {
   async statementsOf(
     userId: string,
     id: string,
-    from?: Period,
-    to?: Period,
+    query: { from?: Period; to?: Period; status?: 'closed'; cursor?: Period; limit?: number },
   ): Promise<StatementSummary[]> {
     const card = await this.getOwned(userId, id);
-    return this.statements.list(card, this.clock.today(), from, to);
+    if (query.status === 'closed') {
+      return this.statements.history(card, query.cursor, query.limit ?? 12);
+    }
+    return this.statements.list(card, this.clock.today(), query.from, query.to);
   }
 
   /** TAR-05: plans with installments still to close. */

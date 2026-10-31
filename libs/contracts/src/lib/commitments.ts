@@ -47,6 +47,8 @@ export const commitmentsQuerySchema = z.object({
 /** What POST /sync did (it is safe to call it any number of times). */
 export const syncResponseSchema = z.object({
   generatedPending: z.number().int(),
+  /** One-payment charges loaded by fixed items on a card (TAR-09). */
+  generatedCharges: z.number().int(),
   createdStatements: z.number().int(),
   pendingCount: z.number().int(),
 });

@@ -1,23 +1,47 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import type { Charge, CreateChargeRequest, UpdateChargeRequest } from '@platin/contracts';
+import type {
+  Charge,
+  ChargeListItem,
+  ChargesPage,
+  ChargesQuery,
+  ColorToken,
+  CreateChargeRequest,
+  UpdateChargeRequest,
+} from '@platin/contracts';
 import {
   Currency,
+  installmentProgress,
   LocalDate,
   Money,
   parseLocalDate,
   scheduleInstallments,
   splitInstallments,
+  totalFromInstallment,
   utcToLocalDate,
   utcToPeriod,
 } from '@platin/domain';
 import { CategoriesService } from '../categories/categories.service';
 import { AppException } from '../common/app-exception';
 import { ClockService } from '../common/clock.service';
+import { afterCursor, decodeCursor, encodeCursor } from '../common/cursor';
 import { date, money, toDbDate, toDbPeriod } from '../common/serialize';
 import type { CreditCard, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CardsService } from './cards.service';
 import { StatementsService } from './statements.service';
+
+/** What a charge needs to be created inside an existing transaction (also used by sync). */
+export interface NewCharge {
+  categoryId: string;
+  description: string;
+  date: LocalDate;
+  totalAmount: string;
+  currency: Currency;
+  installmentsCount: number;
+  startInstallment: number;
+  fixedId?: string;
+  fixedPeriod?: Date;
+}
 
 interface Plan {
   date: LocalDate;
@@ -51,32 +75,122 @@ export class ChargesService {
   async create(userId: string, cardId: string, request: CreateChargeRequest): Promise<Charge> {
     const card = await this.cards.getActive(userId, cardId);
     await this.categories.getOwned(userId, request.categoryId, 'EXPENSE');
-    const plan: Plan = {
-      date: parseLocalDate(request.date),
-      totalAmount: request.totalAmount,
-      currency: request.currency,
-      installmentsCount: request.installmentsCount ?? 1,
-      startInstallment: request.startInstallment ?? 1,
-    };
-
-    const id = await this.prisma.$transaction(async (tx) => {
-      const charge = await tx.cardCharge.create({
-        data: {
-          userId,
-          cardId: card.id,
-          categoryId: request.categoryId,
-          date: toDbDate(plan.date),
-          description: request.description,
-          totalAmount: Money.of(plan.totalAmount, plan.currency).toString(),
-          currency: plan.currency,
-          installmentsCount: plan.installmentsCount,
-          startInstallment: plan.startInstallment,
-        },
-      });
-      await this.createInstallments(tx, card, charge.id, plan);
-      return charge.id;
-    });
+    const installmentsCount = request.installmentsCount ?? 1;
+    // TAR-02: with the installment as the bank shows it, the total is installment × count.
+    const total = request.installmentAmount
+      ? totalFromInstallment(
+          Money.of(request.installmentAmount, request.currency),
+          installmentsCount,
+        )
+      : Money.of(request.totalAmount as string, request.currency);
+    const id = await this.prisma.$transaction((tx) =>
+      this.createInTx(tx, card, {
+        categoryId: request.categoryId,
+        description: request.description,
+        date: parseLocalDate(request.date),
+        totalAmount: total.toString(),
+        currency: request.currency,
+        installmentsCount,
+        startInstallment: request.startInstallment ?? 1,
+      }),
+    );
     return this.get(userId, id);
+  }
+
+  /** Creates the charge and its installments with the caller's transaction; returns its id. */
+  async createInTx(
+    tx: Prisma.TransactionClient,
+    card: CreditCard,
+    charge: NewCharge,
+  ): Promise<string> {
+    const row = await tx.cardCharge.create({
+      data: {
+        userId: card.userId,
+        cardId: card.id,
+        categoryId: charge.categoryId,
+        date: toDbDate(charge.date),
+        description: charge.description,
+        totalAmount: Money.of(charge.totalAmount, charge.currency).toString(),
+        currency: charge.currency,
+        installmentsCount: charge.installmentsCount,
+        startInstallment: charge.startInstallment,
+        fixedId: charge.fixedId ?? null,
+        fixedPeriod: charge.fixedPeriod ?? null,
+      },
+    });
+    await this.createInstallments(tx, card, row.id, charge);
+    return row.id;
+  }
+
+  /**
+   * TAR-13: purchases of one card or all, newest first, with text, date and status filters.
+   * Finished = every installment is in a closed statement (so the last one is too).
+   */
+  async list(userId: string, query: ChargesQuery): Promise<ChargesPage> {
+    if (query.cardId) await this.cards.getOwned(userId, query.cardId);
+    const limit = query.limit ?? 30;
+    const rows = await this.prisma.cardCharge.findMany({
+      where: {
+        userId,
+        ...(query.cardId ? { cardId: query.cardId } : {}),
+        ...(query.from || query.to
+          ? {
+              date: {
+                ...(query.from ? { gte: toDbDate(query.from) } : {}),
+                ...(query.to ? { lte: toDbDate(query.to) } : {}),
+              },
+            }
+          : {}),
+        ...(query.query ? { description: { contains: query.query, mode: 'insensitive' } } : {}),
+        ...(query.status === 'active'
+          ? { installments: { some: { statement: { status: 'OPEN' } } } }
+          : query.status === 'finished'
+            ? { installments: { none: { statement: { status: 'OPEN' } } } }
+            : {}),
+        ...afterCursor(query.cursor ? decodeCursor(query.cursor) : undefined),
+      },
+      include: {
+        card: { select: { name: true } },
+        category: { select: { id: true, name: true, icon: true, color: true } },
+        installments: {
+          include: { statement: { select: { status: true } } },
+          orderBy: { number: 'asc' },
+        },
+      },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+    });
+    const page = rows.slice(0, limit);
+    const last = page[page.length - 1];
+    return {
+      items: page.map((row): ChargeListItem => {
+        const states = row.installments.map((i) => ({
+          number: i.number,
+          amount: Money.of(i.amount.toFixed(2), row.currency),
+          inClosedStatement: i.statement.status !== 'OPEN',
+        }));
+        const progress = installmentProgress(row.installmentsCount, states, row.currency);
+        return {
+          id: row.id,
+          cardId: row.cardId,
+          cardName: row.card.name,
+          date: date(row.date),
+          description: row.description,
+          category: { ...row.category, color: row.category.color as ColorToken },
+          totalAmount: money(row.totalAmount),
+          currency: row.currency,
+          installmentsCount: row.installmentsCount,
+          installmentAmount: (states[0]?.amount ?? Money.zero(row.currency)).toString(),
+          current: progress.current,
+          status: states.some((s) => !s.inClosedStatement) ? 'active' : 'finished',
+          fromFixed: row.fixedId !== null,
+        };
+      }),
+      nextCursor:
+        rows.length > limit && last
+          ? encodeCursor({ date: last.date, createdAt: last.createdAt, id: last.id })
+          : null,
+    };
   }
 
   async get(userId: string, id: string): Promise<Charge> {
@@ -95,6 +209,7 @@ export class ChargesService {
       currency: row.currency,
       installmentsCount: row.installmentsCount,
       startInstallment: row.startInstallment,
+      fixedId: row.fixedId,
       locked: row.installments.some((i) => i.statement.status !== 'OPEN'),
       installments: row.installments.map((i) => ({
         number: i.number,

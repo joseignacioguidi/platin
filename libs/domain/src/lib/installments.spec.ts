@@ -4,6 +4,7 @@ import {
   regenerableInstallments,
   scheduleInstallments,
   splitInstallments,
+  totalFromInstallment,
 } from './installments';
 import { Money } from './money';
 import { ars, d, p } from './test-helpers';
@@ -49,6 +50,25 @@ describe('splitInstallments', () => {
     expect(() => splitInstallments(ars('100'), 3, 4)).toThrow();
     expect(() => splitInstallments(ars('100'), 3, 0)).toThrow();
     expect(() => splitInstallments(ars('0'), 3)).toThrow();
+  });
+});
+
+describe('totalFromInstallment (TAR-02, por cuota)', () => {
+  it('12 cuotas de $ 45.833,33 → total $ 549.999,96, todas iguales', () => {
+    const total = totalFromInstallment(ars('45833.33'), 12);
+    expect(total.toString()).toBe('549999.96');
+    const amounts = splitInstallments(total, 12).map((i) => i.amount.toString());
+    expect(new Set(amounts)).toEqual(new Set(['45833.33']));
+    expect(amounts).toHaveLength(12);
+  });
+
+  it('1 cuota es el total', () => {
+    expect(totalFromInstallment(ars('9.99'), 1).toString()).toBe('9.99');
+  });
+
+  it('rechaza cantidades y cuotas inválidas', () => {
+    expect(() => totalFromInstallment(ars('100'), 0)).toThrow();
+    expect(() => totalFromInstallment(ars('0'), 3)).toThrow();
   });
 });
 

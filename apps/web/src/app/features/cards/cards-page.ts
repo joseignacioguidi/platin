@@ -62,6 +62,11 @@ import { CARDS_TEXTS } from './cards.texts';
           </li>
         }
       </ul>
+      <a
+        routerLink="/app/tarjetas/compras"
+        class="flex min-h-11 items-center justify-center text-sm font-semibold text-brand-strong"
+        >{{ texts.allPurchases }}</a
+      >
     }
   `,
 })

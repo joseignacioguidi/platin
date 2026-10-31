@@ -14,6 +14,7 @@ export const FIXED_INCLUDE = {
   amounts: { orderBy: { effectiveFrom: 'asc' } },
   category: { select: { id: true, name: true, icon: true, color: true } },
   pocket: { select: { id: true, name: true, account: { select: { name: true } } } },
+  card: { select: { id: true, name: true } },
 } as const;
 
 export type FixedRow = Prisma.FixedItemGetPayload<{ include: typeof FIXED_INCLUDE }>;
@@ -50,6 +51,7 @@ export function toFixedDto(row: FixedRow, currentPeriod: Period): FixedItem {
     pocket: row.pocket
       ? { id: row.pocket.id, name: row.pocket.name, accountName: row.pocket.account.name }
       : null,
+    card: row.card ? { id: row.card.id, name: row.card.name } : null,
     currency: row.currency,
     intervalMonths: row.intervalMonths,
     dayOfMonth: row.dayOfMonth,

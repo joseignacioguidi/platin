@@ -48,6 +48,8 @@ export const periodSchema = z
   .transform((value) => value as Period);
 
 export const currencySchema = z.enum([Currency.ARS, Currency.USD]);
+/** Cards stay in pesos and dollars, like the banks' statements (MON-05). */
+export const cardCurrencySchema = z.enum([Currency.ARS, Currency.USD]);
 export const rateTypeSchema = z.enum([RateType.OFICIAL, RateType.MEP, RateType.BLUE]);
 
 export const uuidSchema = z.uuid();

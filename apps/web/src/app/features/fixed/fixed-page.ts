@@ -120,7 +120,9 @@ export class FixedPage {
     if (!item.next) return this.texts.finished;
     const badge = dateBadge(parseLocalDate(item.next.date));
     const when = this.texts.next(`${Number(badge.day)} ${badge.month.toLowerCase()}`);
-    return `${this.texts.every(item.intervalMonths)} · ${when}`;
+    // TAR-09: a subscription shows the card it's charged to.
+    const where = item.card ? ` · ${item.card.name}` : '';
+    return `${this.texts.every(item.intervalMonths)}${where} · ${when}`;
   }
 
   protected open(item: FixedItem | null): void {

@@ -3,6 +3,8 @@ import {
   activeInstallmentSchema,
   cardSchema,
   chargeSchema,
+  chargesPageSchema,
+  chargesQuerySchema,
   closeStatementRequestSchema,
   createCardRequestSchema,
   createChargeRequestSchema,
@@ -16,6 +18,7 @@ import {
   type ActiveInstallment,
   type Card,
   type Charge,
+  type ChargesPage,
   type StatementDetail,
   type StatementSummary,
 } from '@platin/contracts';
@@ -36,6 +39,8 @@ class ChargeDto extends createZodDto(chargeSchema) {}
 class CreateChargeDto extends createZodDto(createChargeRequestSchema) {}
 class UpdateChargeDto extends createZodDto(updateChargeRequestSchema) {}
 class ActiveInstallmentDto extends createZodDto(activeInstallmentSchema) {}
+class ChargesQueryDto extends createZodDto(chargesQuerySchema) {}
+class ChargesPageDto extends createZodDto(chargesPageSchema) {}
 class CloseStatementDto extends createZodDto(closeStatementRequestSchema) {}
 class PayStatementDto extends createZodDto(payStatementRequestSchema) {}
 class IdParamDto extends createZodDto(idParamSchema) {}
@@ -81,7 +86,10 @@ export class CardsController {
     return this.cards.update(user.id, params.id, body);
   }
 
-  /** TAR-04: open and upcoming statements (created when needed). */
+  /**
+   * TAR-04: open and upcoming statements (created when needed). With `status=closed`, the
+   * history (TAR-12): the next page starts after the period of the last statement received.
+   */
   @Get(':id/statements')
   @ZodSerializerDto([StatementSummaryDto])
   statements(
@@ -89,7 +97,7 @@ export class CardsController {
     @Param() params: IdParamDto,
     @Query() query: StatementsQueryDto,
   ): Promise<StatementSummary[]> {
-    return this.cards.statementsOf(user.id, params.id, query.from, query.to);
+    return this.cards.statementsOf(user.id, params.id, query);
   }
 
   @Get(':id/installments')
@@ -116,6 +124,13 @@ export class CardsController {
 @Controller('charges')
 export class ChargesController {
   constructor(private readonly charges: ChargesService) {}
+
+  /** TAR-13: purchase history, of one card or all. */
+  @Get()
+  @ZodSerializerDto(ChargesPageDto)
+  list(@CurrentUser() user: AuthUser, @Query() query: ChargesQueryDto): Promise<ChargesPage> {
+    return this.charges.list(user.id, query);
+  }
 
   @Get(':id')
   @ZodSerializerDto(ChargeDto)

@@ -2,17 +2,29 @@ import { FixedKind } from '@platin/domain';
 import { z } from 'zod';
 import { colorTokenSchema } from './accounts';
 import { iconNameSchema } from './categories';
-import { amountSchema, currencySchema, periodSchema, uuidSchema } from './common';
+import {
+  amountSchema,
+  cardCurrencySchema,
+  currencySchema,
+  periodSchema,
+  uuidSchema,
+} from './common';
 
 export const fixedKindSchema = z.enum([FixedKind.INCOME, FixedKind.EXPENSE]);
 
-/** FIJ-01: an income or expense that repeats every N months on a pocket. */
+/**
+ * FIJ-01: an income or expense that repeats every N months on a pocket. TAR-09: or an expense on
+ * a card (a subscription), in pesos or dollars, loaded by itself as a one-payment charge.
+ * Exactly one of `pocketId` and `cardId`; the currency is the pocket's, or `currency` on a card.
+ */
 export const createFixedRequestSchema = z
   .object({
     kind: fixedKindSchema,
     name: z.string().trim().min(1, 'Ingresá un nombre').max(60),
     categoryId: uuidSchema,
-    pocketId: uuidSchema,
+    pocketId: uuidSchema.optional(),
+    cardId: uuidSchema.optional(),
+    currency: cardCurrencySchema.optional(),
     amount: amountSchema,
     intervalMonths: z.number().int().min(1).max(24).default(1),
     dayOfMonth: z.number().int().min(1, 'Entre 1 y 31').max(31, 'Entre 1 y 31'),
@@ -22,6 +34,14 @@ export const createFixedRequestSchema = z
   .refine((f) => !f.endPeriod || f.endPeriod >= f.startPeriod, {
     message: 'El fin no puede ser anterior al inicio',
     path: ['endPeriod'],
+  })
+  .refine((f) => (f.pocketId === undefined) !== (f.cardId === undefined), {
+    message: 'Elegí un apartado o una tarjeta',
+    path: ['pocketId'],
+  })
+  .refine((f) => !f.cardId || (f.kind === 'EXPENSE' && f.currency !== undefined), {
+    message: 'Un fijo en tarjeta es un gasto en pesos o en dólares',
+    path: ['currency'],
   });
 
 export const updateFixedRequestSchema = z
@@ -29,6 +49,8 @@ export const updateFixedRequestSchema = z
     name: z.string().trim().min(1).max(60),
     categoryId: uuidSchema,
     pocketId: uuidSchema,
+    /** Only for fixed items on a card: another card. */
+    cardId: uuidSchema,
     dayOfMonth: z.number().int().min(1).max(31),
     /** FIJ-03 "finalizar": last period included; null removes the end. */
     endPeriod: periodSchema.nullable(),
@@ -54,6 +76,8 @@ export const fixedItemSchema = z.object({
     color: colorTokenSchema,
   }),
   pocket: z.object({ id: uuidSchema, name: z.string(), accountName: z.string() }).nullable(),
+  /** TAR-09: set instead of `pocket` for a subscription on a card. */
+  card: z.object({ id: uuidSchema, name: z.string() }).nullable(),
   currency: currencySchema,
   intervalMonths: z.number().int(),
   dayOfMonth: z.number().int(),
