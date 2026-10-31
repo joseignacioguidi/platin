@@ -20,8 +20,11 @@ describe('security: rate limiting', () => {
       ...SECURITY_ENV,
       THROTTLE_AUTH_LIMIT: String(AUTH_LIMIT),
       THROTTLE_LIMIT: String(GENERAL_LIMIT),
-      // As in production: Vercel and Render each append one X-Forwarded-For entry.
-      TRUST_PROXY_HOPS: '2',
+      // As in production (measured on 2026-10-30): X-Forwarded-For arrives as
+      // "<client>, <Vercel egress>, <Cloudflare edge>, <Render internal>", and Vercel puts the
+      // real client IP in x-vercel-forwarded-for, which the client cannot set.
+      TRUST_PROXY_HOPS: '4',
+      CLIENT_IP_HEADER: 'x-vercel-forwarded-for',
     });
     await resetDatabase(ctx.prisma);
   });
@@ -88,19 +91,47 @@ describe('security: rate limiting', () => {
       .expect(429);
   });
 
+  /** The chain production sends, with a different Cloudflare edge on every request. */
+  const chain = (client: string, i: number) =>
+    `${client},54.20.66.40, 172.71.151.${i}, 10.26.240.238`;
+  const login = (headers: Record<string, string>) =>
+    request(server())
+      .post('/api/v1/auth/login')
+      .set(headers)
+      .send({ email: 'nadie@security.platin', password: 'una-clave-cualquiera' });
+
   // Was finding SEC-F01: with `trust proxy: true` the API took the client IP from the first
-  // X-Forwarded-For entry, which the client controls. Rotating it bypassed the limit.
+  // X-Forwarded-For entry, which the client controls, and Vercel forwards a forged one as is.
+  // The fix counts on x-vercel-forwarded-for, which Vercel always overwrites.
   it('SEC-AUTH-11 a client cannot reset the limit by forging X-Forwarded-For [SEC-F01]', async () => {
     const result: number[] = [];
     for (let i = 0; i <= AUTH_LIMIT * 2; i++) {
-      const res = await request(server())
-        .post('/api/v1/auth/login')
-        // What a client would send through Vercel and Render: a forged first entry, then the
-        // proxies' own entries (the same for every request).
-        .set('X-Forwarded-For', `198.51.100.${i}, 192.0.2.10, 192.0.2.20`)
-        .send({ email: 'nadie@security.platin', password: 'una-clave-cualquiera' });
+      const res = await login({
+        'X-Forwarded-For': chain(`198.51.100.${i}`, i),
+        'X-Vercel-Forwarded-For': '203.0.113.200',
+      });
       result.push(res.status);
     }
-    expect(result).toContain(429);
+    expect(result.slice(0, AUTH_LIMIT)).toEqual(Array(AUTH_LIMIT).fill(401));
+    expect(result.slice(AUTH_LIMIT)).toEqual(Array(AUTH_LIMIT + 1).fill(429));
+  });
+
+  // The regression of the first fix: with TRUST_PROXY_HOPS=2 the "client" was the Cloudflare
+  // edge, different on every request, so nobody ever reached the limit. Without the Vercel
+  // header, 4 hops find the real client in the same chain.
+  it('SEC-AUTH-11 without the Vercel header, the real client is 4 hops from the right [SEC-F01]', async () => {
+    const result: number[] = [];
+    for (let i = 0; i <= AUTH_LIMIT; i++) {
+      result.push((await login({ 'X-Forwarded-For': chain('203.0.113.201', i) })).status);
+    }
+    expect(result[AUTH_LIMIT]).toBe(429);
+  });
+
+  it('SEC-AUTH-11 each real client has its own limit [SEC-F01]', async () => {
+    for (let i = 0; i < AUTH_LIMIT; i++) {
+      await login({ 'X-Vercel-Forwarded-For': '203.0.113.202' }).expect(401);
+    }
+    await login({ 'X-Vercel-Forwarded-For': '203.0.113.202' }).expect(429);
+    await login({ 'X-Vercel-Forwarded-For': '203.0.113.203' }).expect(401);
   });
 });

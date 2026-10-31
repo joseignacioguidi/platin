@@ -528,7 +528,7 @@ Para sumar después:
 
 ### Protecciones adicionales
 
-- Rate limiting con `@nestjs/throttler`: estricto en `/auth/*` (por ejemplo, 5 intentos por minuto por IP), general en el resto. La IP sale de `X-Forwarded-For` confiando solo en `TRUST_PROXY_HOPS` proxies, nunca en toda la cadena.
+- Rate limiting con `@nestjs/throttler`: estricto en `/auth/*` (por ejemplo, 5 intentos por minuto por IP), general en el resto. La IP sale de `CLIENT_IP_HEADER` (`x-vercel-forwarded-for`, que el cliente no puede falsificar) y, si falta, de `X-Forwarded-For` confiando solo en `TRUST_PROXY_HOPS` saltos, nunca en toda la cadena.
 - `helmet` para cabeceras de seguridad en la API, y `Cache-Control: no-store` en todas sus respuestas salvo `/plans` y `/health`.
 - La web recibe sus cabeceras desde `vercel.ts`: CSP (`default-src 'self'`, `frame-ancestors 'none'`, `object-src 'none'`, `base-uri` y `form-action` propios, `connect-src` con la URL de Render para el wake-up), `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy` y `Permissions-Policy`. `script-src` admite `'unsafe-inline'` porque las páginas prerenderizadas llevan scripts inline y el `autoCsp` de Angular todavía no funciona junto con el prerender.
 - El origen en Render solo acepta pedidos que traen la cabecera secreta que agrega Vercel, salvo `/health` ([restringir el origen a Vercel](https://vercel.com/docs/rewrites)).
@@ -597,7 +597,8 @@ Vercel y Render despliegan solos al hacer push a `main` (integración con GitHub
 | `REFRESH_TOKEN_PEPPER` | Render | Hash de refresh tokens |
 | `ORIGIN_SECRET` | Render y Vercel | Cabecera secreta que solo agrega Vercel. Obligatoria en producción, salvo `ALLOW_DIRECT_ACCESS=true` |
 | `ALLOW_DIRECT_ACCESS` | VPS | `true` para producción sin Vercel adelante (sin `ORIGIN_SECRET`) |
-| `TRUST_PROXY_HOPS` | Render, VPS | Cantidad de proxies que agregan una entrada a `X-Forwarded-For` (Vercel + Render = 2; vacía = 0, solo fuera de producción). Obligatoria en producción. El rate limiting usa la IP que está a esa distancia desde la derecha; lo que está más a la izquierda lo manda el cliente |
+| `CLIENT_IP_HEADER` | Render | Cabecera con la IP real que el proxy de borde siempre pisa (`x-vercel-forwarded-for`). El rate limiting la prefiere: Vercel reenvía tal cual el `X-Forwarded-For` que manda el cliente |
+| `TRUST_PROXY_HOPS` | Render, VPS | Cantidad de entradas desde la derecha de `X-Forwarded-For` hasta la del cliente (en Render, 4: Vercel, Cloudflare y Render agregan las suyas; vacía = 0, solo fuera de producción). Respaldo cuando falta `CLIENT_IP_HEADER`. Obligatoria en producción. El rate limiting usa la IP que está a esa distancia desde la derecha; lo que está más a la izquierda lo manda el cliente |
 | `LOG_CLIENT_IP` | Render (temporal) | `true` para loguear la IP que ve la API en cada login y confirmar `TRUST_PROXY_HOPS` |
 | `APP_ORIGIN` | Render | Dominio de la app, para CORS de `/health` |
 | `RATES_BASE_URL` | Render | `https://dolarapi.com` |

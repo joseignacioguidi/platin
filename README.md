@@ -71,7 +71,8 @@ Un push a `main` despliega la web en Vercel y la API en Render. Antes, el CI cor
 | `JWT_ACCESS_SECRET` | `openssl rand -base64 48` |
 | `REFRESH_TOKEN_PEPPER` | `openssl rand -base64 48` |
 | `ORIGIN_SECRET` | `openssl rand -hex 32`, el mismo valor que en Vercel. Obligatoria: sin ella la API no arranca en producción |
-| `TRUST_PROXY_HOPS` | `2` (Vercel y Render agregan una entrada cada uno a `X-Forwarded-For`). Obligatoria: sin ella la API no arranca en producción |
+| `TRUST_PROXY_HOPS` | `4` (la IP del cliente está a 4 entradas desde la derecha de `X-Forwarded-For`: Vercel, Cloudflare y Render agregan las suyas). Obligatoria: sin ella la API no arranca en producción |
+| `CLIENT_IP_HEADER` | `x-vercel-forwarded-for`: la IP real que Vercel siempre pisa. El rate limiting la prefiere porque Vercel reenvía tal cual el `X-Forwarded-For` que manda el cliente |
 | `APP_ORIGIN` | URL de Vercel, por ejemplo `https://platin.vercel.app` |
 | `RATES_BASE_URL` | `https://dolarapi.com` |
 

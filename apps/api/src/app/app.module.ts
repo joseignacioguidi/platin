@@ -39,6 +39,18 @@ const isCredentialRoute = (context: ExecutionContext): boolean =>
     context.switchToHttp().getRequest<Request>().originalUrl.split('?')[0],
   );
 
+/**
+ * The client IP for rate limiting. Behind Vercel, X-Forwarded-For keeps whatever the client
+ * sent, so even counting proxies it can be forged (SEC-F01); CLIENT_IP_HEADER names a header the
+ * edge proxy always overwrites (x-vercel-forwarded-for). Without it, the IP Express derives with
+ * TRUST_PROXY_HOPS.
+ */
+export function clientIpOf(req: Request, header: string | undefined): string {
+  const value = header ? req.headers[header] : undefined;
+  const first = (Array.isArray(value) ? value[0] : value)?.split(',')[0]?.trim();
+  return first || req.ip || 'unknown';
+}
+
 @Module({
   imports: [
     ConfigModule,
@@ -47,15 +59,18 @@ const isCredentialRoute = (context: ExecutionContext): boolean =>
     RatesModule,
     ThrottlerModule.forRootAsync({
       inject: [AppConfig],
-      useFactory: (config: AppConfig) => [
-        { name: 'default', ttl: 60_000, limit: config.env.THROTTLE_LIMIT },
-        {
-          name: 'auth',
-          ttl: 60_000,
-          limit: config.env.THROTTLE_AUTH_LIMIT,
-          skipIf: (context) => !isCredentialRoute(context),
-        },
-      ],
+      useFactory: (config: AppConfig) => ({
+        throttlers: [
+          { name: 'default', ttl: 60_000, limit: config.env.THROTTLE_LIMIT },
+          {
+            name: 'auth',
+            ttl: 60_000,
+            limit: config.env.THROTTLE_AUTH_LIMIT,
+            skipIf: (context) => !isCredentialRoute(context),
+          },
+        ],
+        getTracker: (req) => clientIpOf(req as Request, config.env.CLIENT_IP_HEADER),
+      }),
     }),
     HealthModule,
     AuthModule,
