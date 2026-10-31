@@ -21,11 +21,12 @@ export const QUICK_ENTRY_TEXTS = {
   notePlaceholder: 'Ej.: Coto',
   noteToggle: 'Agregar nota',
   received: 'Recibís',
-  rate: 'Cotización (pesos por dólar, opcional)',
+  rate: (unit: string) => `Cotización (${unit}, opcional)`,
+  rateHintOf: (value: string) => `Si la dejás vacía usamos la del día: ${value}.`,
   rateHint: (type: string, value: string) =>
     `Si la dejás vacía usamos la ${type} del día: $ ${value}.`,
   rateHintNoRate: 'Si la dejás vacía usamos la del día.',
-  impliedRate: (rate: string) => `a $ ${rate} por dólar`,
+
   save: { EXPENSE: 'Guardar gasto', INCOME: 'Guardar ingreso', TRANSFER: 'Guardar transferencia' },
   saving: 'Guardando…',
   noAccountsTitle: 'Primero creá una cuenta',

@@ -1,4 +1,12 @@
-import { addDays, dateParts, LocalDate, Period, periodParts } from '@platin/domain';
+import {
+  addDays,
+  Currency,
+  dateParts,
+  LocalDate,
+  Period,
+  periodParts,
+  toDecimal,
+} from '@platin/domain';
 
 const MONTHS = [
   'enero',
@@ -70,4 +78,39 @@ export function formatLongDate(date: LocalDate, today: LocalDate): string {
 /** "Octubre 2026" for a year and month (1-12). */
 export function formatMonthYear(year: number, month: number): string {
   return `${capitalize(MONTHS[month - 1])} ${year}`;
+}
+
+const SINGULAR: Record<Currency, string> = {
+  ARS: 'peso',
+  USD: 'dólar',
+  EUR: 'euro',
+  BRL: 'real',
+  CLP: 'peso chileno',
+  UYU: 'peso uruguayo',
+};
+
+/** "1.680" or "1,65": up to `decimals` places, without trailing zeros, es-AR grouping. */
+function rateNumber(rate: string, decimals: number): string {
+  const fixed = toDecimal(rate).toDecimalPlaces(decimals).toFixed();
+  const [integer, fraction] = fixed.split('.');
+  const grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return fraction ? `${grouped},${fraction}` : grouped;
+}
+
+/**
+ * A rate as the user reads it (MON-02): "$ 1.680 por euro" when one side is the peso, or
+ * "1 EUR = 1,08 USD" between two other currencies. `rate` follows libs/domain: pesos per unit of
+ * the other currency, or units of `to` per unit of `from`.
+ */
+export function formatRate(from: Currency, to: Currency, rate: string): string {
+  const other = from === 'ARS' ? to : to === 'ARS' ? from : null;
+  if (other) return `$ ${rateNumber(rate, 2)} por ${SINGULAR[other]}`;
+  return `1 ${from} = ${rateNumber(rate, 4)} ${to}`;
+}
+
+/** "pesos por euro", for the label of a rate input. */
+export function rateUnit(currency: Currency, base: Currency): string {
+  if (currency === 'ARS') return `pesos por ${SINGULAR[base]}`;
+  if (base === 'ARS') return `pesos por ${SINGULAR[currency]}`;
+  return `${base} por ${currency}`;
 }

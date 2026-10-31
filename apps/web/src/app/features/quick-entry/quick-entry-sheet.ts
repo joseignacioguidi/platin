@@ -11,10 +11,12 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { LucidePencil } from '@lucide/angular';
-import { impliedRate, LocalDate, Money, toDecimal } from '@platin/domain';
+import { currencySymbol, impliedRate, LocalDate, Money, toDecimal } from '@platin/domain';
 import {
   applyKey,
   displayAmount,
+  formatRate,
+  rateUnit,
   isValidAmount,
   KeypadKey,
   parseTypedAmount,
@@ -173,7 +175,7 @@ type Mode = 'EXPENSE' | 'INCOME' | 'TRANSFER';
 
           @if (needsRate()) {
             <label class="flex flex-col gap-1">
-              <span class="text-sm font-medium">{{ texts.rate }}</span>
+              <span class="text-sm font-medium">{{ texts.rate(rateUnitText()) }}</span>
               <input
                 type="text"
                 inputmode="decimal"
@@ -335,7 +337,9 @@ export class QuickEntrySheet {
   protected readonly amountCurrency = computed(() =>
     this.card() ? this.cardCurrency() : (this.account()?.currency ?? 'ARS'),
   );
-  protected readonly symbol = computed(() => (this.amountCurrency() === 'USD' ? 'USD' : '$'));
+  protected readonly symbol = computed(() => currencySymbol(this.amountCurrency()));
+  private readonly base = computed(() => this.auth.user()?.baseCurrency ?? 'ARS');
+  protected readonly rateUnitText = computed(() => rateUnit(this.amountCurrency(), this.base()));
   protected readonly amountText = computed(() => displayAmount(this.amount()));
 
   protected readonly visibleCategories = computed(() => {
@@ -357,12 +361,21 @@ export class QuickEntrySheet {
     );
   });
   protected readonly rateHint = computed(() => {
-    const rate = this.ratesStore.preferred();
-    if (!rate) return this.texts.rateHintNoRate;
-    return this.texts.rateHint(
-      rate.type,
-      displayAmount(toDecimal(rate.sell).toFixed(2).replace(/\.00$/, '')),
-    );
+    const currency = this.amountCurrency();
+    const base = this.base();
+    // The dollar names its type (oficial, MEP, blue); the other currencies use the oficial one.
+    if (currency === 'USD' || (currency === 'ARS' && base === 'USD')) {
+      const rate = this.ratesStore.preferred();
+      if (!rate) return this.texts.rateHintNoRate;
+      return this.texts.rateHint(
+        rate.type,
+        displayAmount(toDecimal(rate.sell).toFixed(2).replace(/\.00$/, '')),
+      );
+    }
+    const rate = this.ratesStore.rateFor(currency, base);
+    return rate
+      ? this.texts.rateHintOf(formatRate(currency, base, rate))
+      : this.texts.rateHintNoRate;
   });
   protected readonly crossCurrency = computed(
     () => !!this.toAccount() && this.toAccount()?.currency !== this.account()?.currency,
@@ -376,9 +389,7 @@ export class QuickEntrySheet {
       Money.of(this.amount(), from.currency),
       Money.of(received, to.currency),
     );
-    if (!rate) return null;
-    const value = toDecimal(rate).toFixed(2).replace(/\.00$/, '');
-    return this.texts.impliedRate(displayAmount(value));
+    return rate ? formatRate(from.currency, to.currency, rate) : null;
   });
 
   constructor() {

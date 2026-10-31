@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { Currency, formatMoney, Money } from '@platin/domain';
+import { Currency, currencySymbol, formatMoney, Money } from '@platin/domain';
 import { HideAmounts } from './hide-amounts';
 
 export type PlMoneyTone = 'none' | 'income' | 'expense' | 'pending' | 'muted';
@@ -44,7 +44,7 @@ export class PlMoney {
     return typeof amount === 'string' ? Money.of(amount, this.currency()) : amount;
   });
 
-  protected readonly symbol = computed(() => (this.money().currency === 'USD' ? 'USD' : '$'));
+  protected readonly symbol = computed(() => currencySymbol(this.money().currency));
   protected readonly text = computed(() =>
     formatMoney(this.money(), { decimals: this.decimals(), signDisplay: this.sign() }),
   );
@@ -56,6 +56,6 @@ export class PlMoney {
  * Honors "ocultar montos" when `hidden` comes from HideAmounts.
  */
 export function moneyText(amount: string, currency: Currency, hidden: boolean): string {
-  if (hidden) return `${currency === 'USD' ? 'USD' : '$'} •••••`;
+  if (hidden) return `${currencySymbol(currency)} •••••`;
   return formatMoney(Money.of(amount, currency), { decimals: 'auto', signDisplay: 'auto' });
 }

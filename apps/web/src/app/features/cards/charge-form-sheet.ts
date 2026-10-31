@@ -2,7 +2,7 @@ import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import type { Card, Charge, UpdateChargeRequest } from '@platin/contracts';
 import {
-  Currency,
+  CardCurrency,
   formatMoney,
   LocalDate,
   Money,
@@ -20,6 +20,7 @@ import {
   parseTypedAmount,
   PlButton,
   PlCategorySelect,
+  PlCurrencySelect,
   PlChip,
   PlDateField,
   PlMoney,
@@ -70,6 +71,7 @@ export interface ChargeFormData {
     PlChip,
     PlMoney,
     PlSegmented,
+    PlCurrencySelect,
     PlCategorySelect,
     PlDateField,
     FormField,
@@ -93,16 +95,18 @@ export interface ChargeFormData {
           (input)="description.set(value($event))"
         />
       </pl-form-field>
-      <div class="flex flex-col gap-1.5">
-        <span class="text-sm font-medium" id="charge-amount-mode">{{ t.amountMode }}</span>
-        <pl-segmented
-          tone="surface"
-          [label]="t.amountMode"
-          [options]="modeOptions"
-          [value]="mode()"
-          (valueChange)="setMode($event)"
-        />
-      </div>
+      @if (!locked) {
+        <div class="flex flex-col gap-1.5">
+          <span class="text-sm font-medium" id="charge-amount-mode">{{ t.amountMode }}</span>
+          <pl-segmented
+            tone="surface"
+            [label]="t.amountMode"
+            [options]="modeOptions"
+            [value]="mode()"
+            (valueChange)="setMode($event)"
+          />
+        </div>
+      }
       <div class="grid grid-cols-[1fr_auto] gap-3">
         <pl-form-field
           [label]="mode() === 'INSTALLMENT' ? t.installmentAmount : t.amount"
@@ -127,7 +131,7 @@ export interface ChargeFormData {
               >{{ currency() }}</span
             >
           } @else {
-            <pl-segmented [label]="t.currency" [options]="currencyOptions" [(value)]="currency" />
+            <pl-currency-select cardOnly [label]="t.currency" [(value)]="currency" />
           }
         </div>
       </div>
@@ -260,17 +264,13 @@ export class ChargeFormSheet {
   private readonly store = inject(CardsStore);
   private readonly ref = inject(DialogRef);
 
-  protected readonly currencyOptions: PlSegmentOption<Currency>[] = [
-    { value: 'ARS', label: 'ARS' },
-    { value: 'USD', label: 'USD' },
-  ];
   protected readonly description = signal(this.charge?.description ?? '');
   protected readonly amountText = signal(
     this.charge
       ? displayAmount(this.charge.totalAmount.replace(/\.00$/, '').replace('.', ','))
       : '',
   );
-  protected readonly currency = signal<Currency>(this.charge?.currency ?? 'ARS');
+  protected readonly currency = signal<CardCurrency>(this.charge?.currency ?? 'ARS');
   protected readonly categoryId = signal(this.charge?.categoryId ?? '');
   protected readonly date = signal<LocalDate>(
     this.charge ? parseLocalDate(this.charge.date) : this.today.date(),
@@ -340,9 +340,13 @@ export class ChargeFormSheet {
       : this.t.installmentIs(this.count(), formatMoney(money.split(this.count())[0]));
   });
 
+  /** Chosen by hand in this form: changing the installments no longer changes it. */
+  private modeTouched = false;
+
   protected setMode(mode: AmountMode): void {
     this.mode.set(mode);
-    if (this.count() > 1) rememberMode(mode);
+    this.modeTouched = true;
+    rememberMode(mode);
   }
 
   protected value(event: Event): string {
@@ -357,9 +361,9 @@ export class ChargeFormSheet {
     if (this.locked) return;
     const previous = this.count();
     this.count.set(Math.min(60, Math.max(1, n)));
-    // With more than one installment, the last mode used comes back; with one, it's the total.
-    if (this.count() === 1) this.mode.set('TOTAL');
-    else if (previous === 1) this.mode.set(rememberedMode());
+    // Going to more than one installment brings back the last mode used, unless the user
+    // already chose one in this form.
+    if (previous === 1 && this.count() > 1 && !this.modeTouched) this.mode.set(rememberedMode());
   }
 
   protected setDate(date: LocalDate | null): void {

@@ -12,6 +12,7 @@ import type { Currency, PocketKind } from '@platin/domain';
 import {
   parseTypedAmount,
   PlButton,
+  PlCurrencySelect,
   PlSegmented,
   PlSegmentOption,
   PlSelect,
@@ -48,7 +49,7 @@ const INSTRUMENTS: Instrument[] = [
 /** CTA-02: a pocket inside an account, with its currency and purpose. */
 @Component({
   selector: 'pl-pocket-form-sheet',
-  imports: [PlSheet, PlButton, PlSegmented, PlSelect, FormField],
+  imports: [PlSheet, PlButton, PlSegmented, PlSelect, PlCurrencySelect, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="pocket ? f.editTitle : f.newTitle">
@@ -99,7 +100,7 @@ const INSTRUMENTS: Instrument[] = [
       @if (!pocket) {
         <div class="flex flex-col gap-1.5">
           <span class="text-sm font-medium">{{ f.currency }}</span>
-          <pl-segmented [label]="f.currency" [options]="currencies" [(value)]="currency" />
+          <pl-currency-select [label]="f.currency" [(value)]="currency" />
         </div>
         <pl-form-field
           [label]="f.initialBalance + ' (' + currency() + ')'"
@@ -172,9 +173,7 @@ export class PocketFormSheet {
     })),
   );
   protected readonly accountId = signal<string | null>(this.data.accountId ?? null);
-  protected readonly currencies: PlSegmentOption<Currency>[] = (['ARS', 'USD'] as const).map(
-    (value) => ({ value, label: ACCOUNTS_TEXTS.currencies[value] }),
-  );
+
   protected readonly instruments: PlSelectOption<Instrument>[] = INSTRUMENTS.map((value) => ({
     value,
     label: ACCOUNTS_TEXTS.instruments[value],

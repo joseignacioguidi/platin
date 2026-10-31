@@ -6,8 +6,7 @@ import {
   parseTypedAmount,
   periodOptions,
   PlButton,
-  PlSegmented,
-  PlSegmentOption,
+  PlCurrencySelect,
   PlSelect,
   PlSheet,
 } from '@platin/web-ui';
@@ -21,7 +20,7 @@ import { SAVINGS_TEXTS } from './savings.texts';
 /** MET-01/02: create or edit a goal and choose the accounts that count for it. */
 @Component({
   selector: 'pl-goal-form-sheet',
-  imports: [PlSheet, PlButton, PlSegmented, PlSelect, FormField],
+  imports: [PlSheet, PlButton, PlCurrencySelect, PlSelect, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="goal ? f.edit : f.new">
@@ -50,7 +49,7 @@ import { SAVINGS_TEXTS } from './savings.texts';
         @if (!goal) {
           <div class="flex flex-col gap-1">
             <span class="text-sm font-medium">{{ f.currency }}</span>
-            <pl-segmented [label]="f.currency" [options]="currencies" [(value)]="currency" />
+            <pl-currency-select [label]="f.currency" [(value)]="currency" />
           </div>
         }
       </div>
@@ -102,10 +101,6 @@ export class GoalFormSheet {
   private readonly ref = inject(DialogRef);
   protected readonly minPeriod = addMonths(inject(Today).period(), 1);
 
-  protected readonly currencies: PlSegmentOption<Currency>[] = [
-    { value: 'USD', label: 'USD' },
-    { value: 'ARS', label: 'ARS' },
-  ];
   protected readonly name = signal(this.goal?.name ?? '');
   protected readonly amount = signal(this.goal?.targetAmount.replace(/\.00$/, '') ?? '');
   protected readonly currency = signal<Currency>(this.goal?.currency ?? 'USD');

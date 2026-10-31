@@ -1,7 +1,14 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import type { Movement } from '@platin/contracts';
-import { parsePeriod, toDecimal } from '@platin/domain';
-import { displayAmount, formatPeriodShort, PlListItem, PlMoney, PlTone } from '@platin/web-ui';
+import { type Currency, parsePeriod } from '@platin/domain';
+import {
+  formatPeriodShort,
+  formatRate,
+  PL_CURRENCY_NAMES,
+  PlListItem,
+  PlMoney,
+  PlTone,
+} from '@platin/web-ui';
 import { TRANSACTIONS_TEXTS } from './transactions.texts';
 
 /** "Mercado Pago" for its Disponible, "Mercado Pago · Ahorro" for any other pocket. */
@@ -23,7 +30,7 @@ interface RowView {
   icon: string;
   tone: PlTone;
   pending: boolean;
-  lines: { sign: '-' | '+' | ''; amount: string; currency: 'ARS' | 'USD'; positive: boolean }[];
+  lines: { sign: '-' | '+' | ''; amount: string; currency: Currency; positive: boolean }[];
 }
 
 /** One movement as in the Movimientos mockup: tinted icon, title, subtitle and signed amounts. */
@@ -101,7 +108,7 @@ export class MovementRow {
       // Seen from the pocket that receives it, a transfer is money in.
       const incoming = !!to && to.id === this.pocketId();
       const rate = m.impliedRate
-        ? ` · ${this.texts.at(displayAmount(toDecimal(m.impliedRate).toFixed(0)))}`
+        ? ` · ${formatRate(m.currencyOut, m.currencyIn, m.impliedRate)}`
         : '';
       const cross = m.currencyIn !== m.currencyOut;
       const intent = !cross && m.intent && m.intent !== 'MOVE' ? m.intent : null;
@@ -171,9 +178,11 @@ export class MovementRow {
     };
   });
 
-  private transferTitle(out: string, into: string): string {
-    if (out === 'ARS' && into === 'USD') return this.texts.buyDollars;
-    if (out === 'USD' && into === 'ARS') return this.texts.sellDollars;
+  /** "Compra de dólares", "Venta de euros"; between two other currencies, "Cambio de moneda". */
+  private transferTitle(out: Currency, into: Currency): string {
+    if (out === 'ARS' && into !== 'ARS') return this.texts.buy(PL_CURRENCY_NAMES[into]);
+    if (into === 'ARS' && out !== 'ARS') return this.texts.sell(PL_CURRENCY_NAMES[out]);
+    if (out !== into) return this.texts.exchange;
     return this.texts.transfer;
   }
 }

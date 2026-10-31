@@ -80,17 +80,14 @@ import { PocketFormData, PocketFormSheet } from './pocket-form-sheet';
         <div class="flex flex-col">
           <span class="text-sm text-muted">{{ texts.detail.total }}</span>
           <div class="flex flex-wrap items-baseline gap-x-6">
-            <pl-money
-              class="text-4xl font-semibold tracking-tight"
-              [amount]="account.totals.ARS"
-              currency="ARS"
-            />
-            @if (account.totals.USD !== '0.00') {
+            @for (line of account.totals; track line.currency; let first = $first) {
               <pl-money
-                class="text-2xl font-semibold"
-                [amount]="account.totals.USD"
-                currency="USD"
+                [class]="first ? 'text-4xl font-semibold tracking-tight' : 'text-2xl font-semibold'"
+                [amount]="line.amount"
+                [currency]="line.currency"
               />
+            } @empty {
+              <pl-money class="text-4xl font-semibold tracking-tight" amount="0" />
             }
           </div>
         </div>

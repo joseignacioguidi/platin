@@ -82,10 +82,11 @@ export class PlanGate {
     }
     if (!this.badge) {
       this.badge = this.viewContainer.createComponent(PlPlanBadge);
-      // The mark lives inside the button so it reads as part of it.
+      // The mark lives inside the element so it reads as part of it: in its
+      // `[data-plan-badge]` slot when it has one, otherwise at the end.
       const badgeElement = this.badge.location.nativeElement as HTMLElement;
       badgeElement.id = this.badgeId;
-      element.appendChild(badgeElement);
+      (element.querySelector('[data-plan-badge]') ?? element).appendChild(badgeElement);
       // An aria-label hides the content from screen readers: the mark goes as the description.
       if (element.hasAttribute('aria-label') && !element.hasAttribute('aria-describedby')) {
         element.setAttribute('aria-describedby', this.badgeId);

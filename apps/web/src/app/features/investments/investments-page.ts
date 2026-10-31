@@ -7,6 +7,7 @@ import {
   HideAmounts,
   moneyText,
   PlBottomSheet,
+  PL_CURRENCY_NAMES,
   PlButton,
   PlEmptyState,
   PlErrorState,
@@ -91,6 +92,20 @@ import { INVESTMENTS_TEXTS } from './investments.texts';
             <span class="text-[15px] text-muted">{{ overText() }}</span>
           </div>
         </div>
+        @if (d.totals.length > 1 || d.totals[0]?.currency !== d.base.currency) {
+          <!-- MON-03: the value in each currency; the big number above is the total valued. -->
+          <ul
+            class="flex flex-col gap-1 border-t border-line-soft pt-3"
+            [attr.aria-label]="t.byCurrency"
+          >
+            @for (line of d.totals; track line.currency) {
+              <li class="flex items-baseline justify-between gap-3 text-[15px]">
+                <span class="text-muted">{{ currencyNames[line.currency] }}</span>
+                <pl-money [amount]="line.value" [currency]="line.currency" [decimals]="false" />
+              </li>
+            }
+          </ul>
+        }
         @if (composition().length > 0) {
           <pl-stacked-bar [segments]="composition()" />
           <ul class="flex flex-wrap gap-x-5 gap-y-1 text-[15px]" [attr.aria-label]="t.composition">
@@ -174,6 +189,7 @@ export class InvestmentsPage {
   private readonly today = inject(Today);
   private readonly hideAmounts = inject(HideAmounts);
   private readonly sheet = inject(PlBottomSheet);
+  protected readonly currencyNames = PL_CURRENCY_NAMES;
   protected readonly pocketGate = ['investments', 'pockets'] as const;
 
   protected newPocket(): void {

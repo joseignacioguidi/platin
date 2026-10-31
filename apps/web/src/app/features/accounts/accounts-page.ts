@@ -11,7 +11,9 @@ import {
 import { Router, RouterLink } from '@angular/router';
 import { LucideChevronRight, LucideDynamicIcon, LucidePlus } from '@lucide/angular';
 import type { Account } from '@platin/contracts';
+import type { Currency } from '@platin/domain';
 import {
+  PL_CURRENCY_NAMES,
   PL_POCKET_ICONS,
   PL_TONE_CLASSES,
   PlBottomSheet,
@@ -50,9 +52,11 @@ import { ACCOUNTS_TEXTS } from './accounts.texts';
   host: { class: 'flex flex-col gap-4' },
   template: `
     <header class="flex items-center justify-between gap-3">
-      <h1 class="text-3xl font-bold">{{ texts.title }}</h1>
-      <div class="flex items-center gap-2">
+      <div class="flex min-w-0 flex-col">
+        <h1 class="text-3xl font-bold">{{ texts.title }}</h1>
         <pl-usage resource="accounts" />
+      </div>
+      <div class="flex shrink-0 items-center gap-2">
         <button
           plButton
           size="sm"
@@ -82,10 +86,27 @@ import { ACCOUNTS_TEXTS } from './accounts.texts';
         [attr.aria-label]="texts.totals"
       >
         <h2 class="text-sm text-muted">{{ texts.totals }}</h2>
-        <div class="flex flex-wrap gap-x-8 gap-y-1">
-          <pl-money class="text-3xl font-semibold" [amount]="store.totals().ARS" currency="ARS" />
-          <pl-money class="text-3xl font-semibold" [amount]="store.totals().USD" currency="USD" />
-        </div>
+        <!-- MON-03: one line per currency in use and the total valued in the base currency. -->
+        <ul class="flex flex-col gap-1">
+          @for (line of store.totals(); track line.currency; let first = $first) {
+            <li class="flex items-baseline justify-between gap-3">
+              <span class="text-sm text-muted">{{ currencyNames[line.currency] }}</span>
+              <pl-money
+                [class]="first ? 'text-3xl font-semibold' : 'text-xl font-semibold'"
+                [amount]="line.amount"
+                [currency]="line.currency"
+              />
+            </li>
+          } @empty {
+            <li><pl-money class="text-3xl font-semibold" amount="0" /></li>
+          }
+        </ul>
+        @if (store.totals().length > 1 && store.totalBase(); as total) {
+          <div class="flex items-baseline justify-between gap-3 border-t border-line-soft pt-2">
+            <span class="text-sm font-medium">{{ texts.totalBase }}</span>
+            <pl-money class="font-semibold" [amount]="total.amount" [currency]="total.currency" />
+          </div>
+        }
         <p class="text-xs text-muted">{{ texts.totalsHint }}</p>
       </section>
 
@@ -119,9 +140,12 @@ import { ACCOUNTS_TEXTS } from './accounts.texts';
               </span>
             </span>
             <span class="flex flex-col items-end">
-              <pl-money class="font-semibold" [amount]="account.totals.ARS" currency="ARS" />
-              @if (account.totals.USD !== '0.00') {
-                <pl-money class="text-sm" [amount]="account.totals.USD" currency="USD" />
+              @for (line of account.totals; track line.currency; let first = $first) {
+                <pl-money
+                  [class]="first ? 'font-semibold' : 'text-sm'"
+                  [amount]="line.amount"
+                  [currency]="line.currency"
+                />
               }
             </span>
             <svg
@@ -172,6 +196,7 @@ export class AccountsPage implements OnInit {
   readonly nueva = input<string>();
 
   protected readonly texts = ACCOUNTS_TEXTS;
+  protected readonly currencyNames = PL_CURRENCY_NAMES;
   protected readonly kindIcons = ACCOUNT_KIND_ICONS;
   protected readonly pocketIcons = PL_POCKET_ICONS;
   protected readonly store = inject(AccountsStore);
@@ -204,7 +229,7 @@ export class AccountsPage implements OnInit {
   protected pocketSubtitle(
     kind: keyof typeof ACCOUNTS_TEXTS.pocketKinds,
     instrument: keyof typeof ACCOUNTS_TEXTS.instruments | null,
-    currency: 'ARS' | 'USD',
+    currency: Currency,
   ): string {
     const what = instrument ? this.texts.instruments[instrument] : this.texts.pocketKinds[kind];
     return `${what} · ${currency}`;

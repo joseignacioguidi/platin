@@ -28,7 +28,9 @@ export class AccountsStore {
 
   readonly resource = httpResource<AccountsResponse>(() => `${API}/accounts`);
   readonly accounts = computed(() => this.resource.value()?.items ?? []);
-  readonly totals = computed(() => this.resource.value()?.totals ?? { ARS: '0.00', USD: '0.00' });
+  readonly totals = computed(() => this.resource.value()?.totals ?? []);
+  /** Everything valued in the base currency (null without rates for some currency). */
+  readonly totalBase = computed(() => this.resource.value()?.totalBase ?? null);
   /** Every active pocket, account after account (what the selectors offer). */
   readonly pockets = computed(() =>
     this.accounts().flatMap((account) => account.pockets.filter((pocket) => !pocket.archived)),

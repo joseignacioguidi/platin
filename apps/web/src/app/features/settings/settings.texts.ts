@@ -45,6 +45,19 @@ export const SETTINGS_TEXTS = {
     unlinkedOk: 'Listo, desvinculamos esa cuenta.',
     loadError: 'No pudimos cargar tus formas de ingreso.',
   },
+  currenciesSection: {
+    title: 'Monedas',
+    intro:
+      'Elegí con qué monedas trabajás. Solo las activadas aparecen al cargar. Las tarjetas siguen en pesos y dólares.',
+    alwaysPesos: 'Siempre activada: es la moneda de la app.',
+    isBase: 'Es tu moneda base.',
+    usedByPocket: 'La usa un apartado activo. Archivalo para poder desactivarla.',
+    usedByFixed: 'La usa un fijo activo. Finalizalo o pausalo para poder desactivarla.',
+    usedByGoal: 'La usa una meta activa. Cumplila o cancelala para poder desactivarla.',
+    turnedOn: (name: string) => `Listo, activaste ${name.toLowerCase()}.`,
+    turnedOff: (name: string) =>
+      `Listo, desactivaste ${name.toLowerCase()}. Tu historial se conserva.`,
+  },
   currencies: { ARS: 'Pesos (ARS)', USD: 'Dólares (USD)' },
   rates: { OFICIAL: 'Oficial', MEP: 'MEP', BLUE: 'Blue' },
 } as const;

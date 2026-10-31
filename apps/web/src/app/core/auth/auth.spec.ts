@@ -17,6 +17,7 @@ const session = (token: string): AuthResponse => ({
     baseCurrency: 'ARS',
     valuationRate: 'MEP',
     role: 'USER',
+    currencies: ['ARS', 'USD'],
     preferences: {},
   },
 });

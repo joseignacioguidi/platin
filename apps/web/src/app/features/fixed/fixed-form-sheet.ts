@@ -8,7 +8,14 @@ import {
   signal,
 } from '@angular/core';
 import type { FixedItem } from '@platin/contracts';
-import { FixedKind, parsePeriod, Period } from '@platin/domain';
+import {
+  CardCurrency,
+  Currency,
+  FixedKind,
+  isCardCurrency,
+  parsePeriod,
+  Period,
+} from '@platin/domain';
 import {
   parseTypedAmount,
   periodOptions,
@@ -17,6 +24,7 @@ import {
   PlSegmented,
   PlSegmentOption,
   HideAmounts,
+  PlCurrencySelect,
   pocketSelectOptions,
   PlSelect,
   PlSelectOption,
@@ -35,10 +43,24 @@ import { PlanGate } from '../plans/plan-gate';
 const FREQUENCIES = [1, 2, 3, 6, 12] as const;
 const CARD_PREFIX = 'card:';
 
+/** The card currency picker only offers ARS and USD. */
+function cardOnly(currency: Currency): CardCurrency {
+  return isCardCurrency(currency) ? currency : 'ARS';
+}
+
 /** FIJ-01 and FIJ-03: create, edit, pause, finish or delete a fixed item. */
 @Component({
   selector: 'pl-fixed-form-sheet',
-  imports: [PlSheet, PlButton, PlSegmented, PlSelect, PlCategorySelect, FormField, PlanGate],
+  imports: [
+    PlSheet,
+    PlButton,
+    PlSegmented,
+    PlSelect,
+    PlCategorySelect,
+    PlCurrencySelect,
+    FormField,
+    PlanGate,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="fixed ? texts.edit : texts.new">
@@ -96,7 +118,7 @@ const CARD_PREFIX = 'card:';
       @if (isCard() && !fixed) {
         <div class="flex flex-col gap-1.5">
           <span class="text-sm font-medium">{{ f.currency }}</span>
-          <pl-segmented [label]="f.currency" [options]="cardCurrencies" [(value)]="cardCurrency" />
+          <pl-currency-select cardOnly [label]="f.currency" [(value)]="cardCurrency" />
           <p class="text-sm text-muted">{{ f.cardHint }}</p>
         </div>
       }
@@ -207,11 +229,7 @@ export class FixedFormSheet {
           ''),
   );
   protected readonly isCard = computed(() => this.accountId().startsWith(CARD_PREFIX));
-  protected readonly cardCurrencies: PlSegmentOption<'ARS' | 'USD'>[] = [
-    { value: 'ARS', label: 'ARS' },
-    { value: 'USD', label: 'USD' },
-  ];
-  protected readonly cardCurrency = signal<'ARS' | 'USD'>('ARS');
+  protected readonly cardCurrency = signal<Currency>('ARS');
   /** Pockets and, for an expense, active cards. A fixed item keeps the kind of target it has. */
   protected readonly targetOptions = computed<PlSelectOption[]>(() => {
     const onCard = this.fixed ? this.fixed.card !== null : null;
@@ -287,7 +305,7 @@ export class FixedFormSheet {
         name: this.name().trim(),
         categoryId: this.categoryId(),
         ...target,
-        ...(this.isCard() ? { currency: this.cardCurrency() } : {}),
+        ...(this.isCard() ? { currency: cardOnly(this.cardCurrency()) } : {}),
         amount,
         intervalMonths: this.interval(),
         dayOfMonth: this.day(),

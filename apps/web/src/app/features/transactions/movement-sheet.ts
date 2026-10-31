@@ -10,8 +10,8 @@ import {
   PlButton,
   PlCategorySelect,
   PlDateField,
-  PlMoney,
   PlSheet,
+  formatRate,
 } from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
 import { FormField } from '../../core/forms/form-field';
@@ -28,7 +28,7 @@ const INPUT =
 /** MOV-04: see, edit, confirm or delete one movement. */
 @Component({
   selector: 'pl-movement-sheet',
-  imports: [PlSheet, PlButton, PlMoney, PlCategorySelect, PlDateField, FormField, MovementRow],
+  imports: [PlSheet, PlButton, PlCategorySelect, PlDateField, FormField, MovementRow],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet>
@@ -86,7 +86,7 @@ const INPUT =
           @if (movement.kind === 'TRANSFER' && movement.impliedRate) {
             <dt class="text-muted">{{ texts.rate }}</dt>
             <dd class="font-amount">
-              <pl-money [amount]="movement.impliedRate" decimals="auto" />
+              {{ rateText(movement.currencyOut, movement.currencyIn, movement.impliedRate) }}
             </dd>
           }
         </dl>
@@ -138,6 +138,7 @@ const INPUT =
 })
 export class MovementSheet {
   protected readonly texts = TRANSACTIONS_TEXTS.detail;
+  protected readonly rateText = formatRate;
   protected readonly input = INPUT;
   protected readonly ref = inject(DialogRef);
   protected readonly movement = inject<Movement>(DIALOG_DATA);

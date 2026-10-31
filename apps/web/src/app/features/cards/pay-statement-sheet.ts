@@ -1,7 +1,7 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import type { Card, StatementSummary } from '@platin/contracts';
-import { Currency, LocalDate } from '@platin/domain';
+import { CardCurrency, LocalDate } from '@platin/domain';
 import {
   parseTypedAmount,
   PlButton,
@@ -99,11 +99,11 @@ export class PayStatementSheet {
   private readonly store = inject(CardsStore);
   private readonly ref = inject(DialogRef);
 
-  protected readonly parts: PlSegmentOption<Currency>[] = [
+  protected readonly parts: PlSegmentOption<CardCurrency>[] = [
     { value: 'ARS', label: 'Pesos' },
     { value: 'USD', label: 'Dólares' },
   ];
-  protected readonly currency = signal<Currency>(
+  protected readonly currency = signal<CardCurrency>(
     this.data.statement.pending.ARS !== '0.00' || this.data.statement.pending.USD === '0.00'
       ? 'ARS'
       : 'USD',
@@ -132,7 +132,7 @@ export class PayStatementSheet {
     return (event.target as HTMLInputElement).value;
   }
 
-  protected setCurrency(currency: Currency): void {
+  protected setCurrency(currency: CardCurrency): void {
     this.currency.set(currency);
     this.amount.set(this.pendingText(currency));
   }
@@ -165,7 +165,7 @@ export class PayStatementSheet {
     }
   }
 
-  private pendingText(currency: Currency): string {
+  private pendingText(currency: CardCurrency): string {
     return this.data.statement.pending[currency].replace(/\.00$/, '').replace('.', ',');
   }
 }

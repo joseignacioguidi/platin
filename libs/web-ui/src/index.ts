@@ -21,5 +21,6 @@ export * from './lib/forms/pickers';
 export * from './lib/forms/category-select';
 export * from './lib/forms/period-options';
 export * from './lib/forms/pocket-select';
+export * from './lib/forms/currency-select';
 export * from './lib/wink/wink';
 export * from './lib/plan-badge/plan-badge';

@@ -10,7 +10,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   host: { class: 'inline-flex shrink-0' },
   template: `
     <span
-      class="inline-flex items-center rounded-full bg-ink px-2 py-0.5 text-[11px] leading-4 font-semibold tracking-wide text-on-ink"
+      class="inline-flex items-center rounded-full bg-pending px-2 py-0.5 text-[11px] leading-4 font-semibold tracking-wide text-black"
       [attr.aria-hidden]="srLabel() ? null : true"
     >
       <span aria-hidden="true">{{ plan() }}</span>

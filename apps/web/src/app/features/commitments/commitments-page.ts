@@ -64,9 +64,14 @@ import { COMMITMENTS_TEXTS } from './commitments.texts';
                 </span>
               </div>
               <span class="font-amount flex flex-col items-end">
-                <pl-money class="text-[17px]" [amount]="month.committed.ARS" />
-                @if (month.committed.USD !== '0.00') {
-                  <pl-money class="text-sm" [amount]="month.committed.USD" currency="USD" />
+                @for (line of month.committed.byCurrency; track line.currency; let first = $first) {
+                  <pl-money
+                    [class]="first ? 'text-[17px]' : 'text-sm'"
+                    [amount]="line.amount"
+                    [currency]="line.currency"
+                  />
+                } @empty {
+                  <pl-money class="text-[17px]" amount="0" [currency]="currency()" />
                 }
               </span>
               <svg
@@ -122,7 +127,10 @@ export class CommitmentsPage {
   protected readonly data = computed(() => this.resource.value());
   protected readonly months = computed<MonthCommitments[]>(() => this.data()?.months ?? []);
   protected readonly currency = computed(() => this.data()?.baseCurrency ?? 'ARS');
-  protected readonly hasUsd = computed(() => this.months().some((m) => m.committed.USD !== '0.00'));
+  /** Something in a currency other than the base: without rates it isn't valued. */
+  protected readonly hasUsd = computed(() =>
+    this.months().some((m) => m.committed.byCurrency.some((l) => l.currency !== this.currency())),
+  );
   protected readonly empty = computed(() => this.months().every((m) => m.items.length === 0));
   protected readonly open = signal<string | null>(null);
 

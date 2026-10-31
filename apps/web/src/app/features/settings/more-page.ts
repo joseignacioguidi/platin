@@ -32,6 +32,7 @@ interface MoreLink {
             >
               <svg [lucideIcon]="link.icon" [size]="20" class="text-muted"></svg>
               <span class="flex-1">{{ link.label }}</span>
+              <span data-plan-badge class="contents"></span>
               <svg lucideChevronRight [size]="18" class="text-muted"></svg>
             </a>
           </li>

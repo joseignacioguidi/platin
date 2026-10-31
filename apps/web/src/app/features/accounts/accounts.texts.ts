@@ -5,6 +5,7 @@ export const ACCOUNTS_TEXTS = {
   edit: 'Editar cuenta',
   totals: 'Total por moneda',
   totalsHint: 'Suma de los apartados que cuentan para tu patrimonio.',
+  totalBase: 'Total valuado',
   showArchived: 'Ver archivadas',
   hideArchived: 'Ocultar archivadas',
   archivedBadge: 'Archivada',
@@ -101,7 +102,7 @@ export const ACCOUNTS_TEXTS = {
     to: 'Hacia',
     amount: 'Monto',
     received: 'Monto que entra',
-    rate: (value: string) => `Cotización resultante: $ ${value}`,
+    rate: (value: string) => `Cotización resultante: ${value}`,
     date: 'Fecha',
     save: {
       SAVE: 'Apartar',
