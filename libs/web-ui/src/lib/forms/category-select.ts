@@ -1,10 +1,14 @@
 import {
+  booleanAttribute,
   ChangeDetectionStrategy,
   Component,
   computed,
   forwardRef,
+  inject,
+  InjectionToken,
   input,
   model,
+  signal,
   viewChild,
 } from '@angular/core';
 import { NG_VALUE_ACCESSOR } from '@angular/forms';
@@ -27,8 +31,19 @@ export interface PlCategoryOption {
 }
 
 /**
+ * CAT-06: opens the app's category form on top of what is being loaded and resolves with the
+ * created category (or `null` if the user closed it). The app provides it; without a provider,
+ * `allowCreate` has no effect.
+ */
+export interface PlCategoryCreator {
+  create(kind: CategoryKind, name: string): Promise<PlCategoryOption | null>;
+}
+
+export const PL_CATEGORY_CREATOR = new InjectionToken<PlCategoryCreator>('PL_CATEGORY_CREATOR');
+
+/**
  * pl-select with the active categories of a kind, with icon and color; recent ones first and
- * subcategories showing their parent.
+ * subcategories showing their parent. With `allowCreate`, the list ends with "+ Nueva categoría".
  */
 @Component({
   selector: 'pl-category-select',
@@ -52,9 +67,11 @@ export interface PlCategoryOption {
       [appearance]="appearance()"
       [invalid]="invalid()"
       [disabled]="isDisabled()"
+      [createLabel]="canCreate() ? createLabel() : null"
       searchable="auto"
       [value]="value()"
       (valueChange)="commit($event)"
+      (create)="create($event)"
     />
   `,
 })
@@ -70,11 +87,19 @@ export class PlCategorySelect extends PlFormControl<string | null> {
   readonly emptyLabel = input<string | null>(null);
   readonly appearance = input<'field' | 'tile'>('field');
   readonly invalid = input(false);
+  /** CAT-06: "+ Nueva categoría" at the end; the created one is chosen. */
+  readonly allowCreate = input(false, { transform: booleanAttribute });
+  readonly createLabel = input('+ Nueva categoría');
 
   private readonly select = viewChild.required(PlSelect);
+  private readonly creator = inject(PL_CATEGORY_CREATOR, { optional: true });
+  protected readonly canCreate = computed(() => this.allowCreate() && this.creator !== null);
+  /** Created here and not yet in `categories` (the list reloads after the write). */
+  private readonly created = signal<PlCategoryOption[]>([]);
 
   protected readonly options = computed<PlSelectOption[]>(() => {
-    const all = this.categories();
+    const given = this.categories();
+    const all = [...given, ...this.created().filter((c) => !given.some((g) => g.id === c.id))];
     const byId = new Map(all.map((category) => [category.id, category]));
     const current = this.value();
     const usable = all.filter(
@@ -105,5 +130,12 @@ export class PlCategorySelect extends PlFormControl<string | null> {
 
   open(): void {
     this.select().open();
+  }
+
+  protected async create(name: string): Promise<void> {
+    const category = await this.creator?.create(this.kind(), name);
+    if (!category) return;
+    this.created.update((list) => [...list, category]);
+    this.commit(category.id);
   }
 }

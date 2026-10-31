@@ -22,6 +22,7 @@ import {
   PlSheet,
 } from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
+import { PlanGate } from '../plans/plan-gate';
 import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { fieldError, zodValidator } from '../../core/forms/zod-validator';
 import { AccountsStore } from './accounts.store';
@@ -48,7 +49,7 @@ export const ACCOUNT_KIND_ICONS: Record<AccountKind, string> = {
 /** CTA-01: create or edit an account (the balance of its "Disponible" only on creation). */
 @Component({
   selector: 'pl-account-form-sheet',
-  imports: [PlSheet, PlButton, PlSelect, PlColorPicker, ReactiveFormsModule, FormField],
+  imports: [PlSheet, PlButton, PlSelect, PlColorPicker, ReactiveFormsModule, FormField, PlanGate],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="account ? texts.edit : texts.newLabel">
@@ -104,7 +105,13 @@ export const ACCOUNT_KIND_ICONS: Record<AccountKind, string> = {
           {{ account ? f.save : f.create }}
         </button>
         @if (account) {
-          <button plButton="danger" type="button" [disabled]="saving()" (click)="toggleArchive()">
+          <button
+            plButton="danger"
+            type="button"
+            [disabled]="saving()"
+            [plPlanGate]="account.archived ? 'accounts' : []"
+            (click)="toggleArchive()"
+          >
             {{ account.archived ? f.unarchive : f.archive }}
           </button>
           @if (!account.archived) {

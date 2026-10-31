@@ -1,4 +1,5 @@
 import { Injectable, Module } from '@nestjs/common';
+import type { RateTable } from '@platin/domain';
 import { ClockService } from '../common/clock.service';
 import { UserRates } from '../rates/user-rates.service';
 import { CommitmentsController } from './commitments.controller';
@@ -14,8 +15,8 @@ export class TodayRates extends CommitmentsRateSource {
     super();
   }
 
-  latestSell(userId: string): Promise<string | null> {
-    return this.rates.sellFor(userId, this.clock.today());
+  today(userId: string): Promise<RateTable> {
+    return this.rates.tableFor(userId, this.clock.today());
   }
 }
 

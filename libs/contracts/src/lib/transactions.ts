@@ -24,7 +24,10 @@ export const createTransactionRequestSchema = z.object({
   amount: amountSchema,
   date: localDateSchema,
   description: z.string().trim().max(120).optional(),
-  /** ARS per USD; without it, the preferred rate of the day is used. */
+  /**
+   * Pesos per unit of the pocket currency (between two other currencies: base per unit);
+   * without it, the rate of the day is used.
+   */
   exchangeRate: rateSchema.optional(),
 });
 
@@ -46,7 +49,7 @@ export const confirmTransactionsRequestSchema = z.object({
       z.object({
         id: uuidSchema,
         amount: amountSchema.optional(),
-        /** ARS per USD, for pending movements in another currency (until phase 6). */
+        /** Same meaning as in a new movement; without it, the rate of the day. */
         exchangeRate: rateSchema.optional(),
       }),
     )

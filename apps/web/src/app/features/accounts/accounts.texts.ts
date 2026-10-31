@@ -5,6 +5,7 @@ export const ACCOUNTS_TEXTS = {
   edit: 'Editar cuenta',
   totals: 'Total por moneda',
   totalsHint: 'Suma de los apartados que cuentan para tu patrimonio.',
+  totalBase: 'Total valuado',
   showArchived: 'Ver archivadas',
   hideArchived: 'Ocultar archivadas',
   archivedBadge: 'Archivada',
@@ -68,6 +69,8 @@ export const ACCOUNTS_TEXTS = {
   pocketForm: {
     newTitle: 'Nuevo apartado',
     editTitle: 'Editar apartado',
+    account: 'Cuenta',
+    accountPlaceholder: 'Elegí la cuenta',
     name: 'Nombre',
     namePlaceholder: 'Ej.: Auto, Vacaciones, CEDEARs',
     kind: 'Para qué es',
@@ -82,7 +85,11 @@ export const ACCOUNTS_TEXTS = {
       SAVINGS: 'Plata separada para un objetivo. Aparece en Ahorros.',
       INVESTMENT: 'Plata invertida. Aparece en Ahorros e Inversiones.',
     },
-    errors: { name: 'Ingresá un nombre.', balance: 'Revisá el saldo.' },
+    errors: {
+      name: 'Ingresá un nombre.',
+      balance: 'Revisá el saldo.',
+      account: 'Elegí la cuenta del apartado.',
+    },
   },
   move: {
     titles: {
@@ -95,7 +102,7 @@ export const ACCOUNTS_TEXTS = {
     to: 'Hacia',
     amount: 'Monto',
     received: 'Monto que entra',
-    rate: (value: string) => `Cotización resultante: $ ${value}`,
+    rate: (value: string) => `Cotización resultante: ${value}`,
     date: 'Fecha',
     save: {
       SAVE: 'Apartar',

@@ -6,8 +6,11 @@ import type {
   CreateAccountRequest,
   UpdateAccountRequest,
 } from '@platin/contracts';
-import { accountTotals, Currency, Money } from '@platin/domain';
+import { accountTotals, canConvert, convert, Money } from '@platin/domain';
 import { AppException } from '../common/app-exception';
+import { ClockService } from '../common/clock.service';
+import { baseCurrency } from '../common/serialize';
+import { UserRates } from '../rates/user-rates.service';
 import {
   Prisma,
   type Account as AccountRow,
@@ -23,10 +26,8 @@ export const AVAILABLE_POCKET_NAME = 'Disponible';
 
 type AccountWithPockets = AccountRow & { pockets: PocketRow[] };
 
-const totalsDto = (totals: Record<Currency, Money>) => ({
-  ARS: totals.ARS.toString(),
-  USD: totals.USD.toString(),
-});
+const totalsDto = (totals: readonly Money[]) =>
+  totals.map((money) => ({ currency: money.currency, amount: money.toString() }));
 
 /** CTA-01, 03, 07: accounts (institutions) with their pockets and totals per currency. */
 @Injectable()
@@ -35,6 +36,8 @@ export class AccountsService {
     private readonly prisma: PrismaService,
     private readonly balances: PocketBalancesService,
     private readonly entitlements: EntitlementsService,
+    private readonly rates: UserRates,
+    private readonly clock: ClockService,
   ) {}
 
   async list(userId: string, includeArchived = false): Promise<AccountsResponse> {
@@ -58,7 +61,25 @@ export class AccountsService {
       .flatMap((row) => row.pockets)
       .filter((pocket) => pocket.includeInNetWorth && !pocket.archivedAt)
       .map((pocket) => ({ balance: balances.get(pocket.id) ?? Money.zero(pocket.currency) }));
-    return { items, totals: totalsDto(accountTotals(counted)) };
+    const totals = accountTotals(counted);
+    return { items, totals: totalsDto(totals), totalBase: await this.valued(userId, totals) };
+  }
+
+  /**
+   * MON-03: the totals valued in the base currency with today's rates; null when some currency
+   * has no known rate yet (better nothing than a wrong sum).
+   */
+  private async valued(userId: string, totals: readonly Money[]) {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const base = baseCurrency(user.baseCurrency);
+    const needsRates = totals.some((money) => money.currency !== base);
+    const rates = needsRates ? await this.rates.tableFor(userId, this.clock.today()) : {};
+    if (totals.some((money) => !canConvert(money.currency, base, rates))) return null;
+    const total = Money.sum(
+      totals.map((money) => convert(money, base, rates)),
+      base,
+    );
+    return { currency: base, amount: total.toString() };
   }
 
   async get(userId: string, id: string): Promise<Account> {

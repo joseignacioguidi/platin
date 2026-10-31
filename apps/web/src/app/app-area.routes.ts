@@ -37,6 +37,16 @@ export const appAreaRoutes: Route[] = [
     loadComponent: () => import('./features/cards/cards-page').then((m) => m.CardsPage),
   },
   {
+    path: 'tarjetas/compras',
+    title: 'Compras · platin',
+    loadComponent: () => import('./features/cards/charges-page').then((m) => m.ChargesPage),
+  },
+  {
+    path: 'tarjetas/:id/compras',
+    title: 'Compras · platin',
+    loadComponent: () => import('./features/cards/charges-page').then((m) => m.ChargesPage),
+  },
+  {
     path: 'tarjetas/:id',
     title: 'Tarjeta · platin',
     loadComponent: () => import('./features/cards/card-detail-page').then((m) => m.CardDetailPage),

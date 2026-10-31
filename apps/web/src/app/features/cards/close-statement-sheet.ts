@@ -48,6 +48,7 @@ import { CARDS_TEXTS } from './cards.texts';
         <pl-form-field [label]="t.category" controlId="close-category">
           <pl-category-select
             inputId="close-category"
+            allowCreate
             kind="EXPENSE"
             [label]="t.category"
             [categories]="categoriesStore.categories()"

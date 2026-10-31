@@ -7,7 +7,9 @@ import type {
   ValuationsResponse,
 } from '@platin/contracts';
 import {
+  canConvert,
   compareDates,
+  CURRENCIES,
   Currency,
   Decimal,
   investmentSummary,
@@ -16,6 +18,7 @@ import {
   maxDate,
   Money,
   parseLocalDate,
+  RatesInput,
   valuationOverdue,
   valueIn,
   yieldFromValuation,
@@ -25,7 +28,7 @@ import { PocketsService, PocketWithAccount, toPocketDto } from '../accounts/pock
 import { AppException } from '../common/app-exception';
 import { freezeBase } from '../common/base-conversion';
 import { ClockService } from '../common/clock.service';
-import { date, money, toDbDate } from '../common/serialize';
+import { baseCurrency, date, money, toDbDate } from '../common/serialize';
 import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RatesService } from '../rates/rates.service';
@@ -86,16 +89,16 @@ export class InvestmentsService {
         select: { fromPocketId: true, toPocketId: true, amountOut: true, amountIn: true },
       }),
     ]);
-    const rate = (await this.rates.rateFor(user.valuationRate, this.clock.today()))?.sell;
+    const baseCode = baseCurrency(user.baseCurrency);
+    const rates = await this.rates.tableFor(user.valuationRate, this.clock.today());
+    // A currency without a known rate can't be valued: it adds zero to the base totals.
     const toBase = (amount: Money) =>
-      amount.currency === user.baseCurrency
-        ? amount
-        : rate
-          ? valueIn(amount, user.baseCurrency, rate)
-          : Money.zero(user.baseCurrency);
+      canConvert(amount.currency, baseCode, rates)
+        ? valueIn(amount, baseCode, rates)
+        : Money.zero(baseCode);
 
-    const totals = { ARS: emptyTotals('ARS'), USD: emptyTotals('USD') };
-    const base = emptyTotals(user.baseCurrency);
+    const totals = new Map<Currency, ReturnType<typeof emptyTotals>>();
+    const base = emptyTotals(baseCode);
     const byInstrument = new Map<string, Money>();
     const accounts: Investments['accounts'] = [];
 
@@ -134,7 +137,8 @@ export class InvestmentsService {
       }
       group.pockets.push(pocket);
 
-      const sums = totals[row.currency];
+      const sums = totals.get(row.currency) ?? emptyTotals(row.currency);
+      totals.set(row.currency, sums);
       sums.invested = sums.invested.add(summary.investedNet);
       sums.value = sums.value.add(summary.currentValue);
       sums.yield = sums.yield.add(summary.accumulatedYield);
@@ -156,9 +160,13 @@ export class InvestmentsService {
     });
     return {
       accounts,
-      totals: { ARS: totalsDto(totals.ARS), USD: totalsDto(totals.USD) },
+      // One line per currency with investments, in the app's order (MON-03).
+      totals: CURRENCIES.filter((currency) => totals.has(currency)).map((currency) => ({
+        currency,
+        ...totalsDto(totals.get(currency) as ReturnType<typeof emptyTotals>),
+      })),
       base: {
-        currency: user.baseCurrency,
+        currency: baseCode,
         ...totalsDto(base),
         yieldRate: base.invested.amount.greaterThan(0)
           ? base.yield.amount.dividedBy(base.invested.amount).toFixed(4, Decimal.ROUND_HALF_UP)
@@ -209,7 +217,7 @@ export class InvestmentsService {
       day: LocalDate;
       value: Money;
       difference: Money;
-      rate: string | undefined;
+      rate: RatesInput | undefined;
     }[] = [];
     for (const item of request.items) {
       const day = parseLocalDate(item.date);
@@ -247,7 +255,7 @@ export class InvestmentsService {
       const rate =
         pocket.currency === user.baseCurrency || difference.isZero()
           ? undefined
-          : ((await this.userRates.sellFor(userId, day)) ?? undefined);
+          : await this.userRates.tableFor(userId, day);
       prepared.push({ pocket, day, value, difference, rate });
     }
 

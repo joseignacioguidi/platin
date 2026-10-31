@@ -2,13 +2,14 @@ import { ChangeDetectionStrategy, Component, effect, inject, input, signal } fro
 import { NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { LucideLogOut, LucideMoon } from '@lucide/angular';
-import type { Currency, RateType } from '@platin/domain';
+import type { CardCurrency, RateType } from '@platin/domain';
 import { PlButton, PlSegmented, PlSegmentOption } from '@platin/web-ui';
 import { AuthService } from '../../core/auth/auth.service';
 import { errorMessage } from '../../core/errors';
 import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { ThemeService } from '../../core/theme/theme.service';
 import { PlanSummary } from '../plans/plan-summary';
+import { CurrenciesSettings } from './currencies-settings';
 import { SETTINGS_TEXTS } from './settings.texts';
 import { SignInMethods } from './sign-in-methods';
 
@@ -24,6 +25,7 @@ import { SignInMethods } from './sign-in-methods';
     LucideMoon,
     PlanSummary,
     SignInMethods,
+    CurrenciesSettings,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -86,6 +88,8 @@ import { SignInMethods } from './sign-in-methods';
       </button>
     </form>
 
+    <pl-currencies-settings class="mt-4" />
+
     <pl-plan-summary class="mt-4" />
 
     <pl-sign-in-methods class="mt-4 block" [linked]="vinculado()" [linkError]="error()" />
@@ -125,15 +129,15 @@ export class ProfilePage {
   protected readonly theme = inject(ThemeService);
   private readonly router = inject(Router);
 
-  protected readonly currencyOptions: PlSegmentOption<Currency>[] = (['ARS', 'USD'] as const).map(
-    (value) => ({ value, label: SETTINGS_TEXTS.currencies[value] }),
-  );
+  protected readonly currencyOptions: PlSegmentOption<CardCurrency>[] = (
+    ['ARS', 'USD'] as const
+  ).map((value) => ({ value, label: SETTINGS_TEXTS.currencies[value] }));
   protected readonly rateOptions: PlSegmentOption<RateType>[] = (
     ['OFICIAL', 'MEP', 'BLUE'] as const
   ).map((value) => ({ value, label: SETTINGS_TEXTS.rates[value] }));
 
   protected readonly form = inject(NonNullableFormBuilder).group({ name: [''] });
-  protected readonly baseCurrency = signal<Currency>('ARS');
+  protected readonly baseCurrency = signal<CardCurrency>('ARS');
   protected readonly valuationRate = signal<RateType>('MEP');
   protected readonly saving = signal(false);
   protected readonly message = signal<string | null>(null);

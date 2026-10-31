@@ -55,6 +55,9 @@ export const PLANS_TEXTS = {
     limit === null
       ? `${used} ${resourceName(resource, used)} · sin límite`
       : `${used} de ${limit} ${resourceName(resource, limit)}`,
+  gate: {
+    locked: (plan: string) => `(no incluido en tu plan; está en ${plan})`,
+  },
   investmentsIncluded: 'Inversiones incluidas',
   investmentsNotIncluded: 'Sin inversiones',
   askAnother: 'Pedir otro plan',

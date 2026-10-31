@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { LocalDate } from '@platin/domain';
+import { LocalDate, RateTable } from '@platin/domain';
 import { PrismaService } from '../prisma/prisma.service';
 import { RatesService } from './rates.service';
 
@@ -15,5 +15,11 @@ export class UserRates {
   async sellFor(userId: string, day: LocalDate): Promise<string | null> {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     return (await this.rates.rateFor(user.valuationRate, day))?.sell ?? null;
+  }
+
+  /** Pesos per unit of every currency with a known rate for a date (MON). */
+  async tableFor(userId: string, day: LocalDate): Promise<RateTable> {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    return this.rates.tableFor(user.valuationRate, day);
   }
 }

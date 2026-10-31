@@ -1,7 +1,15 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { Goal } from '@platin/contracts';
-import { formatMoney, Money, parsePeriod, progressPercent, toDecimal } from '@platin/domain';
+import {
+  type Currency,
+  formatMoney,
+  Money,
+  parsePeriod,
+  type PocketKind,
+  progressPercent,
+  toDecimal,
+} from '@platin/domain';
 import {
   displayAmount,
   formatPeriodShort,
@@ -12,12 +20,36 @@ import {
   PlProgress,
   PlStackedBar,
   PlStackSegment,
+  PlStackTone,
+  PL_CURRENCY_NAMES,
   PlErrorState,
   PlSkeleton,
 } from '@platin/web-ui';
+import { PocketFormData, PocketFormSheet } from '../accounts/pocket-form-sheet';
+import { PlanGate, PlUsage } from '../plans/plan-gate';
 import { GoalFormSheet } from './goal-form-sheet';
 import { SavingsStore } from './savings.store';
 import { SAVINGS_TEXTS } from './savings.texts';
+
+/** Color of each currency in the savings bar (the dollar keeps the savings color). */
+const CURRENCY_TONES: Record<Currency, PlStackTone> = {
+  USD: 'savings',
+  ARS: 'brand',
+  EUR: 'transfer',
+  BRL: 'card',
+  CLP: 'pending',
+  UYU: 'expense',
+};
+
+/** Literal classes so Tailwind generates them. */
+const DOT_CLASSES: Record<PlStackTone, string> = {
+  savings: 'bg-savings',
+  brand: 'bg-brand',
+  transfer: 'bg-transfer',
+  card: 'bg-card',
+  pending: 'bg-pending',
+  expense: 'bg-expense',
+};
 
 const PACE_CLASS = {
   BEHIND: 'bg-pending text-ink',
@@ -37,13 +69,15 @@ const PACE_CLASS = {
     PlEmptyState,
     PlProgress,
     PlStackedBar,
+    PlanGate,
+    PlUsage,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
   template: `
     <header class="flex items-center justify-between gap-3">
       <h1 class="text-3xl font-bold">{{ texts.title }}</h1>
-      <a plButton="secondary" size="sm" routerLink="/app/inversiones">
+      <a plButton="secondary" size="sm" routerLink="/app/inversiones" plPlanGate="investments">
         {{ texts.investments }}
       </a>
     </header>
@@ -71,26 +105,37 @@ const PACE_CLASS = {
           }
         </div>
         <pl-stacked-bar [segments]="split()" />
-        <div class="flex flex-wrap justify-between gap-2 text-[15px]">
-          <span class="flex items-center gap-2">
-            <span class="size-2.5 rounded-full bg-savings" aria-hidden="true"></span
-            >{{ texts.dollars }}
-            <pl-money [amount]="s.usd" currency="USD" [decimals]="false" />
-          </span>
-          <span class="flex items-center gap-2">
-            <span class="size-2.5 rounded-full bg-brand" aria-hidden="true"></span>{{ texts.pesos }}
-            <pl-money [amount]="s.ars" [decimals]="false" />
-          </span>
-        </div>
+        <!-- MON-03: what each currency adds, in its own currency. -->
+        <ul class="flex flex-wrap justify-between gap-x-4 gap-y-2 text-[15px]">
+          @for (line of s.byCurrency; track line.currency) {
+            <li class="flex items-center gap-2">
+              <span
+                class="size-2.5 rounded-full"
+                [class]="dotClass(line.currency)"
+                aria-hidden="true"
+              ></span
+              >{{ currencyNames[line.currency] }}
+              <pl-money [amount]="line.amount" [currency]="line.currency" [decimals]="false" />
+            </li>
+          }
+        </ul>
       </section>
     }
 
     <section class="flex flex-col gap-2">
       <div class="flex items-baseline justify-between">
         <h2 class="text-xl font-bold">{{ texts.goals }}</h2>
-        <button type="button" class="min-h-11 font-semibold text-brand-strong" (click)="newGoal()">
-          {{ texts.newGoal }}
-        </button>
+        <div class="flex items-center gap-2">
+          <pl-usage resource="goals" />
+          <button
+            type="button"
+            class="inline-flex min-h-11 items-center gap-1.5 font-semibold text-brand-strong"
+            plPlanGate="goals"
+            (click)="newGoal()"
+          >
+            {{ texts.newGoal }}
+          </button>
+        </div>
       </div>
       @for (goal of store.goals(); track goal.id) {
         <a
@@ -129,7 +174,9 @@ const PACE_CLASS = {
           [heading]="texts.noGoalsTitle"
           [description]="texts.noGoalsBody"
         >
-          <button plButton type="button" (click)="newGoal()">{{ texts.newGoal }}</button>
+          <button plButton type="button" plPlanGate="goals" (click)="newGoal()">
+            {{ texts.newGoal }}
+          </button>
         </pl-empty-state>
       }
     </section>
@@ -165,6 +212,25 @@ const PACE_CLASS = {
           <li class="py-4 text-sm text-muted">{{ texts.noAccounts }}</li>
         }
       </ul>
+      <div class="flex flex-wrap items-center gap-x-4">
+        <button
+          type="button"
+          class="inline-flex min-h-11 items-center gap-1.5 font-semibold text-brand-strong"
+          plPlanGate="pockets"
+          (click)="newPocket('SAVINGS')"
+        >
+          {{ texts.newSavingsPocket }}
+        </button>
+        <button
+          type="button"
+          class="inline-flex min-h-11 items-center gap-1.5 font-semibold text-brand-strong"
+          [plPlanGate]="investmentPocketGate"
+          (click)="newPocket('INVESTMENT')"
+        >
+          {{ texts.newInvestmentPocket }}
+        </button>
+        <pl-usage resource="pockets" />
+      </div>
     </section>
   `,
 })
@@ -185,14 +251,20 @@ export class SavingsPage {
     );
   });
 
-  protected readonly split = computed<PlStackSegment[]>(() => {
-    const s = this.savings();
-    if (!s) return [];
-    return [
-      { label: this.texts.dollars, amount: s.usd, tone: 'savings' },
-      { label: this.texts.pesos, amount: s.arsInUsd, tone: 'brand' },
-    ];
-  });
+  protected readonly currencyNames = PL_CURRENCY_NAMES;
+
+  /** Each currency's share of the total, by its value in dollars. */
+  protected readonly split = computed<PlStackSegment[]>(() =>
+    (this.savings()?.byCurrency ?? []).map((line) => ({
+      label: PL_CURRENCY_NAMES[line.currency],
+      amount: line.valueUsd,
+      tone: CURRENCY_TONES[line.currency],
+    })),
+  );
+
+  protected dotClass(currency: Currency): string {
+    return DOT_CLASSES[CURRENCY_TONES[currency]];
+  }
 
   protected percent(goal: Goal): number {
     return progressPercent(goal.projection.progress);
@@ -217,6 +289,17 @@ export class SavingsPage {
       decimals: false,
     });
     return `${monthly}${this.texts.perMonth} · ${formatPeriodShort(parsePeriod(goal.targetPeriod))}`;
+  }
+
+  /** The plan mark shows the feature first: that's what "Pro" adds. */
+  protected readonly investmentPocketGate = ['investments', 'pockets'] as const;
+
+  protected newPocket(kind: PocketKind): void {
+    this.sheet.open(PocketFormSheet, {
+      data: { kind } satisfies PocketFormData,
+      ariaLabel:
+        kind === 'INVESTMENT' ? this.texts.newInvestmentPocket : this.texts.newSavingsPocket,
+    });
   }
 
   protected newGoal(): void {

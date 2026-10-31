@@ -1,10 +1,18 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  Injector,
+  signal,
+} from '@angular/core';
 import { createPocketRequestSchema, type Instrument, type Pocket } from '@platin/contracts';
 import type { Currency, PocketKind } from '@platin/domain';
 import {
   parseTypedAmount,
   PlButton,
+  PlCurrencySelect,
   PlSegmented,
   PlSegmentOption,
   PlSelect,
@@ -13,11 +21,18 @@ import {
 } from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
 import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
+import { showPlanBlock } from '../plans/plan-gate';
+import { PlanStore } from '../plans/plan.store';
+import { PLANS_TEXTS } from '../plans/plans.texts';
+import { ACCOUNT_KIND_ICONS } from './account-form-sheet';
 import { AccountsStore } from './accounts.store';
 import { ACCOUNTS_TEXTS } from './accounts.texts';
 
 export interface PocketFormData {
-  accountId: string;
+  /** Without it (from Ahorros or Inversiones), the form asks for the account. */
+  accountId?: string;
+  /** Initial kind of a new pocket. */
+  kind?: PocketKind;
   /** Editing; without it, a new pocket of the account. */
   pocket?: Pocket;
 }
@@ -34,10 +49,22 @@ const INSTRUMENTS: Instrument[] = [
 /** CTA-02: a pocket inside an account, with its currency and purpose. */
 @Component({
   selector: 'pl-pocket-form-sheet',
-  imports: [PlSheet, PlButton, PlSegmented, PlSelect, FormField],
+  imports: [PlSheet, PlButton, PlSegmented, PlSelect, PlCurrencySelect, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="pocket ? f.editTitle : f.newTitle">
+      @if (askAccount) {
+        <pl-form-field [label]="f.account" controlId="pocket-account">
+          <pl-select
+            inputId="pocket-account"
+            [label]="f.account"
+            [placeholder]="f.accountPlaceholder"
+            [options]="accountOptions()"
+            [value]="accountId()"
+            (valueChange)="accountId.set($event)"
+          />
+        </pl-form-field>
+      }
       <pl-form-field [label]="f.name" controlId="pocket-name">
         <input
           id="pocket-name"
@@ -51,7 +78,12 @@ const INSTRUMENTS: Instrument[] = [
       </pl-form-field>
       <div class="flex flex-col gap-1.5">
         <span class="text-sm font-medium">{{ f.kind }}</span>
-        <pl-segmented [label]="f.kind" [options]="kinds" [(value)]="kind" />
+        <pl-segmented
+          [label]="f.kind"
+          [options]="kinds()"
+          [(value)]="kind"
+          (lockedChoose)="showInvestmentsBlock()"
+        />
         <p class="text-sm text-muted">{{ f.kindHints[kind()] }}</p>
       </div>
       @if (kind() === 'INVESTMENT') {
@@ -68,7 +100,7 @@ const INSTRUMENTS: Instrument[] = [
       @if (!pocket) {
         <div class="flex flex-col gap-1.5">
           <span class="text-sm font-medium">{{ f.currency }}</span>
-          <pl-segmented [label]="f.currency" [options]="currencies" [(value)]="currency" />
+          <pl-currency-select [label]="f.currency" [(value)]="currency" />
         </div>
         <pl-form-field
           [label]="f.initialBalance + ' (' + currency() + ')'"
@@ -109,26 +141,62 @@ export class PocketFormSheet {
   protected readonly pocket = this.data.pocket;
   private readonly store = inject(AccountsStore);
   private readonly ref = inject(DialogRef);
+  private readonly plan = inject(PlanStore);
+  private readonly injector = inject(Injector);
+  protected readonly askAccount = !this.pocket && !this.data.accountId;
 
-  protected readonly kinds: PlSegmentOption<PocketKind>[] = (
-    ['AVAILABLE', 'SAVINGS', 'INVESTMENT'] as const
-  ).map((value) => ({ value, label: ACCOUNTS_TEXTS.pocketKinds[value] }));
-  protected readonly currencies: PlSegmentOption<Currency>[] = (['ARS', 'USD'] as const).map(
-    (value) => ({ value, label: ACCOUNTS_TEXTS.currencies[value] }),
+  /** PLN-07: "Inversión" carries the plan mark when the plan doesn't include it. */
+  protected readonly kinds = computed<PlSegmentOption<PocketKind>[]>(() => {
+    const block = this.investmentsBlock();
+    return (['AVAILABLE', 'SAVINGS', 'INVESTMENT'] as const).map((value) => ({
+      value,
+      label: ACCOUNTS_TEXTS.pocketKinds[value],
+      ...(value === 'INVESTMENT' && block
+        ? {
+            locked: true,
+            badge: block.upgrade,
+            lockedLabel: PLANS_TEXTS.gate.locked(block.upgrade),
+          }
+        : {}),
+    }));
+  });
+  /** An investment pocket that already exists keeps its kind after a downgrade. */
+  private readonly investmentsBlock = computed(() =>
+    this.pocket?.kind === 'INVESTMENT' ? null : this.plan.block('investments'),
   );
+  protected readonly accountOptions = computed<PlSelectOption[]>(() =>
+    this.store.accounts().map((account) => ({
+      value: account.id,
+      label: account.name,
+      icon: ACCOUNT_KIND_ICONS[account.kind],
+      tone: account.color ?? 'transfer',
+    })),
+  );
+  protected readonly accountId = signal<string | null>(this.data.accountId ?? null);
+
   protected readonly instruments: PlSelectOption<Instrument>[] = INSTRUMENTS.map((value) => ({
     value,
     label: ACCOUNTS_TEXTS.instruments[value],
   }));
 
   protected readonly name = signal(this.pocket?.name ?? '');
-  protected readonly kind = signal<PocketKind>(this.pocket?.kind ?? 'SAVINGS');
+  protected readonly kind = signal<PocketKind>(this.pocket?.kind ?? this.initialKind());
   protected readonly currency = signal<Currency>(this.pocket?.currency ?? 'ARS');
   protected readonly instrument = signal<Instrument>(this.pocket?.instrument ?? 'MUTUAL_FUND');
   protected readonly balance = signal('0');
   protected readonly includeInNetWorth = signal(this.pocket?.includeInNetWorth ?? true);
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
+
+  private initialKind(): PocketKind {
+    const kind = this.data.kind ?? 'SAVINGS';
+    return kind === 'INVESTMENT' && this.plan.block('investments') ? 'SAVINGS' : kind;
+  }
+
+  protected showInvestmentsBlock(): void {
+    const block = this.investmentsBlock();
+    if (block) showPlanBlock(this.injector, block);
+  }
 
   protected value(event: Event): string {
     return (event.target as HTMLInputElement).value;
@@ -150,10 +218,12 @@ export class PocketFormSheet {
       );
       return;
     }
+    const accountId = this.accountId();
+    if (!accountId) return this.error.set(this.f.errors.account);
     const balance = parseTypedAmount(this.balance() || '0');
     if (balance === undefined) return this.error.set(this.f.errors.balance);
     await this.run(() =>
-      this.store.createPocket(this.data.accountId, {
+      this.store.createPocket(accountId, {
         name: name.data,
         kind: this.kind(),
         currency: this.currency(),

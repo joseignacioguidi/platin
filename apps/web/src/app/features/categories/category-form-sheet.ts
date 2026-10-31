@@ -24,6 +24,10 @@ export interface CategoryFormData {
   /** Editing; without it, a new category of `kind`. */
   category?: Category;
   kind: CategoryKind;
+  /** Opened from a selector: the kind is the selector's and can't change (CAT-06). */
+  fixedKind?: boolean;
+  /** Initial name of a new category (the search text, CAT-06). */
+  name?: string;
   /** Every category of the user, archived included, with its usage count. */
   all: readonly Category[];
 }
@@ -58,7 +62,7 @@ type Mode = 'form' | 'merge';
             (input)="name.set(value($event))"
           />
         </pl-form-field>
-        @if (!category) {
+        @if (!category && !fixedKind) {
           <div class="flex flex-col gap-1.5">
             <span class="text-sm font-medium">{{ f.kind }}</span>
             <pl-segmented
@@ -157,6 +161,7 @@ export class CategoryFormSheet {
   protected readonly icons = CATEGORY_ICONS;
   private readonly data = inject<CategoryFormData>(DIALOG_DATA);
   protected readonly category = this.data.category;
+  protected readonly fixedKind = this.data.fixedKind ?? false;
   private readonly store = inject(CategoriesStore);
   private readonly ref = inject(DialogRef);
 
@@ -165,7 +170,7 @@ export class CategoryFormSheet {
     { value: 'INCOME', label: CATEGORIES_TEXTS.kindSingular.INCOME },
   ];
   protected readonly mode = signal<Mode>('form');
-  protected readonly name = signal(this.category?.name ?? '');
+  protected readonly name = signal(this.category?.name ?? this.data.name ?? '');
   protected readonly kind = signal<CategoryKind>(this.category?.kind ?? this.data.kind);
   protected readonly parentId = signal<string | null>(this.category?.parentId ?? null);
   protected readonly color = signal<PlTone | null>(this.category?.color ?? 'expense');
@@ -246,8 +251,9 @@ export class CategoryFormSheet {
     this.saving.set(true);
     this.error.set(null);
     try {
-      await action();
-      this.ref.close(true);
+      // A created category goes back to whoever opened the sheet (CAT-06).
+      const result = await action();
+      this.ref.close(this.category ? true : result);
     } catch (error) {
       this.error.set(errorMessage(error));
     } finally {

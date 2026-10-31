@@ -10,6 +10,6 @@ import { StatementsService } from './statements.service';
   imports: [AccountsModule, CategoriesModule],
   controllers: [CardsController, ChargesController, StatementsController],
   providers: [CardsService, ChargesService, StatementsService],
-  exports: [CardsService, StatementsService],
+  exports: [CardsService, ChargesService, StatementsService],
 })
 export class CardsModule {}

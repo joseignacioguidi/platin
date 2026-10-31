@@ -11,10 +11,12 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { LucidePencil } from '@lucide/angular';
-import { impliedRate, LocalDate, Money, toDecimal } from '@platin/domain';
+import { currencySymbol, impliedRate, LocalDate, Money, toDecimal } from '@platin/domain';
 import {
   applyKey,
   displayAmount,
+  formatRate,
+  rateUnit,
   isValidAmount,
   KeypadKey,
   parseTypedAmount,
@@ -28,6 +30,7 @@ import {
   PlSelect,
   PlSelectOption,
   PlPocketSelect,
+  PlCategorySelect,
   pocketSelectOptions,
   HideAmounts,
   PlSheet,
@@ -59,6 +62,7 @@ type Mode = 'EXPENSE' | 'INCOME' | 'TRANSFER';
     PlEmptyState,
     PlSelect,
     PlPocketSelect,
+    PlCategorySelect,
     PlDateField,
     LucidePencil,
   ],
@@ -108,9 +112,7 @@ type Mode = 'EXPENSE' | 'INCOME' | 'TRANSFER';
         @if (mode() !== 'TRANSFER') {
           <!-- Categories -->
           <section class="flex flex-col gap-2">
-            <h3 class="text-sm text-muted">
-              {{ showAllCategories() ? texts.categoryAll : texts.categoryRecent }}
-            </h3>
+            <h3 class="text-sm text-muted">{{ texts.categoryRecent }}</h3>
             <div class="flex flex-wrap gap-2">
               @for (category of visibleCategories(); track category.id) {
                 <button
@@ -121,10 +123,18 @@ type Mode = 'EXPENSE' | 'INCOME' | 'TRANSFER';
                   {{ category.name }}
                 </button>
               }
-              <button plChip tone="dashed" (click)="showAllCategories.set(!showAllCategories())">
-                {{ showAllCategories() ? texts.less : texts.more }}
-              </button>
             </div>
+            <!-- CAT-06: every category, plus "+ Nueva categoría"; what was typed stays. -->
+            <pl-category-select
+              allowCreate
+              [kind]="mode() === 'INCOME' ? 'INCOME' : 'EXPENSE'"
+              [label]="texts.categoryAll"
+              [placeholder]="texts.categorySearch"
+              [categories]="categoriesStore.categories()"
+              [recentIds]="categoriesStore.recentIds()"
+              [value]="categoryId()"
+              (valueChange)="categoryId.set($event)"
+            />
           </section>
 
           <div class="grid grid-cols-[1fr_auto] gap-2">
@@ -165,7 +175,7 @@ type Mode = 'EXPENSE' | 'INCOME' | 'TRANSFER';
 
           @if (needsRate()) {
             <label class="flex flex-col gap-1">
-              <span class="text-sm font-medium">{{ texts.rate }}</span>
+              <span class="text-sm font-medium">{{ texts.rate(rateUnitText()) }}</span>
               <input
                 type="text"
                 inputmode="decimal"
@@ -270,7 +280,7 @@ export class QuickEntrySheet {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   protected readonly today = inject(Today);
   protected readonly accountsStore = inject(AccountsStore);
-  private readonly categoriesStore = inject(CategoriesStore);
+  protected readonly categoriesStore = inject(CategoriesStore);
   private readonly cardsStore = inject(CardsStore);
   private readonly ratesStore = inject(RatesStore);
   private readonly transactions = inject(TransactionsStore);
@@ -290,7 +300,6 @@ export class QuickEntrySheet {
   protected readonly date = signal<LocalDate>(this.today.date());
   protected readonly note = signal('');
   protected readonly showNote = signal(false);
-  protected readonly showAllCategories = signal(false);
   protected readonly receivedText = signal('');
   protected readonly rateText = signal('');
   protected readonly saving = signal(false);
@@ -328,14 +337,15 @@ export class QuickEntrySheet {
   protected readonly amountCurrency = computed(() =>
     this.card() ? this.cardCurrency() : (this.account()?.currency ?? 'ARS'),
   );
-  protected readonly symbol = computed(() => (this.amountCurrency() === 'USD' ? 'USD' : '$'));
+  protected readonly symbol = computed(() => currencySymbol(this.amountCurrency()));
+  private readonly base = computed(() => this.auth.user()?.baseCurrency ?? 'ARS');
+  protected readonly rateUnitText = computed(() => rateUnit(this.amountCurrency(), this.base()));
   protected readonly amountText = computed(() => displayAmount(this.amount()));
 
   protected readonly visibleCategories = computed(() => {
     const mode = this.mode();
     if (mode === 'TRANSFER') return [];
     const all = this.categoriesStore.ofKind(mode);
-    if (this.showAllCategories()) return all;
     const recent = this.categoriesStore.recent(mode);
     const selected = all.find((c) => c.id === this.categoryId());
     return selected && !recent.includes(selected) ? [selected, ...recent.slice(0, 4)] : recent;
@@ -351,12 +361,21 @@ export class QuickEntrySheet {
     );
   });
   protected readonly rateHint = computed(() => {
-    const rate = this.ratesStore.preferred();
-    if (!rate) return this.texts.rateHintNoRate;
-    return this.texts.rateHint(
-      rate.type,
-      displayAmount(toDecimal(rate.sell).toFixed(2).replace(/\.00$/, '')),
-    );
+    const currency = this.amountCurrency();
+    const base = this.base();
+    // The dollar names its type (oficial, MEP, blue); the other currencies use the oficial one.
+    if (currency === 'USD' || (currency === 'ARS' && base === 'USD')) {
+      const rate = this.ratesStore.preferred();
+      if (!rate) return this.texts.rateHintNoRate;
+      return this.texts.rateHint(
+        rate.type,
+        displayAmount(toDecimal(rate.sell).toFixed(2).replace(/\.00$/, '')),
+      );
+    }
+    const rate = this.ratesStore.rateFor(currency, base);
+    return rate
+      ? this.texts.rateHintOf(formatRate(currency, base, rate))
+      : this.texts.rateHintNoRate;
   });
   protected readonly crossCurrency = computed(
     () => !!this.toAccount() && this.toAccount()?.currency !== this.account()?.currency,
@@ -370,9 +389,7 @@ export class QuickEntrySheet {
       Money.of(this.amount(), from.currency),
       Money.of(received, to.currency),
     );
-    if (!rate) return null;
-    const value = toDecimal(rate).toFixed(2).replace(/\.00$/, '');
-    return this.texts.impliedRate(displayAmount(value));
+    return rate ? formatRate(from.currency, to.currency, rate) : null;
   });
 
   constructor() {

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { currencySchema, rateTypeSchema, uuidSchema } from './common';
+import { baseCurrencySchema, currencySchema, rateTypeSchema, uuidSchema } from './common';
 
 export const PASSWORD_MIN_LENGTH = 10;
 
@@ -31,20 +31,72 @@ export const loginRequestSchema = z.object({
   password: z.string().min(1, 'Ingresá tu contraseña').max(200),
 });
 
+/** DAS-04: the sections a home shortcut can open. */
+export const HOME_SHORTCUTS = [
+  'accounts',
+  'cards',
+  'fixed',
+  'commitments',
+  'savings',
+  'investments',
+  'categories',
+  'movements',
+  'pending',
+  'profile',
+] as const;
+export const homeShortcutSchema = z.enum(HOME_SHORTCUTS);
+export type HomeShortcut = z.infer<typeof homeShortcutSchema>;
+export const HOME_SHORTCUTS_MAX = 8;
+/** What a user sees before choosing (DAS-04). */
+export const DEFAULT_HOME_SHORTCUTS: readonly HomeShortcut[] = [
+  'accounts',
+  'cards',
+  'fixed',
+  'commitments',
+  'savings',
+  'investments',
+  'categories',
+];
+
+export const homeShortcutsSchema = z
+  .array(homeShortcutSchema)
+  .max(HOME_SHORTCUTS_MAX, `Elegí hasta ${HOME_SHORTCUTS_MAX} accesos`)
+  .refine((list) => new Set(list).size === list.length, 'Hay accesos repetidos');
+
+/** Per-user preferences stored as JSON in User.preferences; unknown keys are dropped. */
+export const userPreferencesSchema = z.object({
+  /** Missing = the default set. */
+  homeShortcuts: homeShortcutsSchema.optional(),
+});
+export type UserPreferences = z.infer<typeof userPreferencesSchema>;
+
 export const userSchema = z.object({
   id: uuidSchema,
   email: z.string(),
   name: z.string().nullable(),
-  baseCurrency: currencySchema,
+  baseCurrency: baseCurrencySchema,
   valuationRate: rateTypeSchema,
   role: roleSchema,
+  /** Enabled currencies (MON-01), in the app's order; pesos and the base are always there. */
+  currencies: z.array(currencySchema),
+  preferences: userPreferencesSchema,
 });
 
 export const updateUserRequestSchema = z
   .object({
     name: z.string().trim().min(1).max(80).nullable(),
-    baseCurrency: currencySchema,
+    baseCurrency: baseCurrencySchema,
     valuationRate: rateTypeSchema,
+    /**
+     * MON-01/04: the currencies the user wants enabled. Pesos and the base currency are added
+     * if missing; turning off one in use answers CURRENCY_IN_USE.
+     */
+    currencies: z
+      .array(currencySchema)
+      .max(6)
+      .refine((list) => new Set(list).size === list.length, 'Hay monedas repetidas'),
+    /** Merged into the stored preferences: only the keys sent change. */
+    preferences: userPreferencesSchema.strict(),
   })
   .partial();
 

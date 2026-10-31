@@ -26,7 +26,53 @@ describe('users', () => {
       baseCurrency: 'ARS',
       valuationRate: 'MEP',
       role: 'USER',
+      currencies: ['ARS', 'USD'],
+      preferences: {},
     });
+  });
+
+  it('PATCH /users/me saves the home shortcuts and keeps them for other devices (DAS-04)', async () => {
+    const user = await registerUser(ctx.app);
+    const res = await as(ctx.app, user)
+      .patch('/api/v1/users/me')
+      .send({ preferences: { homeShortcuts: ['cards', 'accounts', 'investments'] } })
+      .expect(200);
+    expect(res.body.preferences).toEqual({ homeShortcuts: ['cards', 'accounts', 'investments'] });
+    // Another field leaves the preferences alone; an empty list is a valid choice.
+    await as(ctx.app, user).patch('/api/v1/users/me').send({ name: 'Otro' }).expect(200);
+    const me = await as(ctx.app, user).get('/api/v1/users/me').expect(200);
+    expect(me.body.preferences.homeShortcuts).toEqual(['cards', 'accounts', 'investments']);
+    const empty = await as(ctx.app, user)
+      .patch('/api/v1/users/me')
+      .send({ preferences: { homeShortcuts: [] } })
+      .expect(200);
+    expect(empty.body.preferences).toEqual({ homeShortcuts: [] });
+  });
+
+  it.each([
+    ['an unknown shortcut', { homeShortcuts: ['accounts', 'casino'] }],
+    ['duplicates', { homeShortcuts: ['accounts', 'accounts'] }],
+    [
+      'more than 8',
+      {
+        homeShortcuts: [
+          'accounts',
+          'cards',
+          'fixed',
+          'commitments',
+          'savings',
+          'investments',
+          'categories',
+          'movements',
+          'pending',
+        ],
+      },
+    ],
+    ['an unknown preference', { theme: 'dark' }],
+  ])('PATCH /users/me refuses preferences with %s', async (_case, preferences) => {
+    const user = await registerUser(ctx.app);
+    const res = await as(ctx.app, user).patch('/api/v1/users/me').send({ preferences }).expect(400);
+    expect(res.body.code).toBe('VALIDATION_FAILED');
   });
 
   it('PATCH /users/me updates name, base currency and valuation rate', async () => {

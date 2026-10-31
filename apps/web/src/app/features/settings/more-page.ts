@@ -2,19 +2,22 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { RouterLink } from '@angular/router';
 import { LucideChevronRight, LucideDynamicIcon } from '@lucide/angular';
 import { AuthService } from '../../core/auth/auth.service';
-import { PlanStore } from '../plans/plan.store';
+import type { PlanFeature } from '@platin/domain';
+import { PlanGate } from '../plans/plan-gate';
 import { SETTINGS_TEXTS } from './settings.texts';
 
 interface MoreLink {
   path: string;
   label: string;
   icon: string;
+  /** PLN-07: outside the plan, the link shows the plan mark and opens the plan sheet. */
+  gate?: PlanFeature;
 }
 
 /** "Más": secondary sections that don't fit in the bottom bar. Later phases add entries. */
 @Component({
   selector: 'pl-more-page',
-  imports: [RouterLink, LucideChevronRight, LucideDynamicIcon],
+  imports: [RouterLink, LucideChevronRight, LucideDynamicIcon, PlanGate],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1 class="mb-4 text-xl font-bold">{{ texts.title }}</h1>
@@ -24,10 +27,12 @@ interface MoreLink {
           <li class="border-b border-line-soft last:border-b-0">
             <a
               [routerLink]="link.path"
+              [plPlanGate]="link.gate ?? []"
               class="flex min-h-14 items-center gap-3 rounded-xl px-3 font-medium hover:bg-field"
             >
               <svg [lucideIcon]="link.icon" [size]="20" class="text-muted"></svg>
               <span class="flex-1">{{ link.label }}</span>
+              <span data-plan-badge class="contents"></span>
               <svg lucideChevronRight [size]="18" class="text-muted"></svg>
             </a>
           </li>
@@ -38,11 +43,15 @@ interface MoreLink {
 })
 export class MorePage {
   private readonly auth = inject(AuthService);
-  private readonly plan = inject(PlanStore);
   protected readonly texts = SETTINGS_TEXTS.more;
   protected readonly links: MoreLink[] = [
     { path: '/app/ahorros', label: SETTINGS_TEXTS.more.savings, icon: 'piggy-bank' },
-    { path: '/app/inversiones', label: SETTINGS_TEXTS.more.investments, icon: 'trending-up' },
+    {
+      path: '/app/inversiones',
+      label: SETTINGS_TEXTS.more.investments,
+      icon: 'trending-up',
+      gate: 'investments',
+    },
     { path: '/app/pendientes', label: SETTINGS_TEXTS.more.pending, icon: 'sparkles' },
     { path: '/app/compromisos', label: SETTINGS_TEXTS.more.commitments, icon: 'calendar' },
     { path: '/app/fijos', label: SETTINGS_TEXTS.more.fixed, icon: 'repeat' },
@@ -50,16 +59,10 @@ export class MorePage {
     { path: '/app/categorias', label: SETTINGS_TEXTS.more.categories, icon: 'tag' },
     { path: '/app/perfil', label: SETTINGS_TEXTS.more.profile, icon: 'user' },
   ];
-  /**
-   * Features outside the plan are hidden; the admin panel shows up only for administrators.
-   * The API checks both again.
-   */
-  protected readonly visibleLinks = computed(() => {
-    const links = this.links.filter(
-      (link) => link.path !== '/app/inversiones' || this.plan.hasInvestments(),
-    );
-    return this.auth.user()?.role === 'ADMIN'
-      ? [...links, { path: '/admin', label: SETTINGS_TEXTS.more.admin, icon: 'shield-check' }]
-      : links;
-  });
+  /** The admin panel shows up only for administrators; the API checks it again. */
+  protected readonly visibleLinks = computed<MoreLink[]>(() =>
+    this.auth.user()?.role === 'ADMIN'
+      ? [...this.links, { path: '/admin', label: SETTINGS_TEXTS.more.admin, icon: 'shield-check' }]
+      : this.links,
+  );
 }

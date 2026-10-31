@@ -5,11 +5,12 @@ import type {
   Transaction,
   UpdateTransactionRequest,
 } from '@platin/contracts';
-import { Currency, Decimal, LocalDate, Money, utcToLocalDate } from '@platin/domain';
+import { Currency, Decimal, LocalDate, Money, RatesInput, utcToLocalDate } from '@platin/domain';
 import { PocketsService } from '../accounts/pockets.service';
 import { CategoriesService } from '../categories/categories.service';
 import { AppException } from '../common/app-exception';
 import { freezeBase } from '../common/base-conversion';
+import { CurrenciesService } from '../common/currencies.service';
 import { toDbDate } from '../common/serialize';
 import type { Transaction as TransactionRow } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -23,6 +24,7 @@ export class TransactionsService {
     private readonly pockets: PocketsService,
     private readonly categories: CategoriesService,
     private readonly rates: UserRates,
+    private readonly currencies: CurrenciesService,
   ) {}
 
   async get(userId: string, id: string): Promise<Transaction> {
@@ -33,6 +35,7 @@ export class TransactionsService {
   async create(userId: string, request: CreateTransactionRequest): Promise<Transaction> {
     const pocket = await this.pockets.getActive(userId, request.pocketId);
     await this.categories.getOwned(userId, request.categoryId, request.type);
+    await this.currencies.assertEnabled(userId, pocket.currency);
     const baseCurrency = await this.baseCurrency(userId);
     const amount = Money.of(request.amount, pocket.currency);
     const rate =
@@ -142,7 +145,7 @@ export class TransactionsService {
     if (rows.length !== new Set(ids).size) throw AppException.notFound('Movement not found');
     const baseCurrency = await this.baseCurrency(userId);
     // Unfrozen pending movements take the rate of their own date (ADR 0008).
-    const ratesOfDay = new Map<string, string | undefined>();
+    const ratesOfDay = new Map<string, RatesInput | undefined>();
     for (const row of rows) {
       if (row.rateToBase.isZero() && row.currency !== baseCurrency) {
         const amount = Money.of(row.amount.toFixed(2), row.currency);
@@ -172,15 +175,18 @@ export class TransactionsService {
     return updated.map(toTransactionDto);
   }
 
-  /** The rate of the user's preferred type for that date, when the amount needs one. */
+  /**
+   * The rates of that date when the amount needs one: the dollar of the user's preferred type,
+   * the other currencies at the oficial rate.
+   */
   private async rateOfDay(
     userId: string,
     amount: Money,
     baseCurrency: Currency,
     day: LocalDate,
-  ): Promise<string | undefined> {
+  ): Promise<RatesInput | undefined> {
     if (amount.currency === baseCurrency) return undefined;
-    return (await this.rates.sellFor(userId, day)) ?? undefined;
+    return this.rates.tableFor(userId, day);
   }
 
   private async getOwned(userId: string, id: string): Promise<TransactionRow> {
@@ -195,12 +201,13 @@ export class TransactionsService {
   }
 
   /**
-   * The ARS-per-USD rate behind a stored movement, recovered from its frozen factor
-   * (factor itself for USD→ARS, its inverse for ARS→USD). Undefined for same currency.
+   * The rate behind a stored movement, recovered from its frozen factor (base per unit of its
+   * currency) in the single-rate convention of libs/domain: pesos per unit of the other
+   * currency when one side is the peso. Undefined for the same currency.
    */
   private storedRate(row: TransactionRow): string | undefined {
     const factor = row.rateToBase.toFixed(6);
     if (factor === '1.000000') return undefined;
-    return row.currency === 'USD' ? factor : new Decimal(1).dividedBy(factor).toFixed(6);
+    return row.currency === 'ARS' ? new Decimal(1).dividedBy(factor).toFixed(6) : factor;
   }
 }

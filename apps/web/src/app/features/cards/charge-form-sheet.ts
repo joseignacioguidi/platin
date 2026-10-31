@@ -2,7 +2,8 @@ import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import type { Card, Charge, UpdateChargeRequest } from '@platin/contracts';
 import {
-  Currency,
+  CardCurrency,
+  formatMoney,
   LocalDate,
   Money,
   parseLocalDate,
@@ -11,6 +12,7 @@ import {
   scheduleInstallments,
   splitInstallments,
   statementPeriodFor,
+  totalFromInstallment,
 } from '@platin/domain';
 import {
   displayAmount,
@@ -18,6 +20,7 @@ import {
   parseTypedAmount,
   PlButton,
   PlCategorySelect,
+  PlCurrencySelect,
   PlChip,
   PlDateField,
   PlMoney,
@@ -33,6 +36,25 @@ import { CardsStore } from './cards.store';
 import { CARDS_TEXTS } from './cards.texts';
 
 const COUNTS = [1, 3, 6, 12, 18, 24];
+const MODE_KEY = 'platin.chargeAmountMode';
+
+type AmountMode = 'TOTAL' | 'INSTALLMENT';
+
+function rememberedMode(): AmountMode {
+  try {
+    return localStorage.getItem(MODE_KEY) === 'INSTALLMENT' ? 'INSTALLMENT' : 'TOTAL';
+  } catch {
+    return 'TOTAL';
+  }
+}
+
+function rememberMode(mode: AmountMode): void {
+  try {
+    localStorage.setItem(MODE_KEY, mode);
+  } catch {
+    // Private mode: it just isn't remembered.
+  }
+}
 
 export interface ChargeFormData {
   card: Card;
@@ -49,6 +71,7 @@ export interface ChargeFormData {
     PlChip,
     PlMoney,
     PlSegmented,
+    PlCurrencySelect,
     PlCategorySelect,
     PlDateField,
     FormField,
@@ -72,8 +95,24 @@ export interface ChargeFormData {
           (input)="description.set(value($event))"
         />
       </pl-form-field>
+      @if (!locked) {
+        <div class="flex flex-col gap-1.5">
+          <span class="text-sm font-medium" id="charge-amount-mode">{{ t.amountMode }}</span>
+          <pl-segmented
+            tone="surface"
+            [label]="t.amountMode"
+            [options]="modeOptions"
+            [value]="mode()"
+            (valueChange)="setMode($event)"
+          />
+        </div>
+      }
       <div class="grid grid-cols-[1fr_auto] gap-3">
-        <pl-form-field [label]="t.amount" controlId="charge-amount">
+        <pl-form-field
+          [label]="mode() === 'INSTALLMENT' ? t.installmentAmount : t.amount"
+          controlId="charge-amount"
+          [hint]="otherValue() ?? undefined"
+        >
           <input
             id="charge-amount"
             type="text"
@@ -92,7 +131,7 @@ export interface ChargeFormData {
               >{{ currency() }}</span
             >
           } @else {
-            <pl-segmented [label]="t.currency" [options]="currencyOptions" [(value)]="currency" />
+            <pl-currency-select cardOnly [label]="t.currency" [(value)]="currency" />
           }
         </div>
       </div>
@@ -100,6 +139,7 @@ export interface ChargeFormData {
         <pl-form-field [label]="t.category" controlId="charge-category">
           <pl-category-select
             inputId="charge-category"
+            allowCreate
             kind="EXPENSE"
             [label]="t.category"
             [categories]="categoriesStore.categories()"
@@ -224,17 +264,13 @@ export class ChargeFormSheet {
   private readonly store = inject(CardsStore);
   private readonly ref = inject(DialogRef);
 
-  protected readonly currencyOptions: PlSegmentOption<Currency>[] = [
-    { value: 'ARS', label: 'ARS' },
-    { value: 'USD', label: 'USD' },
-  ];
   protected readonly description = signal(this.charge?.description ?? '');
   protected readonly amountText = signal(
     this.charge
       ? displayAmount(this.charge.totalAmount.replace(/\.00$/, '').replace('.', ','))
       : '',
   );
-  protected readonly currency = signal<Currency>(this.charge?.currency ?? 'ARS');
+  protected readonly currency = signal<CardCurrency>(this.charge?.currency ?? 'ARS');
   protected readonly categoryId = signal(this.charge?.categoryId ?? '');
   protected readonly date = signal<LocalDate>(
     this.charge ? parseLocalDate(this.charge.date) : this.today.date(),
@@ -257,7 +293,7 @@ export class ChargeFormSheet {
 
   /** Same rules as the API: first statement by date (or today's open one for a started plan). */
   protected readonly preview = computed(() => {
-    const amount = parseTypedAmount(this.amountText());
+    const amount = this.total();
     const start = this.start();
     if (!amount || start > this.count()) return [];
     const open = this.card.openStatement?.period;
@@ -276,6 +312,43 @@ export class ChargeFormSheet {
       : rows;
   });
 
+  protected readonly modeOptions: PlSegmentOption<AmountMode>[] = [
+    { value: 'TOTAL', label: CARDS_TEXTS.charge.modes.TOTAL },
+    { value: 'INSTALLMENT', label: CARDS_TEXTS.charge.modes.INSTALLMENT },
+  ];
+  /** TAR-02: the amount typed is the total or one installment, as the bank shows it. */
+  protected readonly mode = signal<AmountMode>(
+    (this.charge?.installmentsCount ?? 1) > 1 ? rememberedMode() : 'TOTAL',
+  );
+
+  /** The purchase total, whatever the mode: installment × count with "Por cuota". */
+  protected readonly total = computed(() => {
+    const amount = parseTypedAmount(this.amountText());
+    if (!amount) return undefined;
+    return this.mode() === 'INSTALLMENT'
+      ? totalFromInstallment(Money.of(amount, this.currency()), this.count()).toString()
+      : amount;
+  });
+
+  /** The value not typed, computed live ("Total: $ 549.999,96" or "Cuota: $ 45.833,33"). */
+  protected readonly otherValue = computed(() => {
+    const amount = parseTypedAmount(this.amountText());
+    if (!amount || this.count() < 2) return null;
+    const money = Money.of(amount, this.currency());
+    return this.mode() === 'INSTALLMENT'
+      ? this.t.totalIs(formatMoney(totalFromInstallment(money, this.count())))
+      : this.t.installmentIs(this.count(), formatMoney(money.split(this.count())[0]));
+  });
+
+  /** Chosen by hand in this form: changing the installments no longer changes it. */
+  private modeTouched = false;
+
+  protected setMode(mode: AmountMode): void {
+    this.mode.set(mode);
+    this.modeTouched = true;
+    rememberMode(mode);
+  }
+
   protected value(event: Event): string {
     return (event.target as HTMLInputElement).value;
   }
@@ -285,7 +358,12 @@ export class ChargeFormSheet {
   }
 
   protected setCount(n: number): void {
-    if (!this.locked) this.count.set(Math.min(60, Math.max(1, n)));
+    if (this.locked) return;
+    const previous = this.count();
+    this.count.set(Math.min(60, Math.max(1, n)));
+    // Going to more than one installment brings back the last mode used, unless the user
+    // already chose one in this form.
+    if (previous === 1 && this.count() > 1 && !this.modeTouched) this.mode.set(rememberedMode());
   }
 
   protected setDate(date: LocalDate | null): void {
@@ -293,7 +371,8 @@ export class ChargeFormSheet {
   }
 
   protected async save(): Promise<void> {
-    const amount = parseTypedAmount(this.amountText());
+    const typed = parseTypedAmount(this.amountText());
+    const amount = this.total();
     const errors = this.t.errors;
     if (!this.description().trim()) return this.error.set(errors.description);
     if (!amount) return this.error.set(errors.amount);
@@ -303,9 +382,10 @@ export class ChargeFormSheet {
       if (charge) {
         await this.store.updateCharge(charge.id, this.changes(charge, amount));
       } else {
+        const byInstallment = this.mode() === 'INSTALLMENT' && this.count() > 1;
         await this.store.createCharge(this.card.id, {
           description: this.description().trim(),
-          totalAmount: amount,
+          ...(byInstallment ? { installmentAmount: typed } : { totalAmount: amount }),
           currency: this.currency(),
           categoryId: this.categoryId(),
           date: this.date(),

@@ -162,9 +162,10 @@ describe('goals and savings', () => {
     const res = await api().get('/api/v1/savings').expect(200);
     expect(res.body).toMatchObject({
       rate: { type: 'MEP', sell: '1200.000000' },
-      usd: '4200.00',
-      ars: '3710000.00',
-      arsInUsd: '3091.67',
+      byCurrency: [
+        { currency: 'USD', amount: '4200.00', valueUsd: '4200.00' },
+        { currency: 'ARS', amount: '3710000.00', valueUsd: '3091.67' },
+      ],
       totalUsd: '7291.67',
       totalArs: '8750000.00',
     });

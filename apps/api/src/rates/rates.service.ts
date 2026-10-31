@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { LatestRates } from '@platin/contracts';
-import { LocalDate, RateType, toDecimal } from '@platin/domain';
+import { Currency, LocalDate, RateTable, RateType, toDecimal } from '@platin/domain';
 import { ClockService } from '../common/clock.service';
 import { date, rate, toDbDate } from '../common/serialize';
 import { PrismaService } from '../prisma/prisma.service';
@@ -9,10 +9,14 @@ import { RateProvider } from './rate-provider';
 const MAX_AGE_MS = 60 * 60 * 1000;
 
 export interface RateOfDay {
+  currency: Currency;
   type: RateType;
   sell: string;
   date: LocalDate;
 }
+
+/** Currencies that only have the oficial rate (the dollar also has MEP and blue). */
+const OFICIAL_ONLY: readonly Currency[] = ['EUR', 'BRL', 'CLP', 'UYU'];
 
 /**
  * Rates are stored per day and type. They are refreshed (one request for all types) when there
@@ -40,16 +44,21 @@ export class RatesService {
     const ok = await this.refreshIfStale();
     const rows = await this.prisma.exchangeRate.findMany({
       orderBy: [{ date: 'desc' }, { fetchedAt: 'desc' }],
-      take: 30,
+      take: 60,
     });
-    const byType = new Map<RateType, (typeof rows)[number]>();
-    for (const row of rows) if (!byType.has(row.type)) byType.set(row.type, row);
+    // The newest of each currency and type: each one falls back on its own (MON).
+    const byType = new Map<string, (typeof rows)[number]>();
+    for (const row of rows) {
+      const key = `${row.currency}:${row.type}`;
+      if (!byType.has(key)) byType.set(key, row);
+    }
     const latestFetch = rows.reduce<Date | null>(
       (max, row) => (!max || row.fetchedAt > max ? row.fetchedAt : max),
       null,
     );
     return {
       rates: [...byType.values()].map((row) => ({
+        currency: row.currency,
         type: row.type,
         buy: rate(row.buy),
         sell: rate(row.sell),
@@ -61,14 +70,18 @@ export class RatesService {
   }
 
   /**
-   * Sell rate of a type for a date: that day's or the closest previous one (weekends,
-   * holidays). Refreshes first when asking for today.
+   * Sell rate of a currency and type for a date: that day's or the closest previous one
+   * (weekends, holidays). Refreshes first when asking for today.
    */
-  async rateFor(type: RateType, day: LocalDate): Promise<RateOfDay | null> {
+  async rateFor(
+    type: RateType,
+    day: LocalDate,
+    currency: Currency = 'USD',
+  ): Promise<RateOfDay | null> {
     if (day >= this.clock.today()) await this.refreshIfStale();
     const find = () =>
       this.prisma.exchangeRate.findFirst({
-        where: { type, date: { lte: toDbDate(day) } },
+        where: { currency, type, date: { lte: toDbDate(day) } },
         orderBy: { date: 'desc' },
       });
     let row = await find();
@@ -77,13 +90,27 @@ export class RatesService {
       await this.refreshIfStale();
       row = await find();
     }
-    if (row) return { type, sell: rate(row.sell), date: date(row.date) };
+    if (row) return { currency, type, sell: rate(row.sell), date: date(row.date) };
     // A date before any stored rate: the oldest known one is the best estimate.
     const oldest = await this.prisma.exchangeRate.findFirst({
-      where: { type },
+      where: { currency, type },
       orderBy: { date: 'asc' },
     });
-    return oldest ? { type, sell: rate(oldest.sell), date: date(oldest.date) } : null;
+    return oldest ? { currency, type, sell: rate(oldest.sell), date: date(oldest.date) } : null;
+  }
+
+  /**
+   * Pesos per unit of each currency for a date: the dollar of the preferred type, the others at
+   * the oficial rate. A currency without any stored rate is left out (it can't be valued).
+   */
+  async tableFor(dollarType: RateType, day: LocalDate): Promise<RateTable> {
+    const [usd, ...others] = await Promise.all([
+      this.rateFor(dollarType, day, 'USD'),
+      ...OFICIAL_ONLY.map((currency) => this.rateFor('OFICIAL', day, currency)),
+    ]);
+    const table: RateTable = {};
+    for (const found of [usd, ...others]) if (found) table[found.currency] = found.sell;
+    return table;
   }
 
   private async refresh(): Promise<boolean> {
@@ -104,9 +131,12 @@ export class RatesService {
             source: this.provider.name,
             fetchedAt,
           };
+          const currency = r.currency ?? 'USD';
           return this.prisma.exchangeRate.upsert({
-            where: { date_type: { date: toDbDate(today), type: r.type } },
-            create: { date: toDbDate(today), type: r.type, ...values },
+            where: {
+              date_currency_type: { date: toDbDate(today), currency, type: r.type },
+            },
+            create: { date: toDbDate(today), currency, type: r.type, ...values },
             update: values,
           });
         }),

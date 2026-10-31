@@ -45,7 +45,10 @@ export const transferSchema = z.object({
   currencyOut: currencySchema,
   amountIn: z.string(),
   currencyIn: currencySchema,
-  /** ARS per USD when the currencies differ. */
+  /**
+   * When the currencies differ: pesos per unit of the other currency, or (between two others)
+   * units received per unit sent.
+   */
   impliedRate: z.string().nullable(),
   date: z.string(),
   description: z.string().nullable(),

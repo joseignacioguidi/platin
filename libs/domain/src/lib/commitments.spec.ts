@@ -3,7 +3,7 @@ import { ars, d, p, usd } from './test-helpers';
 
 const input: CommitmentsInput = {
   base: 'ARS',
-  arsPerUsd: '1200',
+  rates: '1200',
   installments: [
     {
       chargeId: 'c1',
@@ -71,16 +71,22 @@ describe('commitmentsByMonth', () => {
 
   it('adds installments due in the month and fixed expenses, by currency', () => {
     const nov = months[0];
-    expect(nov.committed.ARS.toString()).toBe('425833.33');
-    expect(nov.committed.USD.toString()).toBe('24.99');
+    expect(nov.committed.byCurrency.find((m) => m.currency === 'ARS')?.toString()).toBe(
+      '425833.33',
+    );
+    expect(nov.committed.byCurrency.find((m) => m.currency === 'USD')?.toString()).toBe('24.99');
     // 425833.33 + 24.99 × 1200
     expect(nov.committed.base.toString()).toBe('455821.33');
     expect(nov.items.map((i) => i.type)).toEqual(['INSTALLMENT', 'INSTALLMENT', 'FIXED']);
   });
 
   it('uses the fixed amount in force each month', () => {
-    expect(months[1].committed.ARS.toString()).toBe('495833.33');
-    expect(months[2].committed.ARS.toString()).toBe('450000.00');
+    expect(months[1].committed.byCurrency.find((m) => m.currency === 'ARS')?.toString()).toBe(
+      '495833.33',
+    );
+    expect(months[2].committed.byCurrency.find((m) => m.currency === 'ARS')?.toString()).toBe(
+      '450000.00',
+    );
   });
 
   it('computes free = expected income − committed', () => {

@@ -8,16 +8,9 @@ import {
   signal,
 } from '@angular/core';
 import type { Account } from '@platin/contracts';
+import { impliedRate, LocalDate, Money, PocketKind, TransferIntent } from '@platin/domain';
 import {
-  impliedRate,
-  LocalDate,
-  Money,
-  PocketKind,
-  toDecimal,
-  TransferIntent,
-} from '@platin/domain';
-import {
-  displayAmount,
+  formatRate,
   parseTypedAmount,
   PlButton,
   PlDateField,
@@ -170,7 +163,7 @@ export class MoveSheet {
     const into = parseTypedAmount(this.received());
     if (!from || !to || !out || !into) return null;
     const rate = impliedRate(Money.of(out, from.currency), Money.of(into, to.currency));
-    return rate ? this.t.rate(displayAmount(toDecimal(rate).toFixed(2).replace('.', ','))) : null;
+    return rate ? this.t.rate(formatRate(from.currency, to.currency, rate)) : null;
   });
 
   constructor() {

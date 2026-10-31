@@ -33,6 +33,17 @@ export function splitInstallments(total: Money, count: number, startAt = 1): Ins
 }
 
 /**
+ * TAR-02 "por cuota": the total of a purchase loaded with the installment as the bank shows it.
+ * total = installment × count, so splitting it back gives exactly that installment every time.
+ */
+export function totalFromInstallment(installment: Money, count: number): Money {
+  if (!Number.isInteger(count) || count < 1)
+    throw new Error('The number of installments must be at least 1');
+  if (!installment.isPositive()) throw new Error('The installment must be positive');
+  return installment.times(count);
+}
+
+/**
  * Places each installment in a statement: the first one in `firstPeriod`,
  * each following one in the next statement.
  */

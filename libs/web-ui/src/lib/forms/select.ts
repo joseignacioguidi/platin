@@ -7,6 +7,7 @@ import {
   inject,
   input,
   model,
+  output,
   signal,
   TemplateRef,
   viewChild,
@@ -256,6 +257,12 @@ export class PlSelect<T = string> extends PlFormControl<T | null> {
   /** `field`: like a text input. `tile`: small label above a bold value (quick entry). */
   readonly appearance = input<'field' | 'tile'>('field');
   readonly invalid = input(false);
+  /**
+   * Adds an action at the end of the list ("+ Nueva categoría", CAT-06). Choosing it closes the
+   * panel and emits `create` with the search text, so the new item can start with that name.
+   */
+  readonly createLabel = input<string | null>(null);
+  readonly create = output<string>();
 
   protected readonly triggerId = plUniqueId('pl-select');
   protected readonly listId = plUniqueId('pl-select-list');
@@ -278,6 +285,12 @@ export class PlSelect<T = string> extends PlFormControl<T | null> {
   protected readonly isSearchable = computed(() => {
     const searchable = this.searchable();
     return searchable === 'auto' ? this.options().length > 7 : searchable;
+  });
+
+  /** The "create" action, kept as the same object so it can be told apart from real options. */
+  private readonly createOption = computed<PlSelectOption<T | null> | null>(() => {
+    const label = this.createLabel();
+    return label ? { value: null, label, icon: 'plus', tone: 'brand' } : null;
   });
 
   /** Options matching the search, in order. */
@@ -303,6 +316,15 @@ export class PlSelect<T = string> extends PlFormControl<T | null> {
       }
       group.options.push({ option, index });
     });
+    // The create action always closes the list, whatever the search, in its own group.
+    const create = this.createOption();
+    if (create) {
+      groups.push({
+        name: null,
+        id: `${this.listId}-create`,
+        options: [{ option: create, index: 0 }],
+      });
+    }
     // Keeps visual order equal to keyboard order.
     let index = 0;
     for (const group of groups) for (const item of group.options) item.index = index++;
@@ -346,7 +368,7 @@ export class PlSelect<T = string> extends PlFormControl<T | null> {
   }
 
   protected isSelected(option: PlSelectOption<T | null>): boolean {
-    return option.value === this.value();
+    return option !== this.createOption() && option.value === this.value();
   }
 
   protected toneClass(tone: PlTone | null | undefined): string {
@@ -388,6 +410,12 @@ export class PlSelect<T = string> extends PlFormControl<T | null> {
 
   protected choose(option: PlSelectOption<T | null>): void {
     if (option.disabled) return;
+    if (option === this.createOption()) {
+      const query = this.query().trim();
+      this.close();
+      this.create.emit(query);
+      return;
+    }
     this.commit(option.value);
     this.close();
   }

@@ -1,6 +1,6 @@
 import { addMonths, compareDates, LocalDate, monthsBetween, Period, periodOf } from './dates';
 import { Currency } from './enums';
-import { valueIn } from './exchange';
+import { convert, RatesInput } from './exchange';
 import { Decimal, DecimalInput, Money, round2, toDecimal } from './money';
 
 export interface GoalPlan {
@@ -123,16 +123,16 @@ export function goalAccumulated(
   currency: Currency,
   linkedAccounts: readonly GoalAccountBalance[],
   contributions: readonly Money[],
-  arsPerUsd: DecimalInput,
+  rates: RatesInput,
 ): Money {
   if (linkedAccounts.length > 0) {
     return Money.sum(
-      linkedAccounts.map(({ balance }) => valueIn(balance, currency, arsPerUsd)),
+      linkedAccounts.map(({ balance }) => convert(balance, currency, rates)),
       currency,
     );
   }
   return Money.sum(
-    contributions.map((c) => valueIn(c, currency, arsPerUsd)),
+    contributions.map((c) => convert(c, currency, rates)),
     currency,
   );
 }

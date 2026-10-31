@@ -12,6 +12,7 @@ import {
   PlErrorState,
   PlSkeleton,
 } from '@platin/web-ui';
+import { PlanGate, PlUsage } from '../plans/plan-gate';
 import { ChangeAmountSheet } from './change-amount-sheet';
 import { FixedFormSheet } from './fixed-form-sheet';
 import { FixedStore } from './fixed.store';
@@ -20,15 +21,30 @@ import { FIXED_TEXTS } from './fixed.texts';
 /** /app/fijos: fixed expenses and incomes with their next occurrence and amount. */
 @Component({
   selector: 'pl-fixed-page',
-  imports: [PlSkeleton, PlErrorState, PlButton, PlEmptyState, PlListItem, PlMoney, LucidePlus],
+  imports: [
+    PlSkeleton,
+    PlErrorState,
+    PlButton,
+    PlEmptyState,
+    PlListItem,
+    PlMoney,
+    LucidePlus,
+    PlanGate,
+    PlUsage,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
   template: `
     <header class="flex items-center justify-between gap-3">
-      <h1 class="text-3xl font-bold">{{ texts.title }}</h1>
-      <button plButton size="sm" type="button" (click)="open(null)">
-        <svg lucidePlus [size]="18"></svg>{{ texts.new }}
-      </button>
+      <div class="flex min-w-0 flex-col">
+        <h1 class="text-3xl font-bold">{{ texts.title }}</h1>
+        <pl-usage resource="fixed" />
+      </div>
+      <div class="flex shrink-0 items-center gap-2">
+        <button plButton size="sm" type="button" plPlanGate="fixed" (click)="open(null)">
+          <svg lucidePlus [size]="18"></svg>{{ texts.new }}
+        </button>
+      </div>
     </header>
     <p class="text-[15px] text-muted">{{ texts.intro }}</p>
 
@@ -38,7 +54,9 @@ import { FIXED_TEXTS } from './fixed.texts';
       <pl-skeleton [heights]="[72, 72, 72]" />
     } @else if (store.items().length === 0) {
       <pl-empty-state icon="repeat" [heading]="texts.emptyTitle" [description]="texts.emptyBody">
-        <button plButton type="button" (click)="open(null)">{{ texts.new }}</button>
+        <button plButton type="button" plPlanGate="fixed" (click)="open(null)">
+          {{ texts.new }}
+        </button>
       </pl-empty-state>
     } @else {
       @for (group of groups(); track group.title) {
@@ -104,7 +122,9 @@ export class FixedPage {
     if (!item.next) return this.texts.finished;
     const badge = dateBadge(parseLocalDate(item.next.date));
     const when = this.texts.next(`${Number(badge.day)} ${badge.month.toLowerCase()}`);
-    return `${this.texts.every(item.intervalMonths)} · ${when}`;
+    // TAR-09: a subscription shows the card it's charged to.
+    const where = item.card ? ` · ${item.card.name}` : '';
+    return `${this.texts.every(item.intervalMonths)}${where} · ${when}`;
   }
 
   protected open(item: FixedItem | null): void {

@@ -5,6 +5,7 @@ import type {
   Charge,
   CloseStatementRequest,
   CreateCardRequest,
+  ChargesPage,
   CreateChargeRequest,
   PayStatementRequest,
   StatementSummary,
@@ -44,6 +45,22 @@ export class CardsStore {
 
   createCharge(cardId: string, request: CreateChargeRequest): Promise<Charge> {
     return this.write(this.http.post<Charge>(`${API}/cards/${cardId}/charges`, request));
+  }
+
+  /** TAR-12: closed statements, newest first; `cursor` = period of the last one shown. */
+  statementHistory(cardId: string, cursor?: string, limit = 12): Promise<StatementSummary[]> {
+    const params: Record<string, string> = { status: 'closed', limit: String(limit) };
+    if (cursor) params['cursor'] = cursor;
+    return firstValueFrom(
+      this.http.get<StatementSummary[]>(`${API}/cards/${cardId}/statements`, { params }),
+    );
+  }
+
+  /** TAR-13: a page of the purchase history. */
+  chargesPage(filters: Record<string, string | undefined>): Promise<ChargesPage> {
+    const params: Record<string, string> = {};
+    for (const [key, value] of Object.entries(filters)) if (value) params[key] = value;
+    return firstValueFrom(this.http.get<ChargesPage>(`${API}/charges`, { params }));
   }
 
   getCharge(id: string): Promise<Charge> {

@@ -8,6 +8,7 @@ import type {
 } from '@platin/contracts';
 import { balanceAdjustment, Money } from '@platin/domain';
 import { AppException } from '../common/app-exception';
+import { CurrenciesService } from '../common/currencies.service';
 import { freezeBase } from '../common/base-conversion';
 import { money, toDbDate } from '../common/serialize';
 import { Prisma, type Pocket as PocketRow } from '../generated/prisma/client';
@@ -46,6 +47,7 @@ export class PocketsService {
     private readonly balances: PocketBalancesService,
     private readonly rates: UserRates,
     private readonly entitlements: EntitlementsService,
+    private readonly currencies: CurrenciesService,
   ) {}
 
   async get(userId: string, id: string): Promise<Pocket> {
@@ -57,6 +59,7 @@ export class PocketsService {
     const account = await this.prisma.account.findFirst({ where: { id: accountId, userId } });
     if (!account) throw AppException.notFound('Account not found');
     if (account.archivedAt) throw this.archived('ACCOUNT_ARCHIVED', 'The account is archived');
+    await this.currencies.assertEnabled(userId, request.currency);
     // The "Disponible" of each account comes with it; added pockets count for the plan.
     if (request.kind === 'INVESTMENT') await this.entitlements.assertFeature(userId, 'investments');
     const needs = request.kind === 'AVAILABLE' ? {} : { pockets: 1 };
@@ -96,6 +99,10 @@ export class PocketsService {
           'Only a pocket with a zero balance can be archived',
         );
       }
+    }
+    // A pocket that comes back needs its currency enabled again (MON-04 lets history stay).
+    if (archived === false && current.archivedAt) {
+      await this.currencies.assertEnabled(userId, current.currency);
     }
     if (archived === false && current.account.archivedAt) {
       throw this.archived('ACCOUNT_ARCHIVED', 'The account is archived');
@@ -147,7 +154,7 @@ export class PocketsService {
       request.exchangeRate ??
       (pocket.currency === user.baseCurrency
         ? undefined
-        : ((await this.rates.sellFor(userId, request.date)) ?? undefined));
+        : await this.rates.tableFor(userId, request.date));
     const frozen = freezeBase(difference, user.baseCurrency, rate);
     const category = await this.prisma.category.findUnique({
       where: { userId_systemKey: { userId, systemKey: 'ADJUSTMENT' } },

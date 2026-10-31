@@ -1,4 +1,5 @@
 import { accountTotals, balanceAdjustment, pocketBalance, transactionEffect } from './balance';
+import { Money } from './money';
 import { ars, d, usd } from './test-helpers';
 
 describe('pocketBalance', () => {
@@ -95,8 +96,13 @@ describe('accountTotals', () => {
       { balance: usd('1500') }, // Ahorro en dólares
       { balance: ars('500000') }, // Inversión largo plazo
     ]);
-    expect(totals.ARS.toString()).toBe('920000.00');
-    expect(totals.USD.toString()).toBe('1500.00');
+    expect(totals.map((t) => t.toString())).toEqual(['920000.00', '1500.00']);
+    expect(totals.map((t) => t.currency)).toEqual(['ARS', 'USD']);
+  });
+
+  it('lists only the currencies with pockets, in the app order', () => {
+    const totals = accountTotals([{ balance: Money.of('100', 'EUR') }, { balance: ars('10') }]);
+    expect(totals.map((t) => `${t.currency} ${t.toString()}`)).toEqual(['ARS 10.00', 'EUR 100.00']);
   });
 
   it('leaves archived pockets out', () => {
@@ -105,8 +111,7 @@ describe('accountTotals', () => {
       { balance: usd('0'), archived: true },
       { balance: ars('5'), archived: true },
     ]);
-    expect(totals.ARS.toString()).toBe('1000.00');
-    expect(totals.USD.isZero()).toBe(true);
+    expect(totals.map((t) => `${t.currency} ${t.toString()}`)).toEqual(['ARS 1000.00']);
   });
 });
 

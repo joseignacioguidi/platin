@@ -15,10 +15,11 @@ import {
   utcToLocalDate,
   utcToPeriod,
   valueIn,
+  canConvert,
 } from '@platin/domain';
 import { STATEMENT_PARTS, statementTotals } from '../cards/statement-math';
 import { ClockService } from '../common/clock.service';
-import { toDbDate, toDbPeriod } from '../common/serialize';
+import { baseCurrency, toDbDate, toDbPeriod } from '../common/serialize';
 import { FIXED_INCLUDE, FixedRow, toSchedule } from '../fixed/fixed.mapper';
 import type { Prisma } from '../generated/prisma/client';
 import { InvestmentsService } from '../investments/investments.service';
@@ -56,14 +57,14 @@ export class DashboardService {
     const range = { gte: toDbDate(firstDayOf(period)), lte: toDbDate(lastDayOf(period)) };
     const fresh = await this.rates.refreshIfStale();
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    const base = user.baseCurrency;
+    const base = baseCurrency(user.baseCurrency);
+    // Today's rates: the dollar of the preferred type, the other currencies at the oficial rate.
     const todayRate = await this.rates.rateFor(user.valuationRate, today);
+    const todayRates = await this.rates.tableFor(user.valuationRate, today);
     const toBase = (money: Money) =>
-      money.currency === base
-        ? money
-        : todayRate
-          ? valueIn(money, base, todayRate.sell)
-          : Money.zero(base);
+      canConvert(money.currency, base, todayRates)
+        ? valueIn(money, base, todayRates)
+        : Money.zero(base);
 
     const [otherIncome, expenses, charges, fixedItems, monthFixedTx, statements, pending] =
       await Promise.all([

@@ -1,5 +1,5 @@
 import type { StatementSummary } from '@platin/contracts';
-import { Currency, Money, utcToPeriod } from '@platin/domain';
+import { CardCurrency, Currency, Money, utcToPeriod } from '@platin/domain';
 import { date, DecimalLike } from '../common/serialize';
 import type { StatementStatus } from '../generated/prisma/client';
 
@@ -18,9 +18,9 @@ export interface StatementRowWithParts {
 }
 
 export interface StatementTotals {
-  totals: Record<Currency, Money>;
-  paid: Record<Currency, Money>;
-  pending: Record<Currency, Money>;
+  totals: Record<CardCurrency, Money>;
+  paid: Record<CardCurrency, Money>;
+  pending: Record<CardCurrency, Money>;
 }
 
 const sum = (items: { amount: DecimalLike; currency: Currency }[], currency: Currency) =>
@@ -51,7 +51,10 @@ export function statusAfterPayment(totals: StatementTotals): StatementStatus {
 
 export function toStatementSummary(row: StatementRowWithParts): StatementSummary {
   const t = statementTotals(row);
-  const pair = (m: Record<Currency, Money>) => ({ ARS: m.ARS.toString(), USD: m.USD.toString() });
+  const pair = (m: Record<CardCurrency, Money>) => ({
+    ARS: m.ARS.toString(),
+    USD: m.USD.toString(),
+  });
   return {
     id: row.id,
     cardId: row.cardId,

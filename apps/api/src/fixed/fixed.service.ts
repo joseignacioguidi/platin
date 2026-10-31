@@ -7,8 +7,10 @@ import type {
 } from '@platin/contracts';
 import { addMonths, maxDate, Money, parsePeriod, periodOf, utcToPeriod } from '@platin/domain';
 import { PocketsService } from '../accounts/pockets.service';
+import { CardsService } from '../cards/cards.service';
 import { CategoriesService } from '../categories/categories.service';
 import { AppException } from '../common/app-exception';
+import { CurrenciesService } from '../common/currencies.service';
 import { ClockService } from '../common/clock.service';
 import { toDbPeriod } from '../common/serialize';
 import { EntitlementsService } from '../plans/entitlements.service';
@@ -24,6 +26,8 @@ export class FixedService {
     private readonly categories: CategoriesService,
     private readonly clock: ClockService,
     private readonly entitlements: EntitlementsService,
+    private readonly cards: CardsService,
+    private readonly currencies: CurrenciesService,
   ) {}
 
   async list(userId: string): Promise<FixedItem[]> {
@@ -41,8 +45,17 @@ export class FixedService {
   }
 
   async create(userId: string, request: CreateFixedRequest): Promise<FixedItem> {
-    const pocket = await this.pockets.getActive(userId, request.pocketId);
+    // On a pocket the currency is the pocket's; on a card (TAR-09), the one chosen (ARS or USD).
+    const target = request.cardId
+      ? {
+          cardId: (await this.cards.getActive(userId, request.cardId)).id,
+          currency: request.currency as 'ARS' | 'USD',
+        }
+      : await this.pockets
+          .getActive(userId, request.pocketId as string)
+          .then((pocket) => ({ pocketId: pocket.id, currency: pocket.currency }));
     await this.categories.getOwned(userId, request.categoryId, request.kind);
+    await this.currencies.assertEnabled(userId, target.currency);
     const row = await this.entitlements.withinLimits(userId, { fixed: 1 }, (tx) =>
       tx.fixedItem.create({
         data: {
@@ -50,15 +63,14 @@ export class FixedService {
           kind: request.kind,
           name: request.name,
           categoryId: request.categoryId,
-          pocketId: pocket.id,
-          currency: pocket.currency,
+          ...target,
           intervalMonths: request.intervalMonths ?? 1,
           dayOfMonth: request.dayOfMonth,
           startPeriod: toDbPeriod(parsePeriod(request.startPeriod)),
           endPeriod: request.endPeriod ? toDbPeriod(parsePeriod(request.endPeriod)) : null,
           amounts: {
             create: {
-              amount: Money.of(request.amount, pocket.currency).toString(),
+              amount: Money.of(request.amount, target.currency).toString(),
               effectiveFrom: toDbPeriod(parsePeriod(request.startPeriod)),
             },
           },
@@ -72,6 +84,11 @@ export class FixedService {
   async update(userId: string, id: string, changes: UpdateFixedRequest): Promise<FixedItem> {
     const row = await this.getOwned(userId, id);
     if (changes.categoryId) await this.categories.getOwned(userId, changes.categoryId, row.kind);
+    if (changes.pocketId && row.cardId) throw this.wrongTarget();
+    if (changes.cardId) {
+      if (!row.cardId) throw this.wrongTarget();
+      await this.cards.getActive(userId, changes.cardId);
+    }
     if (changes.pocketId) {
       const pocket = await this.pockets.getActive(userId, changes.pocketId);
       if (pocket.currency !== row.currency) {
@@ -86,6 +103,7 @@ export class FixedService {
     const current = periodOf(this.clock.today());
     // Resuming a paused item makes it count for the plan again (SEC-F05).
     const needs = paused === false && row.pausedAt ? { fixed: 1 } : {};
+    if (needs.fixed) await this.currencies.assertEnabled(userId, row.currency);
     const updated = await this.entitlements.withinLimits(userId, needs, (tx) =>
       tx.fixedItem.update({
         where: { id },
@@ -139,10 +157,12 @@ export class FixedService {
 
   async remove(userId: string, id: string): Promise<void> {
     await this.getOwned(userId, id);
-    const used = await this.prisma.transaction.count({
-      where: { fixedId: id, status: 'CONFIRMED' },
-    });
-    if (used > 0) {
+    const [used, charges] = await Promise.all([
+      this.prisma.transaction.count({ where: { fixedId: id, status: 'CONFIRMED' } }),
+      // Charges loaded on a card are history too (TAR-09).
+      this.prisma.cardCharge.count({ where: { fixedId: id } }),
+    ]);
+    if (used + charges > 0) {
       throw new AppException(
         'FIXED_HAS_HISTORY',
         HttpStatus.CONFLICT,
@@ -169,6 +189,15 @@ export class FixedService {
       pausedAt: null,
       lastGeneratedPeriod: toDbPeriod(last ? maxDate(last, resumeAfter) : resumeAfter),
     };
+  }
+
+  /** A fixed item stays where it was created: on a pocket or on a card. */
+  private wrongTarget(): AppException {
+    return new AppException(
+      'VALIDATION_FAILED',
+      HttpStatus.BAD_REQUEST,
+      'A fixed item on a pocket stays on a pocket, and one on a card on a card',
+    );
   }
 
   private async getOwned(userId: string, id: string): Promise<FixedRow> {

@@ -11,6 +11,7 @@ import { installmentProgress, Money, Period, utcToPeriod } from '@platin/domain'
 import { PocketsService } from '../accounts/pockets.service';
 import { AppException } from '../common/app-exception';
 import { ClockService } from '../common/clock.service';
+import { cardCurrency } from '../common/serialize';
 import type { CreditCard } from '../generated/prisma/client';
 import { EntitlementsService } from '../plans/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -87,11 +88,13 @@ export class CardsService {
   async statementsOf(
     userId: string,
     id: string,
-    from?: Period,
-    to?: Period,
+    query: { from?: Period; to?: Period; status?: 'closed'; cursor?: Period; limit?: number },
   ): Promise<StatementSummary[]> {
     const card = await this.getOwned(userId, id);
-    return this.statements.list(card, this.clock.today(), from, to);
+    if (query.status === 'closed') {
+      return this.statements.history(card, query.cursor, query.limit ?? 12);
+    }
+    return this.statements.list(card, this.clock.today(), query.from, query.to);
   }
 
   /** TAR-05: plans with installments still to close. */
@@ -126,7 +129,7 @@ export class CardsService {
           chargeId: charge.id,
           description: charge.description,
           category: { ...charge.category, color: charge.category.color as ColorToken },
-          currency: charge.currency,
+          currency: cardCurrency(charge.currency),
           totalAmount: charge.totalAmount.toFixed(2),
           count: progress.count,
           current: progress.current,
