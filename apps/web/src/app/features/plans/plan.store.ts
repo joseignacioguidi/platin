@@ -86,7 +86,12 @@ export class PlanStore {
           };
         }
       } else if (!hasFeature(limits, key)) {
-        return { kind: 'feature', plan: plan.plan.name, feature: key, upgrade: this.upgradeFor(key) };
+        return {
+          kind: 'feature',
+          plan: plan.plan.name,
+          feature: key,
+          upgrade: this.upgradeFor(key),
+        };
       }
     }
     return null;

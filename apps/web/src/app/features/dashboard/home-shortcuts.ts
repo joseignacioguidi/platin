@@ -1,4 +1,10 @@
-import { CdkDrag, CdkDragDrop, CdkDragHandle, CdkDropList, moveItemInArray } from '@angular/cdk/drag-drop';
+import {
+  CdkDrag,
+  CdkDragDrop,
+  CdkDragHandle,
+  CdkDropList,
+  moveItemInArray,
+} from '@angular/cdk/drag-drop';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import {
@@ -113,7 +119,10 @@ const SHORTCUTS: Record<HomeShortcut, ShortcutInfo> = {
         <p class="rounded-tile bg-surface px-4 py-3 text-sm text-muted">{{ t.none }}</p>
       }
     } @else {
-      <section class="flex flex-col gap-3 rounded-card bg-surface p-4" [attr.aria-label]="t.editLabel">
+      <section
+        class="flex flex-col gap-3 rounded-card bg-surface p-4"
+        [attr.aria-label]="t.editLabel"
+      >
         <p class="text-sm text-muted">{{ t.editHint(max) }}</p>
         <ul
           cdkDropList

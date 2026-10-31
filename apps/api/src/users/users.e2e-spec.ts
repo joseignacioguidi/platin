@@ -70,10 +70,7 @@ describe('users', () => {
     ['an unknown preference', { theme: 'dark' }],
   ])('PATCH /users/me refuses preferences with %s', async (_case, preferences) => {
     const user = await registerUser(ctx.app);
-    const res = await as(ctx.app, user)
-      .patch('/api/v1/users/me')
-      .send({ preferences })
-      .expect(400);
+    const res = await as(ctx.app, user).patch('/api/v1/users/me').send({ preferences }).expect(400);
     expect(res.body.code).toBe('VALIDATION_FAILED');
   });
 

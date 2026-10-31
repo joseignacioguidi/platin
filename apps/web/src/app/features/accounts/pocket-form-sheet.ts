@@ -151,7 +151,11 @@ export class PocketFormSheet {
       value,
       label: ACCOUNTS_TEXTS.pocketKinds[value],
       ...(value === 'INVESTMENT' && block
-        ? { locked: true, badge: block.upgrade, lockedLabel: PLANS_TEXTS.gate.locked(block.upgrade) }
+        ? {
+            locked: true,
+            badge: block.upgrade,
+            lockedLabel: PLANS_TEXTS.gate.locked(block.upgrade),
+          }
         : {}),
     }));
   });
