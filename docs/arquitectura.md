@@ -290,6 +290,38 @@ Saldo de un apartado = saldo inicial + ingresos confirmados − gastos confirmad
 
 No se migran los datos del MVP. Se borran las migraciones de `apps/api/prisma/migrations`, se genera una única migración inicial con el esquema nuevo (incluidas las check constraints de `Transfer`, `Pocket` y `FixedItem` escritas en SQL) y se resetea la base de Neon. Al registrarse, un usuario recibe las categorías sugeridas, las de sistema (Ajustes y Rendimientos) y una cuenta "Efectivo" con su apartado "Disponible" en pesos.
 
+### Iteración 4: monedas, preferencias y tarjetas
+
+Cambios de esquema, con una migración normal (sin reiniciar la base):
+
+```prisma
+enum Currency { ARS USD EUR BRL CLP UYU }
+
+// En User:
+//   currencies  Currency[] @default([ARS, USD])   // monedas activadas (MON-01)
+//   preferences Json       @default("{}")         // { homeShortcuts: string[] } validado con Zod (DAS-04)
+
+// En ExchangeRate: se agrega la moneda y cambia la clave única.
+//   currency Currency @default(USD)               // ARS por 1 unidad de esta moneda
+//   @@unique([date, currency, type])              // reemplaza a @@unique([date, type])
+```
+
+Check constraints en SQL, dentro de la migración: `CardCharge.currency`, `Installment.currency`, `StatementAdjustment.currency` y la moneda de un `FixedItem` con `cardId` solo pueden ser `ARS` o `USD` (MON-05).
+
+Otras decisiones:
+
+- `libs/domain`: `convert(money, to, rates)` generalizado para cualquier par, cruzando por el peso; `CardCurrency` como subtipo de `Currency`. Los totales por moneda pasan de dos campos fijos a una lista `{ currency, amount }[]` en los contratos.
+- `libs/contracts`: `currencySchema` con las seis monedas y `cardCurrencySchema` con dos. Los requests validan además que la moneda esté activada para el usuario (en el servicio, porque depende del usuario).
+- Consumo con valor de cuota: `createChargeRequestSchema` acepta exactamente uno de `totalAmount` o `installmentAmount`; el servicio calcula el total (cuota × cantidad) y no se guarda nada nuevo.
+- Fijos en tarjeta: `POST /sync` crea un `CardCharge` de un pago por período (usando `fixedId` y `fixedPeriod`, que ya existen con su restricción única) en lugar de un pendiente.
+
+| Método y ruta | Caso de uso |
+| --- | --- |
+| `PATCH /users/me` con `currencies` y `preferences.homeShortcuts` | MON-01, MON-04 (rechaza con `CURRENCY_IN_USE`), DAS-04 |
+| `GET /cards/:id/statements?status=closed&cursor=` | TAR-12 |
+| `GET /charges?cardId=&from=&to=&query=&status=active\|finished&cursor=` | TAR-13 |
+| `POST /fixed` con `cardId` | TAR-09 |
+
 ## Backend
 
 Un módulo de Nest por dominio; los controladores son finos, los servicios orquestan y las reglas viven en `libs/domain`.
@@ -444,6 +476,18 @@ Cada feature tiene sus rutas (carga diferida), sus componentes de página y un s
 | `pl-list-item` | Fila de movimiento, compromiso o apartado |
 | `pl-empty-state` | Pantalla vacía con guía de qué cargar |
 
+### Componentes y patrones de la iteración 4
+
+| Pieza | Uso |
+| --- | --- |
+| `PlanStore.can(feature)` y `PlanStore.remaining(resource)` | Saber antes de actuar si algo está incluido y cuánto queda del límite (PLN-07) |
+| Directiva `plPlanGate` | Se pone sobre un botón, opción o acceso: si el plan no lo permite, agrega la marca del plan, cambia el click por la hoja del plan y anuncia el bloqueo a lectores de pantalla. El interceptor de errores de plan queda como red de seguridad |
+| `pl-plan-badge` | La marca "Pro" (o el nombre del plan que lo incluye) |
+| `pl-usage` | "2 de 2 cuentas" junto a los botones de crear |
+| `pl-category-select` con `allowCreate` | Agrega "+ Nueva categoría" al final; abre el formulario de categoría en una hoja encima y devuelve la creada (CAT-06) |
+| `pl-currency-select` | Muestra solo las monedas activadas del usuario, o solo ARS y USD con `cardOnly` |
+| `HomeShortcuts` | Fila de accesos del inicio, con modo edición para elegir y ordenar (arrastrar en escritorio, botones subir y bajar en celular) |
+
 ## Auth y seguridad
 
 Auth propio con dos tokens: un JWT de acceso corto que vive en memoria y un refresh token largo en una cookie httpOnly, rotado en cada uso. Como Vercel reenvía `/api/*` a Render, la cookie es del mismo dominio que la app y no depende de cookies de terceros.
@@ -560,6 +604,8 @@ Cómo se usan:
 7. El cliente HTTP de cotizaciones queda detrás de una interfaz (`RateProvider`), así se puede cambiar de fuente sin tocar el resto.
 
 Para cargar movimientos con fechas viejas hace falta histórico; DolarApi deriva esos datos a ArgentinaDatos. Queda en el backlog evaluarlo; mientras tanto, la cotización se puede corregir a mano en el movimiento.
+
+**Otras monedas (iteración 4).** `GET /v1/cotizaciones` de DolarApi devuelve en un pedido la cotización oficial del dólar, el euro, el real, el peso chileno y el peso uruguayo, cada una con `moneda`, `casa`, `compra` y `venta` ([DolarApi](https://dolarapi.com/v1/cotizaciones)). El módulo `rates` la pide junto con `/v1/dolares` y guarda las de EUR, BRL, CLP y UYU con tipo `OFICIAL`. Las cotizaciones de monedas chicas (el peso chileno vale menos de 2 pesos) necesitan los 6 decimales que ya tiene la columna.
 
 ## Infraestructura y deploy
 

@@ -690,6 +690,112 @@ Forma de trabajo:
 - Rama feat/fase-20-google. Todo en verde antes del PR, con capturas del login y del perfil, y los pasos para probarlo en local con mis credenciales.
 ```
 
+## Iteración 4: lo que surgió del uso diario
+
+Tres fases para lo que se notó al usar la app con datos reales. Son independientes entre sí; las ordeno por impacto en el uso diario y por tamaño.
+
+**Antes de empezar (vos):** volver a exportar los tres documentos a `docs/`.
+
+| Fase | Qué se construye | Casos de uso | Terminado cuando |
+| --- | --- | --- | --- |
+| 21 | Plan visible, accesos del inicio y categorías sin salir de la carga | PLN-07, DAS-04, CAT-06 | Veo "Pro" antes de tocar algo que no incluye mi plan, personalizo los accesos del inicio y creo una categoría mientras cargo un gasto |
+| 22 | Tarjetas: carga por valor de cuota, historial y fijos en tarjeta | TAR-02, 09, 12, 13 | Cargo una compra con la cuota del resumen, veo resúmenes anteriores y mis compras, y mi suscripción se carga sola cada mes |
+| 23 | Varias monedas | MON-01 a 05 | Activo el euro, creo un apartado en euros, compro euros con pesos y el total general lo incluye valuado |
+
+## Fase 21 — Plan visible, accesos y categorías
+
+Tres mejoras de uso en el front, con poco backend: que el plan avise antes, que el inicio lleve a todas las funciones y que no haya que salir de la carga para crear una categoría.
+
+**Terminado cuando:** con el plan Gratis veo la marca "Pro" en "Inversiones" y en "+ Apartado de inversión" antes de tocarlos, y al tocarlos se abre la explicación sin empezar el formulario; veo "2 de 2 cuentas" junto a "Nueva cuenta"; elijo y ordeno mis accesos del inicio y se mantienen en otro dispositivo; creo una categoría desde la carga rápida y queda elegida sin perder el monto.
+
+```
+Leé CLAUDE.md, PLN-07, DAS-04 y CAT-06 de docs/especificacion.md, y la tabla "Componentes y patrones de la iteración 4" de docs/arquitectura.md.
+
+Vamos a hacer la Fase 21 de docs/plan.md.
+
+Plan visible (PLN-07):
+1. Sumá a PlanStore can(feature) y remaining(resource), a partir de GET /me/plan.
+2. Creá la directiva plPlanGate y los componentes pl-plan-badge y pl-usage en libs/web-ui (o en apps/web si dependen del store; justificá dónde).
+3. Recorré toda la app y marcá cada acción, opción y acceso limitado por el plan: crear cuentas, apartados, tarjetas, metas y fijos (con su uso), el tipo "Inversión" en el formulario de apartado, Inversiones en el menú y en los accesos, y la intención "Invertir". Armá primero la lista y mostrámela.
+4. Tocar algo marcado abre la hoja del plan existente, sin abrir el formulario. El interceptor de errores de plan se queda como respaldo.
+
+Accesos del inicio (DAS-04):
+5. Backend: preferences Json en User con su migración, y preferences.homeShortcuts en PATCH /users/me, validado con Zod contra la lista de accesos posibles (sin duplicados, máximo 8).
+6. Web: fila de accesos en el inicio, debajo de "Libre este mes", con ícono y nombre, y el conjunto por defecto (Cuentas, Tarjetas, Fijos, Compromisos, Ahorros, Inversiones, Categorías). Botón "Editar" que permite agregar, quitar y ordenar (arrastrar en escritorio, subir y bajar en celular). Los accesos fuera del plan llevan su marca.
+
+Categorías sin salir (CAT-06):
+7. pl-category-select con allowCreate: "+ Nueva categoría" al final de la lista, con el texto de la búsqueda como nombre inicial. Abre el formulario de categoría existente en una hoja encima; al guardar, la nueva queda elegida.
+8. Activalo en todos los selectores de categoría (movimientos, fijos, consumos, cierre de resumen).
+9. Carga rápida: se mantienen los chips de recientes y el selector con allowCreate reemplaza a "Ver todas". Lo cargado (monto, cuenta, fecha) no se pierde.
+
+Forma de trabajo:
+- Plan primero, esperame.
+- Rama feat/fase-21-plan-accesos-categorias. Todo en verde antes del PR, con capturas de las marcas "Pro", el inicio editando accesos y la creación de categoría desde la carga rápida.
+```
+
+## Fase 22 — Tarjetas: cuotas, historial y fijos
+
+Tres agregados para que las tarjetas se entiendan mejor: cargar la cuota como la muestra el banco, ver lo que ya pasó y que las suscripciones se carguen solas.
+
+**Terminado cuando:** cargo una compra de 12 cuotas de $ 45.833,33 y el total es $ 549.999,96; veo la lista de resúmenes cerrados de mi Visa y entro a uno anterior; veo todas mis compras con tarjeta, filtro las que siguen activas y busco por descripción; creo un fijo de USD 9,99 en mi Visa y al sincronizar aparece como consumo en el resumen que corresponde, una sola vez.
+
+```
+Leé CLAUDE.md, TAR-02, TAR-09, TAR-12 y TAR-13 de docs/especificacion.md, las reglas "Cuotas" y "Fijos y movimientos pendientes", y la sección "Iteración 4: monedas, preferencias y tarjetas" de docs/arquitectura.md.
+
+Vamos a hacer la Fase 22 de docs/plan.md.
+
+Carga por valor de cuota (TAR-02):
+1. createChargeRequestSchema acepta exactamente uno de totalAmount o installmentAmount. El servicio calcula el total como cuota × cantidad; con valor de cuota, todas las cuotas valen exactamente eso. Tests en libs/domain y e2e.
+2. En el formulario de consumo, un segmentado "Total" / "Por cuota" junto al monto, que muestra el otro valor calculado en vivo. Por defecto "Total"; si se elige más de una cuota, recordar el último modo usado.
+
+Historial (TAR-12, TAR-13):
+3. GET /cards/:id/statements?status=closed&cursor= para el historial de resúmenes, y GET /charges con filtros por tarjeta, fechas, texto y estado (activo o terminado: terminó cuando su última cuota está en un resumen cerrado), con cursor. Tests e2e con aislamiento entre usuarios.
+4. En el detalle de la tarjeta, la pestaña "Resumen" pasa a "Resúmenes": el abierto arriba y debajo los anteriores (período, totales, estado y pagos), cada uno con su detalle de consumos, cuotas, ajustes y pagos.
+5. Una pantalla "Compras" por tarjeta (y una general desde Tarjetas) con búsqueda, filtro de estado y fechas, mostrando total, cuota y "4 de 12". Tocar una compra abre su detalle con edición.
+
+Fijos en tarjeta (TAR-09):
+6. El formulario de fijos permite elegir una tarjeta en lugar de un apartado (con pl-currency-select en modo cardOnly).
+7. POST /sync crea, por cada fijo en tarjeta y período vencido, un consumo de un pago con su monto vigente, fechado el día del fijo, en el resumen que le corresponde, en la misma transacción e idempotente por (fixedId, fixedPeriod). No genera pendientes. Tests: idempotencia con sync en paralelo, cambio de monto desde un período y fijo en pausa.
+8. En la lista de compras, los consumos que vienen de un fijo llevan una marca "Fijo".
+
+Forma de trabajo:
+- Plan primero, esperame. Si conviene, dividila en 22a (cuotas e historial) y 22b (fijos en tarjeta).
+- Rama feat/fase-22-tarjetas. Todo en verde antes del PR, con capturas del formulario, del historial de resúmenes y de la lista de compras.
+```
+
+## Fase 23 — Varias monedas
+
+Euro, real, peso chileno y peso uruguayo en toda la app, con cotización automática, sin cambiar las tarjetas.
+
+**Terminado cuando:** activo el euro en el perfil; creo un apartado en euros en Mercado Pago; compro € 100 con pesos y la cotización mostrada es coherente; el total general incluye los euros valuados en la moneda base; una meta en euros calcula su aporte mensual; no puedo desactivar el euro mientras el apartado esté activo; las tarjetas siguen ofreciendo solo pesos y dólares.
+
+```
+Leé CLAUDE.md, el módulo 14 (MON-01 a 05) y la regla "Dinero y monedas" (incluido "Varias monedas") de docs/especificacion.md, y en docs/arquitectura.md las secciones "Iteración 4: monedas, preferencias y tarjetas" y "Cotizaciones" (incluido "Otras monedas").
+
+Vamos a hacer la Fase 23 de docs/plan.md: varias monedas. Es un cambio transversal: antes de tocar código, buscá en todo el monorepo los lugares que asumen ARS y USD (enums, contratos con campos Ars/Usd, totales, formateo, selectores, tests) y mostrame la lista con lo que vas a hacer en cada uno.
+
+Dominio y contratos:
+1. Currency con ARS, USD, EUR, BRL, CLP y UYU; CardCurrency con ARS y USD. convert(money, to, rates) para cualquier par, cruzando por el peso; el tipo preferido (oficial, MEP, blue) solo para el dólar. formatMoney con el símbolo de cada moneda (€, R$, CLP, UYU). Tests de conversiones cruzadas y de redondeo.
+2. Los totales por moneda pasan de campos fijos a listas { currency, amount }[] en los contratos que corresponda. Si cambia la forma de una respuesta, actualizá el front en el mismo PR.
+
+Backend:
+3. Migración: enum ampliado, User.currencies, ExchangeRate.currency con la clave única nueva, y check constraints de moneda de tarjeta en SQL. Las filas existentes de ExchangeRate quedan como USD.
+4. rates: pedir también GET /v1/cotizaciones de DolarApi y guardar EUR, BRL, CLP y UYU con tipo OFICIAL. El fallback a la última cotización guardada funciona por moneda.
+5. Validar en cada servicio que la moneda de un apartado, movimiento, transferencia, fijo, meta o inversión esté activada para el usuario (CURRENCY_NOT_ENABLED), y que las de tarjeta sean ARS o USD.
+6. PATCH /users/me con currencies: ARS y la moneda base siempre activadas; desactivar una en uso responde CURRENCY_IN_USE.
+7. Revisá dashboard, savings, investments, commitments y goals para que valoricen cualquier moneda en la moneda base.
+8. Tests e2e: el escenario del criterio de terminado, y una transferencia EUR → USD.
+
+Web:
+9. Perfil: sección "Monedas" con las seis y su estado, explicando por qué una no se puede desactivar.
+10. pl-currency-select (monedas activadas, o solo ARS y USD con cardOnly) en todos los formularios con moneda.
+11. Totales por moneda en Cuentas, Ahorros e Inversiones: una línea por moneda con saldo, y el total valuado.
+
+Forma de trabajo:
+- Plan primero, esperame. Si conviene, dividila en 23a (dominio, contratos y backend) y 23b (web).
+- Rama feat/fase-23-monedas. Todo en verde antes del PR, con capturas del perfil, de un apartado en euros y de los totales.
+```
+
 ## Después del MVP
 
 La segunda tanda de la especificación, en fases chicas que se pueden hacer en cualquier orden. Los prompts siguen el mismo molde que las fases anteriores: leer `CLAUDE.md` y la sección de la especificación, plan primero, rama propia, PR con todo en verde.
@@ -698,6 +804,6 @@ La segunda tanda de la especificación, en fases chicas que se pueden hacer en c
 | --- | --- | --- |
 | 12 | Presupuestos por categoría con alertas | PRE-01 a 03 |
 | 13 | Reportes y evolución del patrimonio | DAS-02, 03 |
-| 14 | Tarjetas avanzado: corregir fechas, fijos en tarjeta, límite disponible | TAR-06, 09, 10 |
+| 14 | Tarjetas avanzado: corregir fechas y límite disponible (los fijos en tarjeta pasaron a la fase 22) | TAR-06, 10 |
 | 15 | Recuperar contraseña, exportar CSV, simulador y cierre de metas, liberación de cuotas | AUTH-03, MOV-06, MET-04, 05, COM-03 |
 | 16 | Mudanza a VPS (opcional): Caddy, compose de producción, backups, deploy por SSH | Sección "Docker y VPS" de la arquitectura |
