@@ -7,6 +7,7 @@ import type {
   MovementsSummary,
 } from '@platin/contracts';
 import {
+  Currency,
   firstDayOf,
   lastDayOf,
   Money,
@@ -45,7 +46,7 @@ const pocketRef = {
 interface PocketRefRow {
   id: string;
   name: string;
-  currency: 'ARS' | 'USD';
+  currency: Currency;
   accountId: string;
   account: { name: string };
 }

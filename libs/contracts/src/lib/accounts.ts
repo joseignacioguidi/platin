@@ -2,6 +2,7 @@ import { AccountKind, InstrumentType, PocketKind } from '@platin/domain';
 import { z } from 'zod';
 import { transactionSchema } from './transactions';
 import {
+  currencyAmountSchema,
   currencySchema,
   localDateSchema,
   nonNegativeAmountSchema,
@@ -43,7 +44,8 @@ export const colorTokenSchema = z.enum([
   'muted',
 ]);
 
-const totalsSchema = z.object({ ARS: z.string(), USD: z.string() });
+/** One line per currency in use (MON-03). */
+const totalsSchema = z.array(currencyAmountSchema);
 
 const nameSchema = z.string().trim().min(1, 'Ingresá un nombre').max(60);
 
@@ -126,13 +128,18 @@ export const accountsResponseSchema = z.object({
   items: z.array(accountSchema),
   /** Sum per currency of the active pockets that count for net worth. */
   totals: totalsSchema,
+  /**
+   * Those totals valued in the base currency with today's rates (dollar of the preferred type,
+   * the rest oficial); null when some currency has no known rate yet.
+   */
+  totalBase: currencyAmountSchema.nullable(),
 });
 
 /** CTA-06: the real balance of a pocket; the API records the difference as an adjustment. */
 export const adjustBalanceRequestSchema = z.object({
   balance: signedAmountSchema,
   date: localDateSchema,
-  /** ARS per USD; without it, the preferred rate of the day is used. */
+  /** Pesos per unit of the pocket's currency; without it, the rate of the day is used. */
   exchangeRate: rateSchema.optional(),
 });
 

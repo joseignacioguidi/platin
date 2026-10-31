@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { currencySchema, rateTypeSchema, uuidSchema } from './common';
+import { baseCurrencySchema, currencySchema, rateTypeSchema, uuidSchema } from './common';
 
 export const PASSWORD_MIN_LENGTH = 10;
 
@@ -74,17 +74,27 @@ export const userSchema = z.object({
   id: uuidSchema,
   email: z.string(),
   name: z.string().nullable(),
-  baseCurrency: currencySchema,
+  baseCurrency: baseCurrencySchema,
   valuationRate: rateTypeSchema,
   role: roleSchema,
+  /** Enabled currencies (MON-01), in the app's order; pesos and the base are always there. */
+  currencies: z.array(currencySchema),
   preferences: userPreferencesSchema,
 });
 
 export const updateUserRequestSchema = z
   .object({
     name: z.string().trim().min(1).max(80).nullable(),
-    baseCurrency: currencySchema,
+    baseCurrency: baseCurrencySchema,
     valuationRate: rateTypeSchema,
+    /**
+     * MON-01/04: the currencies the user wants enabled. Pesos and the base currency are added
+     * if missing; turning off one in use answers CURRENCY_IN_USE.
+     */
+    currencies: z
+      .array(currencySchema)
+      .max(6)
+      .refine((list) => new Set(list).size === list.length, 'Hay monedas repetidas'),
     /** Merged into the stored preferences: only the keys sent change. */
     preferences: userPreferencesSchema.strict(),
   })

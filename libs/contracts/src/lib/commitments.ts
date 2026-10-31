@@ -1,14 +1,20 @@
 import { z } from 'zod';
-import { currencySchema } from './common';
+import {
+  baseCurrencySchema,
+  cardCurrencySchema,
+  currencyAmountSchema,
+  currencySchema,
+} from './common';
 
-const totalsSchema = z.object({ ARS: z.string(), USD: z.string(), base: z.string() });
+/** One line per currency that appears (MON-03) and everything valued in the base currency. */
+const totalsSchema = z.object({ byCurrency: z.array(currencyAmountSchema), base: z.string() });
 
 export const commitmentItemSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('INSTALLMENT'),
     date: z.string(),
     amount: z.string(),
-    currency: currencySchema,
+    currency: cardCurrencySchema,
     description: z.string(),
     cardName: z.string(),
     number: z.number().int(),
@@ -34,8 +40,11 @@ export const monthCommitmentsSchema = z.object({
 
 /** COM-01/02: next months, by currency and valued in base currency. */
 export const commitmentsResponseSchema = z.object({
-  baseCurrency: currencySchema,
-  /** ARS per USD used for the base values; null when no rate is known yet (USD not valued). */
+  baseCurrency: baseCurrencySchema,
+  /**
+   * ARS per USD (preferred type) used for the base values; null when no rate is known yet: then
+   * the base values only add what is already in the base currency.
+   */
   rate: z.string().nullable(),
   months: z.array(monthCommitmentsSchema),
 });

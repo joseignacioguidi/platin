@@ -1,9 +1,11 @@
 import { z } from 'zod';
-import { rateTypeSchema } from './common';
+import { currencySchema, rateTypeSchema } from './common';
 
 export const exchangeRateSchema = z.object({
+  /** USD has the three types; EUR, BRL, CLP and UYU only OFICIAL. */
+  currency: currencySchema,
   type: rateTypeSchema,
-  /** ARS per 1 USD. */
+  /** ARS per 1 unit of the currency. */
   buy: z.string(),
   sell: z.string(),
   /** Day the rate belongs to. */

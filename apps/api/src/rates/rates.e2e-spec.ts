@@ -26,16 +26,22 @@ describe('rates', () => {
     return (await as(ctx.app, user).get('/api/v1/rates/latest').expect(200)).body;
   };
 
-  it('fetches oficial, blue and MEP once and stores them for the day', async () => {
+  it('fetches the dollar types and the other currencies once and stores them for the day', async () => {
     const body = await latest();
     expect(body.stale).toBe(false);
+    const day = '2026-10-23';
     expect(body.rates).toEqual(
       expect.arrayContaining([
-        { type: 'MEP', buy: '1190.000000', sell: '1200.000000', date: '2026-10-23' },
-        { type: 'OFICIAL', buy: '1500.000000', sell: '1550.000000', date: '2026-10-23' },
-        { type: 'BLUE', buy: '1545.000000', sell: '1565.000000', date: '2026-10-23' },
+        { currency: 'USD', type: 'MEP', buy: '1190.000000', sell: '1200.000000', date: day },
+        { currency: 'USD', type: 'OFICIAL', buy: '1500.000000', sell: '1550.000000', date: day },
+        { currency: 'USD', type: 'BLUE', buy: '1545.000000', sell: '1565.000000', date: day },
+        { currency: 'EUR', type: 'OFICIAL', buy: '1600.000000', sell: '1680.000000', date: day },
+        { currency: 'BRL', type: 'OFICIAL', buy: '270.000000', sell: '285.000000', date: day },
+        { currency: 'CLP', type: 'OFICIAL', buy: '1.550000', sell: '1.650000', date: day },
+        { currency: 'UYU', type: 'OFICIAL', buy: '36.000000', sell: '38.000000', date: day },
       ]),
     );
+    expect(body.rates).toHaveLength(7);
     // Within the hour it doesn't ask again.
     await latest();
     expect(ctx.rates.calls).toBe(1);
@@ -55,7 +61,7 @@ describe('rates', () => {
     const body = await latest();
     expect(body.stale).toBe(true);
     expect(body.rates).toEqual([
-      { type: 'MEP', buy: '1180.000000', sell: '1190.000000', date: '2026-10-20' },
+      { currency: 'USD', type: 'MEP', buy: '1180.000000', sell: '1190.000000', date: '2026-10-20' },
     ]);
   });
 

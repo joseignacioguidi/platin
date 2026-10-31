@@ -2,6 +2,7 @@ export * from './lib/enums';
 export * from './lib/dates';
 export * from './lib/money';
 export * from './lib/exchange';
+export * from './lib/currencies';
 export * from './lib/balance';
 export * from './lib/card-cycle';
 export * from './lib/installments';

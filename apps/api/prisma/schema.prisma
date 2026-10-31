@@ -9,9 +9,15 @@ datasource db {
 }
 
 // ---------- Enums ----------
+// Cards (charges, installments, adjustments, card fixed items) and the user's base currency
+// only take ARS or USD: check constraints in the migration (MON-05).
 enum Currency {
   ARS
   USD
+  EUR
+  BRL
+  CLP
+  UYU
 }
 
 enum RateType {
@@ -109,6 +115,7 @@ model User {
   passwordHash  String? // null when the account only signs in with a provider
   name          String?
   baseCurrency  Currency   @default(ARS)
+  currencies    Currency[] @default([ARS, USD]) // enabled currencies (MON-01)
   valuationRate RateType   @default(MEP)
   lastSyncedAt  DateTime?
   role          Role       @default(USER) // granted by ADMIN_EMAILS, never from the app
@@ -444,13 +451,14 @@ model FixedAmount {
 model ExchangeRate {
   id        String   @id @default(uuid()) @db.Uuid
   date      DateTime @db.Date
-  type      RateType
-  buy       Decimal  @db.Decimal(18, 6) // ARS per 1 USD
+  currency  Currency @default(USD) // ARS per 1 unit of this currency
+  type      RateType // USD: OFICIAL, MEP, BLUE; the others: OFICIAL
+  buy       Decimal  @db.Decimal(18, 6)
   sell      Decimal  @db.Decimal(18, 6)
   source    String
   fetchedAt DateTime @default(now())
 
-  @@unique([date, type])
+  @@unique([date, currency, type])
 }
 
 // ---------- Goals ----------

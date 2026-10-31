@@ -1,6 +1,7 @@
 import { compareDates, LocalDate } from './dates';
 import { Currency, TxStatus, TxType } from './enums';
 import { DecimalInput, Money } from './money';
+import { sumByCurrency } from './exchange';
 
 export interface BalanceTransaction {
   type: TxType;
@@ -59,20 +60,11 @@ export interface PocketForTotals {
 }
 
 /**
- * Totals of an account (or of several): the sum of its pockets, separated by currency.
- * Archived pockets are left out (they can only be archived with a zero balance).
+ * Totals of an account (or of several): the sum of its pockets, one per currency that has a
+ * pocket, in the app's order. Archived pockets are left out (they are archived at zero).
  */
-export function accountTotals(pockets: readonly PocketForTotals[]): Record<Currency, Money> {
-  const totals: Record<Currency, Money> = {
-    ARS: Money.zero(Currency.ARS),
-    USD: Money.zero(Currency.USD),
-  };
-  for (const pocket of pockets) {
-    if (pocket.archived) continue;
-    const currency = pocket.balance.currency;
-    totals[currency] = totals[currency].add(pocket.balance);
-  }
-  return totals;
+export function accountTotals(pockets: readonly PocketForTotals[]): Money[] {
+  return sumByCurrency(pockets.filter((pocket) => !pocket.archived).map((p) => p.balance));
 }
 
 /**

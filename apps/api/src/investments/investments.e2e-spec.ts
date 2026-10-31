@@ -131,12 +131,10 @@ describe('investments', () => {
       { pocketId: fund.id, date: '2026-10-20', value: '1050' },
     ]).expect(201);
     const all = await overview();
-    expect(all.totals.ARS).toEqual({
-      invested: '500000.00',
-      value: '540000.00',
-      yield: '40000.00',
-    });
-    expect(all.totals.USD).toEqual({ invested: '1000.00', value: '1050.00', yield: '50.00' });
+    expect(all.totals).toEqual([
+      { currency: 'ARS', invested: '500000.00', value: '540000.00', yield: '40000.00' },
+      { currency: 'USD', invested: '1000.00', value: '1050.00', yield: '50.00' },
+    ]);
     // In base currency with the fake MEP at 1200: 540.000 + 1050 × 1200.
     expect(all.base).toMatchObject({
       currency: 'ARS',

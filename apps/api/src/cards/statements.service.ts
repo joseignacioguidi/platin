@@ -22,7 +22,7 @@ import {
 import { PocketsService } from '../accounts/pockets.service';
 import { CategoriesService } from '../categories/categories.service';
 import { AppException } from '../common/app-exception';
-import { date, money, toDbDate, toDbPeriod } from '../common/serialize';
+import { cardCurrency, date, money, toDbDate, toDbPeriod } from '../common/serialize';
 import type { CreditCard, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -174,13 +174,13 @@ export class StatementsService {
         number: i.number,
         count: i.charge.installmentsCount,
         amount: money(i.amount),
-        currency: i.currency,
+        currency: cardCurrency(i.currency),
         category: asColor(i.charge.category),
       })),
       adjustments: row.adjustments.map((a) => ({
         id: a.id,
         amount: money(a.amount),
-        currency: a.currency,
+        currency: cardCurrency(a.currency),
         description: a.description,
         category: asColor(a.category),
       })),

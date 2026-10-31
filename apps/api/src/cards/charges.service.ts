@@ -24,7 +24,7 @@ import { CategoriesService } from '../categories/categories.service';
 import { AppException } from '../common/app-exception';
 import { ClockService } from '../common/clock.service';
 import { afterCursor, decodeCursor, encodeCursor } from '../common/cursor';
-import { date, money, toDbDate, toDbPeriod } from '../common/serialize';
+import { cardCurrency, date, money, toDbDate, toDbPeriod } from '../common/serialize';
 import type { CreditCard, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CardsService } from './cards.service';
@@ -178,7 +178,7 @@ export class ChargesService {
           description: row.description,
           category: { ...row.category, color: row.category.color as ColorToken },
           totalAmount: money(row.totalAmount),
-          currency: row.currency,
+          currency: cardCurrency(row.currency),
           installmentsCount: row.installmentsCount,
           installmentAmount: (states[0]?.amount ?? Money.zero(row.currency)).toString(),
           current: progress.current,
@@ -206,7 +206,7 @@ export class ChargesService {
       description: row.description,
       categoryId: row.categoryId,
       totalAmount: money(row.totalAmount),
-      currency: row.currency,
+      currency: cardCurrency(row.currency),
       installmentsCount: row.installmentsCount,
       startInstallment: row.startInstallment,
       fixedId: row.fixedId,

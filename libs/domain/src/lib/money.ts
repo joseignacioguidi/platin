@@ -155,10 +155,22 @@ export interface FormatMoneyOptions {
   signDisplay?: 'auto' | 'always' | 'never';
 }
 
-const SYMBOL: Record<Currency, string> = { ARS: '$', USD: 'USD' };
+const SYMBOL: Record<Currency, string> = {
+  ARS: '$',
+  USD: 'USD',
+  EUR: '€',
+  BRL: 'R$',
+  CLP: 'CLP',
+  UYU: 'UYU',
+};
+
+/** "$", "USD", "€", "R$", "CLP", "UYU". */
+export function currencySymbol(currency: Currency): string {
+  return SYMBOL[currency];
+}
 
 /**
- * Formats with es-AR conventions: "$ 18.500,00", "USD 771,43".
+ * Formats with es-AR conventions: "$ 18.500,00", "USD 771,43", "€ 100,00", "R$ 50,00".
  * Implemented by hand so it is identical in Node and every browser.
  */
 export function formatMoney(money: Money, options: FormatMoneyOptions = {}): string {

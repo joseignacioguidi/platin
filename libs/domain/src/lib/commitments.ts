@@ -1,7 +1,7 @@
 import { addMonths, LocalDate, Period, periodOf } from './dates';
 import { Currency, FixedKind } from './enums';
-import { CurrencyTotals, totalsByCurrency } from './exchange';
-import { DecimalInput, Money } from './money';
+import { CurrencyTotals, RatesInput, totalsByCurrency } from './exchange';
+import { Money } from './money';
 import { duePeriods, FixedSchedule } from './fixed';
 
 export interface InstallmentCommitment {
@@ -30,8 +30,8 @@ export interface CommitmentsInput {
   /** Fixed items (income and expense); paused or finished ones are handled by their schedule. */
   fixed: readonly FixedCommitment[];
   base: Currency;
-  /** ARS per USD used to value everything in the base currency. */
-  arsPerUsd: DecimalInput;
+  /** Rates (pesos per unit) used to value everything in the base currency. */
+  rates: RatesInput;
 }
 
 export type CommitmentItem =
@@ -125,9 +125,9 @@ export function commitmentsByMonth(
     const committed = totalsByCurrency(
       items.map((item) => item.amount),
       input.base,
-      input.arsPerUsd,
+      input.rates,
     );
-    const expectedIncome = totalsByCurrency(incomes, input.base, input.arsPerUsd);
+    const expectedIncome = totalsByCurrency(incomes, input.base, input.rates);
     return {
       period,
       committed,

@@ -14,10 +14,14 @@ import {
   parsePeriod,
   periodOf,
   utcToPeriod,
-  valueIn,
+  canConvert,
+  convert,
+  RateTable,
+  sumByCurrency,
 } from '@platin/domain';
 import { PocketBalancesService } from '../accounts/pocket-balances.service';
 import { AppException } from '../common/app-exception';
+import { CurrenciesService } from '../common/currencies.service';
 import { ClockService } from '../common/clock.service';
 import { money, toDbPeriod } from '../common/serialize';
 import type { Prisma } from '../generated/prisma/client';
@@ -46,6 +50,7 @@ export class GoalsService {
     private readonly rates: RatesService,
     private readonly clock: ClockService,
     private readonly entitlements: EntitlementsService,
+    private readonly currencies: CurrenciesService,
   ) {}
 
   async list(userId: string): Promise<Goal[]> {
@@ -54,15 +59,15 @@ export class GoalsService {
       include: GOAL_INCLUDE,
       orderBy: [{ status: 'asc' }, { targetPeriod: 'asc' }],
     });
-    const rate = await this.todayRate(userId);
-    return Promise.all(rows.map((row) => this.toDto(userId, row, rate)));
+    const rate = await this.todayRates(userId);
+    return Promise.all(rows.map((row) => this.toDto(userId, row, rate.table)));
   }
 
   async get(userId: string, id: string, monthly?: string): Promise<Goal> {
     return this.toDto(
       userId,
       await this.getOwned(userId, id),
-      await this.todayRate(userId),
+      (await this.todayRates(userId)).table,
       monthly,
     );
   }
@@ -73,6 +78,7 @@ export class GoalsService {
   }
 
   async create(userId: string, request: CreateGoalRequest): Promise<Goal> {
+    await this.currencies.assertEnabled(userId, request.currency);
     await this.assertPockets(userId, request.pocketIds ?? []);
     const row = await this.entitlements.withinLimits(userId, { goals: 1 }, (tx) =>
       tx.goal.create({
@@ -88,7 +94,7 @@ export class GoalsService {
         include: GOAL_INCLUDE,
       }),
     );
-    return this.toDto(userId, row, await this.todayRate(userId));
+    return this.toDto(userId, row, (await this.todayRates(userId)).table);
   }
 
   async update(userId: string, id: string, changes: UpdateGoalRequest): Promise<Goal> {
@@ -96,6 +102,7 @@ export class GoalsService {
     if (changes.pocketIds) await this.assertPockets(userId, changes.pocketIds);
     // Only active goals count: reactivating an achieved or cancelled one counts again (SEC-F05).
     const needs = changes.status === 'ACTIVE' && row.status !== 'ACTIVE' ? { goals: 1 } : {};
+    if (needs.goals) await this.currencies.assertEnabled(userId, row.currency);
     await this.entitlements.withinLimits(userId, needs, async (tx) => {
       await tx.goal.update({
         where: { id },
@@ -124,8 +131,8 @@ export class GoalsService {
   }
 
   /**
-   * Total saved, valued in USD with the preferred rate: the savings and investment pockets
-   * that count for net worth, in any currency.
+   * Total saved, valued in USD (dollar of the preferred type, the other currencies at the
+   * oficial rate): the savings and investment pockets that count for net worth, in any currency.
    */
   async savings(userId: string): Promise<Savings> {
     const pockets = await this.prisma.pocket.findMany({
@@ -140,25 +147,31 @@ export class GoalsService {
       orderBy: [{ account: { sortOrder: 'asc' } }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
     const balances = await this.balances.balances(userId, pockets);
-    const rate = await this.todayRate(userId);
-    const sum = (currency: Currency) =>
-      Money.sum(
-        pockets
-          .filter((p) => p.currency === currency)
-          .map((p) => balances.get(p.id) ?? Money.zero(currency)),
-        currency,
-      );
-    const usd = sum('USD');
-    const ars = sum('ARS');
-    const arsInUsd = rate ? valueIn(ars, 'USD', rate.sell) : Money.zero('USD');
-    const usdInArs = rate ? valueIn(usd, 'ARS', rate.sell) : Money.zero('ARS');
+    const rate = await this.todayRates(userId);
+    const byCurrency = sumByCurrency(
+      pockets.map((p) => balances.get(p.id) ?? Money.zero(p.currency)),
+    );
+    // Without a rate for a currency, it can't be valued: it counts as zero in the totals.
+    const valueIn = (money: Money, to: Currency) =>
+      canConvert(money.currency, to, rate.table) ? convert(money, to, rate.table) : Money.zero(to);
+    const lines = byCurrency
+      .map((money) => ({ money, usd: valueIn(money, 'USD') }))
+      .sort((a, b) => b.usd.amount.comparedTo(a.usd.amount));
     return {
-      rate: rate ? { type: rate.type, sell: rate.sell } : null,
-      totalUsd: usd.add(arsInUsd).toString(),
-      totalArs: ars.add(usdInArs).toString(),
-      usd: usd.toString(),
-      ars: ars.toString(),
-      arsInUsd: arsInUsd.toString(),
+      rate: rate.dollar ? { type: rate.dollar.type, sell: rate.dollar.sell } : null,
+      totalUsd: Money.sum(
+        lines.map((line) => line.usd),
+        'USD',
+      ).toString(),
+      totalArs: Money.sum(
+        byCurrency.map((money) => valueIn(money, 'ARS')),
+        'ARS',
+      ).toString(),
+      byCurrency: lines.map((line) => ({
+        currency: line.money.currency,
+        amount: line.money.toString(),
+        valueUsd: line.usd.toString(),
+      })),
       pockets: pockets.map((p) => ({
         id: p.id,
         name: p.name,
@@ -173,22 +186,21 @@ export class GoalsService {
   private async toDto(
     userId: string,
     row: GoalRow,
-    rate: { sell: string } | null,
+    rates: RateTable,
     monthly?: string,
   ): Promise<Goal> {
     const balances = await this.balances.balances(
       userId,
       row.pockets.map((link) => link.pocket),
     );
-    const convert = (m: Money) =>
-      m.currency === row.currency
-        ? m
-        : rate
-          ? valueIn(m, row.currency, rate.sell)
-          : Money.zero(row.currency);
+    // A pocket in a currency without a known rate can't add to the goal yet.
+    const toGoal = (m: Money) =>
+      canConvert(m.currency, row.currency, rates)
+        ? convert(m, row.currency, rates)
+        : Money.zero(row.currency);
     const pockets = row.pockets.map(({ pocket }) => {
       const balance = balances.get(pocket.id) ?? Money.zero(pocket.currency);
-      return { pocket, balance, converted: convert(balance) };
+      return { pocket, balance, converted: toGoal(balance) };
     });
     const accumulated = Money.sum(
       pockets.map((p) => p.converted),
@@ -244,9 +256,15 @@ export class GoalsService {
     };
   }
 
-  private async todayRate(userId: string) {
+  /** The dollar of the preferred type and the table of every currency, for today. */
+  private async todayRates(userId: string) {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    return this.rates.rateFor(user.valuationRate, this.clock.today());
+    const today = this.clock.today();
+    const [dollar, table] = await Promise.all([
+      this.rates.rateFor(user.valuationRate, today),
+      this.rates.tableFor(user.valuationRate, today),
+    ]);
+    return { dollar, table };
   }
 
   private async assertPockets(userId: string, pocketIds: string[]): Promise<void> {

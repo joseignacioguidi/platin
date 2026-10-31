@@ -8,16 +8,17 @@ import {
   lastDayOf,
   Money,
   periodOf,
+  RateTable,
   utcToLocalDate,
 } from '@platin/domain';
 import { ClockService } from '../common/clock.service';
-import { toDbDate } from '../common/serialize';
+import { baseCurrency, cardCurrency, toDbDate } from '../common/serialize';
 import { FIXED_INCLUDE, toSchedule } from '../fixed/fixed.mapper';
 import { PrismaService } from '../prisma/prisma.service';
 
-/** Supplies the ARS-per-USD rate used to value commitments (phase 6 plugs in the rates module). */
+/** Supplies today's rates (pesos per unit) used to value commitments in the base currency. */
 export abstract class CommitmentsRateSource {
-  abstract latestSell(userId: string): Promise<string | null>;
+  abstract today(userId: string): Promise<RateTable>;
 }
 
 /**
@@ -54,7 +55,7 @@ export class CommitmentsService {
         where: { userId, pocketId: { not: null } },
         include: FIXED_INCLUDE,
       }),
-      this.rates.latestSell(userId),
+      this.rates.today(userId),
     ]);
 
     const cardNames = new Map(
@@ -63,8 +64,8 @@ export class CommitmentsService {
     const computed = commitmentsByMonth(
       {
         base: user.baseCurrency,
-        // Without a known rate, USD amounts are reported by currency but not valued in base.
-        arsPerUsd: rate ?? '1',
+        // A currency without a known rate is reported in its line but not valued in base.
+        rates: rate,
         installments: installments.map((i) => ({
           chargeId: i.charge.id,
           description: i.charge.description,
@@ -80,13 +81,13 @@ export class CommitmentsService {
       months,
     );
 
-    const totals = (t: CurrencyTotals) => {
-      const base = rate ? t.base : t[user.baseCurrency];
-      return { ARS: t.ARS.toString(), USD: t.USD.toString(), base: base.toString() };
-    };
+    const totals = (t: CurrencyTotals) => ({
+      byCurrency: t.byCurrency.map((m) => ({ currency: m.currency, amount: m.toString() })),
+      base: t.base.toString(),
+    });
     return {
-      baseCurrency: user.baseCurrency,
-      rate,
+      baseCurrency: baseCurrency(user.baseCurrency),
+      rate: rate.USD === undefined ? null : String(rate.USD),
       months: computed.map((month) => {
         const committed = totals(month.committed);
         const expectedIncome = totals(month.expectedIncome);
@@ -103,7 +104,7 @@ export class CommitmentsService {
                   type: 'INSTALLMENT',
                   date: item.date,
                   amount: item.amount.toString(),
-                  currency: item.amount.currency,
+                  currency: cardCurrency(item.amount.currency),
                   description: item.description,
                   cardName: cardNames.get(item.cardId) ?? '',
                   number: item.number,

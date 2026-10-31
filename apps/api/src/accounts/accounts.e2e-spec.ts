@@ -1,4 +1,4 @@
-import type { Account } from '@platin/contracts';
+import type { Account, AccountsResponse } from '@platin/contracts';
 import { as, registerUser, TestUser } from '../../test/auth-helpers';
 import { addPocket, balanceOf, category, createAccount } from '../../test/fixtures';
 import { createTestApp, resetDatabase, TestContext } from '../../test/test-app';
@@ -20,7 +20,7 @@ describe('accounts and pockets', () => {
     await ctx.app.close();
   });
 
-  const accounts = async (): Promise<{ items: Account[]; totals: { ARS: string; USD: string } }> =>
+  const accounts = async (): Promise<AccountsResponse> =>
     (await as(ctx.app, user).get('/api/v1/accounts').expect(200)).body;
 
   it('every user starts with "Efectivo" and its Disponible in pesos (AUTH-05)', async () => {
@@ -53,7 +53,7 @@ describe('accounts and pockets', () => {
         balance: '150000.50',
       }),
     ]);
-    expect(account.totals).toEqual({ ARS: '150000.50', USD: '0.00' });
+    expect(account.totals).toEqual([{ currency: 'ARS', amount: '150000.50' }]);
   });
 
   it('Mercado Pago: one account with pockets in pesos and dollars, and its totals (CTA-03)', async () => {
@@ -89,8 +89,12 @@ describe('accounts and pockets', () => {
       'Ahorro USD 1500.00',
       'Inversión largo plazo ARS 500000.00',
     ]);
-    expect(account.totals).toEqual({ ARS: '920000.00', USD: '1500.00' });
-    expect(totals).toEqual({ ARS: '920000.00', USD: '1500.00' });
+    const both = [
+      { currency: 'ARS', amount: '920000.00' },
+      { currency: 'USD', amount: '1500.00' },
+    ];
+    expect(account.totals).toEqual(both);
+    expect(totals).toEqual(both);
   });
 
   it('setting money apart is a transfer between pockets: balances change, nothing is spent (CTA-05)', async () => {

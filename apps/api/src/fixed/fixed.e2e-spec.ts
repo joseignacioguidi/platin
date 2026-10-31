@@ -216,19 +216,30 @@ describe('fixed items, sync and commitments', () => {
     expect(res.body.rate).toBe('1200.000000');
     const [oct, nov, dec, jan, feb] = res.body.months;
     // October: rent only (the first statement is due in November).
-    expect(oct).toMatchObject({ period: '2026-10', committed: { ARS: '380000.00', USD: '0.00' } });
-    expect(oct.expectedIncome.ARS).toBe('1850000.00');
+    expect(oct).toMatchObject({
+      period: '2026-10',
+      committed: { byCurrency: [{ currency: 'ARS', amount: '380000.00' }] },
+    });
+    expect(oct.expectedIncome.byCurrency).toEqual([{ currency: 'ARS', amount: '1850000.00' }]);
     expect(oct.free).toBe('1470000.00');
     // November: rent + installment 1 + Spotify (24.99 × 1200 in base).
-    expect(nov.committed).toEqual({ ARS: '420000.00', USD: '24.99', base: '449988.00' });
+    expect(nov.committed).toEqual({
+      byCurrency: [
+        { currency: 'ARS', amount: '420000.00' },
+        { currency: 'USD', amount: '24.99' },
+      ],
+      base: '449988.00',
+    });
     expect(nov.items.map((i: { type: string }) => i.type)).toEqual([
       'INSTALLMENT',
       'INSTALLMENT',
       'FIXED',
     ]);
-    expect(dec.committed.ARS).toBe('420000.00');
-    expect(jan.committed.ARS).toBe('420000.00');
-    expect(feb.committed.ARS).toBe('380000.00');
+    const ars = (month: { committed: { byCurrency: { currency: string; amount: string }[] } }) =>
+      month.committed.byCurrency.find((line) => line.currency === 'ARS')?.amount;
+    expect(ars(dec)).toBe('420000.00');
+    expect(ars(jan)).toBe('420000.00');
+    expect(ars(feb)).toBe('380000.00');
   });
 
   it('isolation: fixed items of another user are invisible and not editable', async () => {
@@ -258,6 +269,6 @@ describe('fixed items, sync and commitments', () => {
     const sync = await theirs.post('/api/v1/sync').expect(200);
     expect(sync.body).toMatchObject({ generatedPending: 0, pendingCount: 0 });
     const commitments = await theirs.get('/api/v1/commitments').expect(200);
-    expect(commitments.body.months[0].committed.ARS).toBe('0.00');
+    expect(commitments.body.months[0].committed).toEqual({ byCurrency: [], base: '0.00' });
   });
 });

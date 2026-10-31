@@ -75,14 +75,18 @@ export const goalSchema = z.object({
 
 export const goalProjectionQuerySchema = z.object({ monthly: amountSchema });
 
-/** GET /savings: total saved valued in USD with the preferred rate. */
+/**
+ * GET /savings: total saved valued in USD (dollar of the preferred type, the other currencies at
+ * the oficial rate), and what each currency adds (MON-03).
+ */
 export const savingsSchema = z.object({
   rate: z.object({ type: z.string(), sell: z.string() }).nullable(),
   totalUsd: z.string(),
   totalArs: z.string(),
-  usd: z.string(),
-  ars: z.string(),
-  arsInUsd: z.string(),
+  /** One line per currency with savings, with its value in USD; biggest first by value. */
+  byCurrency: z.array(
+    z.object({ currency: currencySchema, amount: z.string(), valueUsd: z.string() }),
+  ),
   /** Savings and investment pockets that count for net worth. */
   pockets: z.array(
     z.object({

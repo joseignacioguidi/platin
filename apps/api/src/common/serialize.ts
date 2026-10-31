@@ -1,4 +1,13 @@
-import { LocalDate, localDateToUtc, Period, periodToUtc, utcToLocalDate } from '@platin/domain';
+import {
+  CardCurrency,
+  Currency,
+  isCardCurrency,
+  LocalDate,
+  localDateToUtc,
+  Period,
+  periodToUtc,
+  utcToLocalDate,
+} from '@platin/domain';
 
 /** Anything Prisma returns for a Decimal column. */
 export interface DecimalLike {
@@ -29,3 +38,15 @@ export function toDbDate(value: LocalDate): Date {
 export function toDbPeriod(value: Period): Date {
   return periodToUtc(value);
 }
+
+/**
+ * A currency of a card row (charge, installment, adjustment, card fixed item): only ARS or USD,
+ * guaranteed by the check constraints of the database (MON-05).
+ */
+export function cardCurrency(value: Currency): CardCurrency {
+  if (!isCardCurrency(value)) throw new Error(`Card rows can't be in ${value}`);
+  return value;
+}
+
+/** The base currency of a user: ARS or USD (check constraint on User). */
+export const baseCurrency = cardCurrency;

@@ -11,6 +11,7 @@ import { installmentProgress, Money, Period, utcToPeriod } from '@platin/domain'
 import { PocketsService } from '../accounts/pockets.service';
 import { AppException } from '../common/app-exception';
 import { ClockService } from '../common/clock.service';
+import { cardCurrency } from '../common/serialize';
 import type { CreditCard } from '../generated/prisma/client';
 import { EntitlementsService } from '../plans/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -128,7 +129,7 @@ export class CardsService {
           chargeId: charge.id,
           description: charge.description,
           category: { ...charge.category, color: charge.category.color as ColorToken },
-          currency: charge.currency,
+          currency: cardCurrency(charge.currency),
           totalAmount: charge.totalAmount.toFixed(2),
           count: progress.count,
           current: progress.current,

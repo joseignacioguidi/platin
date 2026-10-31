@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { instrumentSchema, pocketSchema } from './accounts';
-import { currencySchema, localDateSchema, nonNegativeAmountSchema, uuidSchema } from './common';
+import {
+  baseCurrencySchema,
+  currencySchema,
+  localDateSchema,
+  nonNegativeAmountSchema,
+  uuidSchema,
+} from './common';
 
 export const valuationSchema = z.object({
   id: uuidSchema,
@@ -37,10 +43,11 @@ export const investmentsSchema = z.object({
   accounts: z.array(
     z.object({ id: uuidSchema, name: z.string(), pockets: z.array(investmentPocketSchema) }),
   ),
-  totals: z.object({ ARS: totalsSchema, USD: totalsSchema }),
-  /** Everything valued in the base currency with the preferred rate of today. */
+  /** One line per currency with investments (MON-03). */
+  totals: z.array(totalsSchema.extend({ currency: currencySchema })),
+  /** Everything valued in the base currency with today's rates. */
   base: z.object({
-    currency: currencySchema,
+    currency: baseCurrencySchema,
     invested: z.string(),
     value: z.string(),
     yield: z.string(),

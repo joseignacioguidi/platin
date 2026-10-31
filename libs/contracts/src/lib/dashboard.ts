@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { currencySchema, periodSchema, rateTypeSchema, uuidSchema } from './common';
+import {
+  baseCurrencySchema,
+  currencySchema,
+  periodSchema,
+  rateTypeSchema,
+  uuidSchema,
+} from './common';
 
 export const dashboardQuerySchema = z.object({ period: periodSchema.optional() });
 
@@ -29,7 +35,7 @@ export const upcomingItemSchema = z.discriminatedUnion('type', [
 /** DAS-01: "Libre este mes" and what surrounds it, all in base currency. */
 export const dashboardSchema = z.object({
   period: z.string(),
-  currency: currencySchema,
+  currency: baseCurrencySchema,
   /** Fixed incomes of the month + other confirmed incomes. */
   expectedIncome: z.string(),
   /** Confirmed expenses + card purchases of the month. */

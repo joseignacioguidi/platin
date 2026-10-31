@@ -1,7 +1,25 @@
 /** Shared enums. Values match the Prisma schema exactly. */
 
-export const Currency = { ARS: 'ARS', USD: 'USD' } as const;
+export const Currency = {
+  ARS: 'ARS',
+  USD: 'USD',
+  EUR: 'EUR',
+  BRL: 'BRL',
+  CLP: 'CLP',
+  UYU: 'UYU',
+} as const;
 export type Currency = (typeof Currency)[keyof typeof Currency];
+/** Every currency, in the order the app lists them (MON-01). */
+export const CURRENCIES = Object.values(Currency) as readonly Currency[];
+
+/** Cards stay in pesos and dollars, like the banks' statements (MON-05). */
+export const CardCurrency = { ARS: 'ARS', USD: 'USD' } as const;
+export type CardCurrency = (typeof CardCurrency)[keyof typeof CardCurrency];
+export const CARD_CURRENCIES = Object.values(CardCurrency) as readonly CardCurrency[];
+
+export function isCardCurrency(currency: Currency): currency is CardCurrency {
+  return currency === Currency.ARS || currency === Currency.USD;
+}
 
 export const RateType = { OFICIAL: 'OFICIAL', MEP: 'MEP', BLUE: 'BLUE' } as const;
 export type RateType = (typeof RateType)[keyof typeof RateType];

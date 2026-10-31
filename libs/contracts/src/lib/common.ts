@@ -17,7 +17,7 @@ export const nonNegativeAmountSchema = z
   .string()
   .regex(/^\d{1,16}(\.\d{1,2})?$/, 'Ingresá un monto válido');
 
-/** Exchange rate (ARS per USD, or factor to base), up to 6 decimals. */
+/** Exchange rate (pesos per unit of a currency, or factor to base), up to 6 decimals. */
 export const rateSchema = z
   .string()
   .regex(/^\d{1,12}(\.\d{1,6})?$/, 'Ingresá una cotización válida')
@@ -47,9 +47,23 @@ export const periodSchema = z
   .refine(inYearRange, `El año tiene que estar entre ${MIN_YEAR} y ${MAX_YEAR}`)
   .transform((value) => value as Period);
 
-export const currencySchema = z.enum([Currency.ARS, Currency.USD]);
+/** Every currency a pocket, movement, fixed item, goal or investment can use (MON-02). */
+export const currencySchema = z.enum([
+  Currency.ARS,
+  Currency.USD,
+  Currency.EUR,
+  Currency.BRL,
+  Currency.CLP,
+  Currency.UYU,
+]);
 /** Cards stay in pesos and dollars, like the banks' statements (MON-05). */
 export const cardCurrencySchema = z.enum([Currency.ARS, Currency.USD]);
+/** The user's base currency: pesos or dollars. */
+export const baseCurrencySchema = z.enum([Currency.ARS, Currency.USD]);
+
+/** One total of a currency, in lists that only include the currencies in use (MON-03). */
+export const currencyAmountSchema = z.object({ currency: currencySchema, amount: z.string() });
+export type CurrencyAmount = z.infer<typeof currencyAmountSchema>;
 export const rateTypeSchema = z.enum([RateType.OFICIAL, RateType.MEP, RateType.BLUE]);
 
 export const uuidSchema = z.uuid();

@@ -26,6 +26,7 @@ describe('users', () => {
       baseCurrency: 'ARS',
       valuationRate: 'MEP',
       role: 'USER',
+      currencies: ['ARS', 'USD'],
       preferences: {},
     });
   });

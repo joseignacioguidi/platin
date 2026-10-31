@@ -10,6 +10,7 @@ import { PocketsService } from '../accounts/pockets.service';
 import { CardsService } from '../cards/cards.service';
 import { CategoriesService } from '../categories/categories.service';
 import { AppException } from '../common/app-exception';
+import { CurrenciesService } from '../common/currencies.service';
 import { ClockService } from '../common/clock.service';
 import { toDbPeriod } from '../common/serialize';
 import { EntitlementsService } from '../plans/entitlements.service';
@@ -26,6 +27,7 @@ export class FixedService {
     private readonly clock: ClockService,
     private readonly entitlements: EntitlementsService,
     private readonly cards: CardsService,
+    private readonly currencies: CurrenciesService,
   ) {}
 
   async list(userId: string): Promise<FixedItem[]> {
@@ -53,6 +55,7 @@ export class FixedService {
           .getActive(userId, request.pocketId as string)
           .then((pocket) => ({ pocketId: pocket.id, currency: pocket.currency }));
     await this.categories.getOwned(userId, request.categoryId, request.kind);
+    await this.currencies.assertEnabled(userId, target.currency);
     const row = await this.entitlements.withinLimits(userId, { fixed: 1 }, (tx) =>
       tx.fixedItem.create({
         data: {
@@ -100,6 +103,7 @@ export class FixedService {
     const current = periodOf(this.clock.today());
     // Resuming a paused item makes it count for the plan again (SEC-F05).
     const needs = paused === false && row.pausedAt ? { fixed: 1 } : {};
+    if (needs.fixed) await this.currencies.assertEnabled(userId, row.currency);
     const updated = await this.entitlements.withinLimits(userId, needs, (tx) =>
       tx.fixedItem.update({
         where: { id },
