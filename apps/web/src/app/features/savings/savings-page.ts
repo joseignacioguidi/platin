@@ -17,6 +17,7 @@ import {
   PlButton,
   PlEmptyState,
   PlMoney,
+  PlChartPoint,
   PlProgress,
   PlStackedBar,
   PlStackSegment,
@@ -61,6 +62,7 @@ const PACE_CLASS = {
 @Component({
   selector: 'pl-savings-page',
   imports: [
+    PlChartPoint,
     PlSkeleton,
     PlErrorState,
     RouterLink,
@@ -104,7 +106,8 @@ const PACE_CLASS = {
             <span class="font-amount text-sm opacity-80">{{ approx() }}</span>
           }
         </div>
-        <pl-stacked-bar [segments]="split()" />
+        <!-- Shares are compared in dollars. -->
+        <pl-stacked-bar [segments]="split()" currency="USD" />
         <!-- MON-03: what each currency adds, in its own currency. -->
         <ul class="flex flex-wrap justify-between gap-x-4 gap-y-2 text-[15px]">
           @for (line of s.byCurrency; track line.currency) {
@@ -151,11 +154,18 @@ const PACE_CLASS = {
               {{ badge(goal) }}
             </span>
           </div>
-          <pl-progress
-            [value]="percent(goal)"
-            [tone]="goal.currency === 'USD' ? 'savings' : 'brand'"
-            [label]="goal.name"
-          />
+          <div
+            class="rounded-full py-1"
+            [plChartPoint]="goal.name"
+            [amount]="goal.projection.accumulated"
+            [currency]="goal.currency"
+          >
+            <pl-progress
+              [value]="percent(goal)"
+              [tone]="goal.currency === 'USD' ? 'savings' : 'brand'"
+              [label]="goal.name"
+            />
+          </div>
           <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <span class="font-amount text-[15px]">
               <pl-money

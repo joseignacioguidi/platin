@@ -78,8 +78,8 @@ export class TransactionsService {
   }
 
   /**
-   * MOV-04. Changing the amount, pocket or rate re-freezes the base value; otherwise the
-   * frozen rate is kept (history is not recalculated).
+   * MOV-04. Changing the amount or rate re-freezes the base value; otherwise the frozen rate is
+   * kept (history is not recalculated). The pocket can change to another of the same currency.
    */
   async update(
     userId: string,
@@ -98,6 +98,15 @@ export class TransactionsService {
     const pocket = changes.pocketId
       ? await this.pockets.getActive(userId, changes.pocketId)
       : await this.pockets.getOwned(userId, current.pocketId);
+    // MOV-04: another pocket (and account), only in the same currency: changing the currency
+    // means deleting the movement and loading it again.
+    if (pocket.currency !== current.currency) {
+      throw new AppException(
+        'CURRENCY_MISMATCH',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'The new pocket must be in the same currency as the movement',
+      );
+    }
     if (changes.categoryId)
       await this.categories.getOwned(
         userId,
@@ -106,10 +115,7 @@ export class TransactionsService {
       );
 
     const amount = Money.of(changes.amount ?? current.amount.toFixed(2), pocket.currency);
-    const needsRefreeze =
-      changes.amount !== undefined ||
-      changes.exchangeRate !== undefined ||
-      pocket.currency !== current.currency;
+    const needsRefreeze = changes.amount !== undefined || changes.exchangeRate !== undefined;
     const baseCurrency = await this.baseCurrency(userId);
     const date = changes.date ?? utcToLocalDate(current.date);
     // Only a pending movement can wait for a future date (MOV-08).
@@ -119,7 +125,7 @@ export class TransactionsService {
           amount,
           baseCurrency,
           changes.exchangeRate ??
-            (pocket.currency === current.currency ? this.storedRate(current) : undefined) ??
+            this.storedRate(current) ??
             (await this.rateOfDay(userId, amount, baseCurrency, date)),
         )
       : undefined;

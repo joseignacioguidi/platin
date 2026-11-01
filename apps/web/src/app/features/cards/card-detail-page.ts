@@ -30,6 +30,8 @@ import {
 import {
   formatDate,
   formatPeriod,
+  HideAmounts,
+  PlChartPoint,
   PlBottomSheet,
   PlButton,
   PlEmptyState,
@@ -88,6 +90,7 @@ const MONTHS_LONG = [
 @Component({
   selector: 'pl-card-detail-page',
   imports: [
+    PlChartPoint,
     PlSkeleton,
     PlErrorState,
     RouterLink,
@@ -163,14 +166,16 @@ const MONTHS_LONG = [
             /></span>
             <span>{{ texts.limit }} <pl-money [amount]="card.creditLimit" /></span>
           </div>
-          <div
-            class="h-2 overflow-hidden rounded-full bg-line"
-            role="progressbar"
-            [attr.aria-valuenow]="usedPercent()"
-            aria-valuemin="0"
-            aria-valuemax="100"
-          >
-            <div class="h-full rounded-full bg-ink" [style.width.%]="usedPercent()"></div>
+          <div class="rounded-full py-2" [plChartPoint]="texts.used" [amount]="card.committedArs">
+            <div
+              class="h-2 overflow-hidden rounded-full bg-line"
+              role="progressbar"
+              [attr.aria-valuenow]="usedPercent()"
+              aria-valuemin="0"
+              aria-valuemax="100"
+            >
+              <div class="h-full rounded-full bg-ink" [style.width.%]="usedPercent()"></div>
+            </div>
           </div>
         </section>
       }
@@ -328,10 +333,16 @@ const MONTHS_LONG = [
                 <span class="text-sm font-semibold text-brand-strong">{{ r }}</span>
               }
             </div>
-            <div class="flex h-36 items-end gap-2" role="img" [attr.aria-label]="chartLabel()">
+            <div class="flex h-36 items-end gap-2" role="group" [attr.aria-label]="chartLabel()">
               @for (bar of bars(); track bar.period; let first = $first) {
-                <div class="flex flex-1 flex-col items-center justify-end gap-1">
-                  <span class="font-amount text-xs">{{ bar.label }}</span>
+                <div
+                  class="flex h-full flex-1 flex-col items-center justify-end gap-1 rounded-xl"
+                  [plChartPoint]="bar.name"
+                  [amount]="bar.amount"
+                >
+                  <span class="font-amount text-xs">{{
+                    hideAmounts.hidden() ? '•••' : bar.label
+                  }}</span>
                   <div
                     class="w-full rounded-xl"
                     [class.bg-card]="first"
@@ -356,16 +367,22 @@ const MONTHS_LONG = [
                   </span>
                 </div>
                 <div
-                  class="h-2 overflow-hidden rounded-full bg-card-soft"
-                  role="progressbar"
-                  [attr.aria-valuenow]="plan.current"
-                  aria-valuemin="0"
-                  [attr.aria-valuemax]="plan.count"
+                  class="rounded-full py-2"
+                  [plChartPoint]="plan.description"
+                  [value]="texts.installmentOf(plan.current, plan.count)"
                 >
                   <div
-                    class="h-full rounded-full bg-card"
-                    [style.width.%]="(plan.current / plan.count) * 100"
-                  ></div>
+                    class="h-2 overflow-hidden rounded-full bg-card-soft"
+                    role="progressbar"
+                    [attr.aria-valuenow]="plan.current"
+                    aria-valuemin="0"
+                    [attr.aria-valuemax]="plan.count"
+                  >
+                    <div
+                      class="h-full rounded-full bg-card"
+                      [style.width.%]="(plan.current / plan.count) * 100"
+                    ></div>
+                  </div>
                 </div>
                 <div class="flex justify-between text-sm text-muted">
                   <span class="font-amount"
@@ -390,6 +407,7 @@ export class CardDetailPage {
   readonly id = input.required<string>();
 
   protected readonly texts = CARDS_TEXTS;
+  protected readonly hideAmounts = inject(HideAmounts);
   private readonly sheet = inject(PlBottomSheet);
   private readonly bus = inject(RefreshBus);
   private readonly store = inject(CardsStore);
@@ -449,6 +467,8 @@ export class CardDetailPage {
         period: s.period,
         month: MONTHS_SHORT[Number(s.period.slice(5, 7)) - 1],
         label: value >= 1000 ? `${Math.round(value / 1000)}k` : String(Math.round(value)),
+        name: formatPeriod(parsePeriod(s.period)),
+        amount: s.totals.ARS,
         // Pixel heights for the chart only; amounts themselves stay decimal strings.
         height: max > 0 ? Math.max(6, Math.round((value / max) * 96)) : 6,
       };

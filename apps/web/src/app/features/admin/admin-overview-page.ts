@@ -1,7 +1,7 @@
 import { httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed } from '@angular/core';
 import type { AdminMetrics } from '@platin/contracts';
-import { formatDate, PlErrorState, PlSkeleton } from '@platin/web-ui';
+import { formatDate, PlChartPoint, PlErrorState, PlSkeleton } from '@platin/web-ui';
 import { ADMIN_API } from './admin.api';
 import { ADMIN_TEXTS } from './admin.texts';
 
@@ -10,7 +10,7 @@ type FeatureKey = keyof AdminMetrics['featureUsage'];
 /** ADM-02: aggregated metrics, never per-user content. */
 @Component({
   selector: 'pl-admin-overview-page',
-  imports: [PlSkeleton, PlErrorState],
+  imports: [PlSkeleton, PlErrorState, PlChartPoint],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1 class="mb-5 text-2xl font-bold tracking-[-0.03em]">{{ t.title }}</h1>
@@ -32,8 +32,9 @@ type FeatureKey = keyof AdminMetrics['featureUsage'];
         <ol class="mt-4 flex h-40 items-end gap-1.5">
           @for (week of m.signupsByWeek; track week.weekStart) {
             <li
-              class="flex h-full flex-1 flex-col items-center justify-end gap-1"
-              [attr.aria-label]="t.signupsAria(format(week.weekStart), week.count)"
+              class="flex h-full flex-1 flex-col items-center justify-end gap-1 rounded-t-md"
+              [plChartPoint]="t.signupsWeek(format(week.weekStart))"
+              [value]="t.signupsCount(week.count)"
             >
               <span class="font-amount text-xs" aria-hidden="true">{{ week.count }}</span>
               <span

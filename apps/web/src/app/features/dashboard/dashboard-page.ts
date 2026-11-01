@@ -95,7 +95,7 @@ import { HomeShortcuts } from './home-shortcuts';
             de <pl-money [amount]="d.expectedIncome" [currency]="d.currency" /> {{ texts.ofIncome }}
           </span>
         </div>
-        <pl-stacked-bar [segments]="segments()" />
+        <pl-stacked-bar [segments]="segments()" [currency]="d.currency" />
         <dl class="flex flex-col gap-2.5 text-sm">
           @for (row of legend(); track row.label) {
             <div class="flex items-center gap-2.5">

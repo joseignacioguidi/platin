@@ -10,9 +10,11 @@ import {
   PlButton,
   PlCategorySelect,
   PlDateField,
+  PlPocketSelect,
   PlSheet,
   formatRate,
 } from '@platin/web-ui';
+import { AccountsStore } from '../accounts/accounts.store';
 import { errorMessage } from '../../core/errors';
 import { FormField } from '../../core/forms/form-field';
 import { Today } from '../../core/today';
@@ -29,7 +31,15 @@ const INPUT =
 /** MOV-04: see, edit, confirm or delete one movement. */
 @Component({
   selector: 'pl-movement-sheet',
-  imports: [PlSheet, PlButton, PlCategorySelect, PlDateField, FormField, MovementRow],
+  imports: [
+    PlSheet,
+    PlButton,
+    PlCategorySelect,
+    PlDateField,
+    PlPocketSelect,
+    FormField,
+    MovementRow,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet>
@@ -60,6 +70,21 @@ const INPUT =
                 (valueChange)="categoryId.set($event ?? '')"
               />
             </pl-form-field>
+          }
+          @if (movement.kind === 'TRANSACTION' && categoryKind()) {
+            <!-- MOV-04: another pocket (and account) of the same currency. -->
+            <pl-form-field [label]="texts.account" controlId="movement-pocket">
+              <pl-pocket-select
+                inputId="movement-pocket"
+                display="account"
+                [label]="texts.account"
+                [pockets]="accountsStore.pockets()"
+                [currency]="movement.currency"
+                [value]="pocketId()"
+                (valueChange)="pocketId.set($event ?? pocketId())"
+              />
+            </pl-form-field>
+            <p class="-mt-1 text-xs text-muted">{{ texts.sameCurrency(movement.currency) }}</p>
           }
           <label class="flex flex-col gap-1">
             <span class="text-sm font-medium">{{ texts.description }}</span>
@@ -155,6 +180,7 @@ export class MovementSheet {
   private readonly sheet = inject(PlBottomSheet);
   private readonly cardsStore = inject(CardsStore);
   protected readonly today = inject(Today);
+  protected readonly accountsStore = inject(AccountsStore);
 
   /** Statement payments are undone from the card, not from the list. */
   protected readonly deletable = !(this.movement.kind === 'TRANSFER' && this.movement.statement);
@@ -173,6 +199,9 @@ export class MovementSheet {
     this.movement.kind === 'TRANSACTION' ? (this.movement.category?.id ?? '') : '',
   );
   protected readonly description = signal(this.movement.description ?? '');
+  protected readonly pocketId = signal<string | null>(
+    this.movement.kind === 'TRANSACTION' ? this.movement.pocket.id : null,
+  );
   protected readonly date = signal<LocalDate>(parseLocalDate(this.movement.date));
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -230,6 +259,9 @@ export class MovementSheet {
         categoryId: this.categoryId() || undefined,
         description: this.description().trim() || null,
         date: this.date(),
+        ...(this.movement.kind === 'TRANSACTION' && this.pocketId() !== this.movement.pocket.id
+          ? { pocketId: this.pocketId() as string }
+          : {}),
       }),
     );
   }

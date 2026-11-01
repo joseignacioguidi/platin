@@ -128,6 +128,61 @@ describe('transactions', () => {
     await api.get(`/api/v1/transactions/${created.body.id}`).expect(404);
   });
 
+  it('moves a movement to a pocket of another account in the same currency (MOV-04)', async () => {
+    const api = as(ctx.app, user);
+    const mp = await createPocket(ctx.app, user, { name: 'Mercado Pago', initialBalance: '0' });
+    const dollars = await createPocket(ctx.app, user, { name: 'Caja USD', currency: 'USD' });
+    const created = await api
+      .post('/api/v1/transactions')
+      .send(expense({ amount: '12000' }))
+      .expect(201);
+
+    const moved = await api
+      .patch(`/api/v1/transactions/${created.body.id}`)
+      .send({ pocketId: mp.id })
+      .expect(200);
+    expect(moved.body).toMatchObject({
+      pocketId: mp.id,
+      amount: '12000.00',
+      baseAmount: '12000.00',
+    });
+    expect(await balanceOf(ctx.app, user, wallet.id)).toBe('100000.00');
+    expect(await balanceOf(ctx.app, user, mp.id)).toBe('-12000.00');
+
+    const other = await api
+      .patch(`/api/v1/transactions/${created.body.id}`)
+      .send({ pocketId: dollars.id })
+      .expect(422);
+    expect(other.body.code).toBe('CURRENCY_MISMATCH');
+
+    // A pocket of another user does not exist for me; nor does my movement for them.
+    const stranger = await registerUser(ctx.app);
+    const theirs = await createPocket(ctx.app, stranger, { name: 'Ajena' });
+    await api
+      .patch(`/api/v1/transactions/${created.body.id}`)
+      .send({ pocketId: theirs.id })
+      .expect(404);
+    await as(ctx.app, stranger)
+      .patch(`/api/v1/transactions/${created.body.id}`)
+      .send({ pocketId: theirs.id })
+      .expect(404);
+    expect(await balanceOf(ctx.app, user, mp.id)).toBe('-12000.00');
+  });
+
+  it('adjustments and yields do not change pocket', async () => {
+    const api = as(ctx.app, user);
+    const mp = await createPocket(ctx.app, user, { name: 'Mercado Pago' });
+    const adjusted = await api
+      .post(`/api/v1/pockets/${wallet.id}/adjust`)
+      .send({ balance: '90000', date: '2026-10-23' })
+      .expect(200);
+    const res = await api
+      .patch(`/api/v1/transactions/${adjusted.body.adjustment.id}`)
+      .send({ pocketId: mp.id })
+      .expect(422);
+    expect(res.body.code).toBe('ADJUSTMENT_NOT_EDITABLE');
+  });
+
   it('keeps the frozen rate when editing the description only', async () => {
     const usd = await createPocket(ctx.app, user, { currency: 'USD' });
     const api = as(ctx.app, user);

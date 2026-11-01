@@ -44,6 +44,8 @@ export const TRANSACTIONS_TEXTS = {
     date: 'Fecha',
     category: 'Categoría',
     account: 'Cuenta',
+    sameCurrency: (currency: string) =>
+      `Solo cuentas en ${currency}. Para pasarlo a otra moneda, borralo y cargalo de nuevo.`,
     save: 'Guardar cambios',
     schedule: 'Programar',
     scheduledHint: 'Programado: no toca tu saldo hasta que lo confirmes.',
