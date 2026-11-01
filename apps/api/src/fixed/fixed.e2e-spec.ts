@@ -90,7 +90,8 @@ describe('fixed items, sync and commitments', () => {
 
     // Next month: only November is added, once.
     const next = await in_(november).post('/api/v1/sync').expect(200);
-    expect(next.body).toMatchObject({ generatedPending: 2, pendingCount: 4 });
+    // The November rent (10th) is not to confirm until its date (MOV-08).
+    expect(next.body).toMatchObject({ generatedPending: 2, pendingCount: 3 });
     await in_(november).post('/api/v1/sync').expect(200);
     const items = await pending(november);
     expect(items.map((i) => `${i.description} ${i.date}`).sort()).toEqual([
@@ -230,10 +231,14 @@ describe('fixed items, sync and commitments', () => {
       ],
       base: '449988.00',
     });
+    // The pending part of the October statement, one line per currency, with its installments.
     expect(nov.items.map((i: { type: string }) => i.type)).toEqual([
-      'INSTALLMENT',
-      'INSTALLMENT',
+      'STATEMENT',
+      'STATEMENT',
       'FIXED',
+    ]);
+    expect(nov.items[0].installments).toEqual([
+      expect.objectContaining({ description: 'Heladera', number: 1, count: 3 }),
     ]);
     const ars = (month: { committed: { byCurrency: { currency: string; amount: string }[] } }) =>
       month.committed.byCurrency.find((line) => line.currency === 'ARS')?.amount;

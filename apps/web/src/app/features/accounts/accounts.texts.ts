@@ -125,6 +125,31 @@ export const ACCOUNTS_TEXTS = {
   adjust: {
     title: 'Ajustar saldo',
     body: 'Si el saldo real es distinto, cargá el correcto y registramos la diferencia como un ajuste.',
+    /** CTA-06: what the sheet is for, by pocket kind, and the shortcuts to the right action. */
+    kinds: {
+      AVAILABLE: {
+        title: 'Ajustar saldo',
+        body: 'Corregí una diferencia con tu banco o billetera.',
+        shortcuts: ['MOVE'],
+      },
+      SAVINGS: {
+        title: 'Ajustar saldo',
+        body: 'Usalo para sumar intereses o corregir una diferencia. Si pasaste plata desde otro apartado, usá Mover.',
+        shortcuts: ['MOVE'],
+      },
+      INVESTMENT: {
+        title: 'Actualizar valor',
+        body: 'Usalo cuando cambia lo que vale tu inversión: ganancias o pérdidas. Si compraste o vendiste, usá Invertir o Rescatar.',
+        shortcuts: ['INVEST', 'REDEEM'],
+      },
+    },
+    shortcuts: { MOVE: 'Mover', INVEST: 'Invertir', REDEEM: 'Rescatar' },
+    shortcutsLabel: 'Otras acciones',
+    value: 'Valor de hoy',
+    currentValue: 'Valor actual',
+    saveValue: 'Actualizar valor',
+    errorBalance: 'Ingresá el saldo real.',
+    errorValue: 'Ingresá el valor de hoy.',
     real: 'Saldo real',
     date: 'Fecha',
     rate: 'Cotización (opcional: si no, la del día)',

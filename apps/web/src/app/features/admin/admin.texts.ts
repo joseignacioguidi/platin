@@ -19,8 +19,8 @@ export const ADMIN_TEXTS = {
     suspended: 'Suspendidos',
     signups: 'Altas por semana',
     signupsHint: 'Últimas 12 semanas, de lunes a domingo.',
-    signupsAria: (week: string, count: number) =>
-      `Semana del ${week}: ${count} ${count === 1 ? 'alta' : 'altas'}`,
+    signupsWeek: (week: string) => `Semana del ${week}`,
+    signupsCount: (count: number) => `${count} ${count === 1 ? 'alta' : 'altas'}`,
     features: 'Uso por funcionalidad',
     featuresHint: 'Usuarios con al menos un registro activo.',
     featureNames: {

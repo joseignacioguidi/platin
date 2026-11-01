@@ -10,6 +10,7 @@ import {
   Currency,
   firstDayOf,
   lastDayOf,
+  LocalDate,
   Money,
   Period,
   transferIntent,
@@ -30,7 +31,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UserRates } from '../rates/user-rates.service';
 import { toTransferDto } from '../transfers/transfers.service';
 
-type ParsedQuery = Omit<MovementsQuery, 'limit'> & { limit: number; period?: Period };
+type ParsedQuery = Omit<MovementsQuery, 'limit'> & {
+  limit: number;
+  period?: Period;
+  until?: LocalDate;
+};
 
 const pocketRef = {
   select: {
@@ -49,6 +54,16 @@ interface PocketRefRow {
   currency: Currency;
   accountId: string;
   account: { name: string };
+}
+
+/** The month range, cut at `until` when given. */
+function dateFilter(
+  range: { gte: Date; lte: Date } | undefined,
+  until: LocalDate | undefined,
+): Prisma.DateTimeFilter | undefined {
+  if (!until) return range;
+  const limit = toDbDate(until);
+  return { ...range, lte: range && range.lte < limit ? range.lte : limit };
 }
 
 /** "Mercado Pago · Disponible" as the contracts expect it. */
@@ -81,9 +96,11 @@ export class MovementsService {
       ? { gte: toDbDate(firstDayOf(query.period)), lte: toDbDate(lastDayOf(query.period)) }
       : undefined;
 
-    const wantsTransactions = query.type !== 'TRANSFER' && query.type !== 'CARD' && !query.cardId;
+    const wantsTransactions =
+      (query.type === undefined || query.type === 'EXPENSE' || query.type === 'INCOME') &&
+      !query.cardId;
     const wantsTransfers =
-      (query.type === undefined || query.type === 'TRANSFER') &&
+      (query.type === undefined || query.type === 'TRANSFER' || query.type === 'INVESTMENT') &&
       !query.categoryId &&
       query.status !== 'PENDING';
     // Card purchases are expenses; they never belong to a pocket (their payment does).
@@ -228,12 +245,13 @@ export class MovementsService {
   private findTransactions(
     userId: string,
     query: ParsedQuery,
-    range: Prisma.DateTimeFilter | undefined,
+    range: { gte: Date; lte: Date } | undefined,
     cursor: Cursor | undefined,
     take: number,
   ) {
     const filters: Prisma.TransactionWhereInput = { userId };
-    if (range) filters.date = range;
+    const date = dateFilter(range, query.until);
+    if (date) filters.date = date;
     if (query.accountId) filters.pocket = { accountId: query.accountId };
     if (query.pocketId) filters.pocketId = query.pocketId;
     if (query.categoryId) filters.categoryId = query.categoryId;
@@ -254,12 +272,13 @@ export class MovementsService {
   private findTransfers(
     userId: string,
     query: ParsedQuery,
-    range: Prisma.DateTimeFilter | undefined,
+    range: { gte: Date; lte: Date } | undefined,
     cursor: Cursor | undefined,
     take: number,
   ) {
     const filters: Prisma.TransferWhereInput = { userId };
-    if (range) filters.date = range;
+    const date = dateFilter(range, query.until);
+    if (date) filters.date = date;
     if (query.accountId) {
       filters.OR = [
         { fromPocket: { accountId: query.accountId } },
@@ -270,6 +289,18 @@ export class MovementsService {
       filters.AND = [{ OR: [{ fromPocketId: query.pocketId }, { toPocketId: query.pocketId }] }];
     }
     if (query.cardId) filters.statement = { cardId: query.cardId };
+    if (query.type === 'INVESTMENT') {
+      // INVEST (into an investment from another kind) or REDEEM (from an investment to available).
+      filters.AND = [
+        ...((filters.AND as Prisma.TransferWhereInput[] | undefined) ?? []),
+        {
+          OR: [
+            { toPocket: { kind: 'INVESTMENT' }, fromPocket: { kind: { not: 'INVESTMENT' } } },
+            { fromPocket: { kind: 'INVESTMENT' }, toPocket: { kind: 'AVAILABLE' } },
+          ],
+        },
+      ];
+    }
     if (query.q) filters.description = { contains: query.q, mode: 'insensitive' };
     return this.prisma.transfer.findMany({
       where: { AND: [filters, afterCursor(cursor)] },
@@ -288,12 +319,13 @@ export class MovementsService {
   private findCharges(
     userId: string,
     query: ParsedQuery,
-    range: Prisma.DateTimeFilter | undefined,
+    range: { gte: Date; lte: Date } | undefined,
     cursor: Cursor | undefined,
     take: number,
   ) {
     const filters: Prisma.CardChargeWhereInput = { userId };
-    if (range) filters.date = range;
+    const date = dateFilter(range, query.until);
+    if (date) filters.date = date;
     if (query.cardId) filters.cardId = query.cardId;
     if (query.categoryId) filters.categoryId = query.categoryId;
     if (query.q) {

@@ -796,6 +796,103 @@ Forma de trabajo:
 - Rama feat/fase-23-monedas. Todo en verde antes del PR, con capturas del perfil, de un apartado en euros y de los totales.
 ```
 
+## Iteración 5: que todo cierre
+
+Tres fases para que cada peso esté en un solo lugar y los números de una pantalla coincidan con los de otra. La 24 va primero porque cambia cómo se lee el inicio; la 25 y la 26 son independientes.
+
+| Fase | Qué se construye | Casos de uso | Terminado cuando |
+| --- | --- | --- | --- |
+| 24 | Invertir desde la carga, ajuste explicado y libre que descuenta lo separado | MOV-07, CTA-06, DAS-05 | Compro CEDEARs desde el +, el Disponible baja, la inversión sube, el patrimonio no cambia y "Libre este mes" baja lo mismo |
+| 25 | Gastos programados y compromisos que cierran | MOV-08, COM-01, 02 | Cargo un turno médico para el 20, lo veo en Compromisos y en el inicio sin que toque mi saldo, y el comprometido de un mes es el mismo en las dos pantallas |
+| 26 | Cambiar el apartado al editar y valores en los gráficos | MOV-04, DAS-06 | Paso un gasto de Galicia a Mercado Pago y veo el monto exacto de cualquier barra con mouse, teclado o dedo |
+
+## Fase 24 — Invertir y saldos con sentido
+
+Comprar una inversión es mover plata, no ganarla: el Disponible baja, la inversión sube y el patrimonio queda igual. Ajustar saldo y Actualizar valor quedan para lo que no es un movimiento (intereses, ganancias, diferencias).
+
+**Terminado cuando:** desde el + elijo "Invertir", $ 150.000 desde el Disponible de Galicia a "CEDEARs" y en la lista dice "Invertiste $ 150.000 en CEDEARs"; el Disponible bajó $ 150.000, CEDEARs subió $ 150.000 y el patrimonio no cambió; creo una inversión nueva sin salir de la carga; rescato $ 50.000 y vuelve al Disponible; un apartado de inversión ya no ofrece "Ajustar saldo" y "Actualizar valor" explica para qué sirve con atajos a Invertir y Rescatar; el ejemplo de "Libre este mes" de la especificación da $ 370.000 y $ 400.000; la barra del inicio muestra "Ahorrado/Invertido".
+
+```
+Leé CLAUDE.md; MOV-07, CTA-06 y DAS-05 y las reglas "Cuentas y apartados", "Inversiones" y "Libre este mes" de docs/especificacion.md; y en docs/arquitectura.md la sección "Iteración 5: invertir, programados y compromisos" y la tabla "Componentes y patrones de la iteración 5".
+
+Vamos a hacer la Fase 24 de docs/plan.md.
+
+Dominio:
+1. separatedThisMonth(transfers, pocketKinds, base) en libs/domain: suma en moneda base las transferencias de AVAILABLE a SAVINGS o INVESTMENT y resta las inversas; las demás no cuentan. freeThisMonth suma el parámetro separated. Los dos ejemplos de la regla "Libre este mes" son tests literales, más los casos de transferencia entre Disponibles, entre Ahorro e Inversión y entre monedas.
+
+Backend:
+2. GET /dashboard agrega separated (contrato incluido) y lo descuenta de free. Usá baseAmount congelado de cada transferencia; si una transferencia entre monedas no lo tiene, decime cómo se valúa hoy antes de elegir.
+3. POST /pockets/:id/adjust sobre un apartado INVESTMENT responde USE_VALUATION (Problem Details). Test e2e.
+4. GET /movements acepta type=INVESTMENT: transferencias con intent INVEST o REDEEM. Test e2e con aislamiento entre usuarios.
+
+Web:
+5. Carga rápida: cuarto segmento "Invertir" con un toggle "Invertir" / "Rescatar". Invertir: origen por defecto el Disponible del último apartado usado; destino solo apartados de inversión, con "+ Nueva inversión" que abre el formulario de apartado de inversión encima y vuelve con el nuevo elegido. Rescatar: al revés. Monedas distintas: dos montos y la cotización resultante, como en Mover. Se guarda con POST /transfers. El segmento lleva plPlanGate.
+6. Lista de movimientos: las transferencias INVEST y REDEEM se leen "Invertiste $ X en <apartado>" y "Rescataste $ X de <apartado>", y hay un filtro "Inversiones".
+7. Hoja de ajuste: título, explicación y atajos según el tipo, con los textos exactos de CTA-06 en el archivo de textos de cuentas. Los atajos abren Mover, Invertir o Rescatar con el apartado ya elegido. En apartados de inversión, el detalle solo ofrece "Actualizar valor".
+8. Inicio: la barra pasa a Gastado · Comprometido · Ahorrado/Invertido · Libre, con el token savings para el segmento nuevo y su leyenda.
+9. Invalidá con RefreshBus todo lo que cambia al invertir: cuentas, apartados, inversiones, ahorros, movimientos y dashboard.
+
+Forma de trabajo:
+- Plan primero, esperame.
+- Rama feat/fase-24-invertir. Todo en verde antes del PR, con capturas de la carga en modo Invertir, la hoja de ajuste en los tres tipos y la barra del inicio.
+```
+
+## Fase 25 — Gastos programados y compromisos
+
+Lo que ya sé que voy a pagar entra en los números del mes aunque todavía no haya pasado. Y Compromisos y el inicio usan una sola regla, así nunca muestran cifras distintas.
+
+**Terminado cuando:** el 1/11 cargo un gasto de $ 45.000 "Turno médico" para el 20/11; no cambia el saldo de ningún apartado; aparece en Compromisos de noviembre y en los próximos 30 días; "Libre este mes" ya lo descuenta; el 20/11 aparece en "Para confirmar" y al confirmarlo pasa a gastado sin contar dos veces; un fijo de USD 9,99 en mi Visa aparece en Compromisos de los próximos meses; un resumen de $ 300.000 con $ 100.000 pagados compromete $ 200.000 en las dos pantallas; un resumen pagado no aparece.
+
+```
+Leé CLAUDE.md; MOV-08, COM-01 y COM-02 y las reglas "Movimientos programados", "Compromisos de un mes" y "Libre este mes" de docs/especificacion.md; y en docs/arquitectura.md la sección "Iteración 5: invertir, programados y compromisos".
+
+Vamos a hacer la Fase 25 de docs/plan.md. Antes de tocar código, reproducí con un test e2e lo que hoy pasa: un fijo en tarjeta que no aparece en GET /commitments, y un resumen pagado en parte que cuenta distinto en /commitments y en /dashboard. Mostrame el resultado.
+
+Programados:
+1. Migración: SCHEDULED en TxOrigin.
+2. POST /transactions con fecha posterior a hoy (ClockService) guarda PENDING con origin SCHEDULED; la cotización es una estimación y se congela al confirmar. PATCH y DELETE funcionan antes de su fecha. Tests e2e, incluido que no toca el saldo.
+3. "Para confirmar" lista los pendientes con date <= hoy de cualquier origen; los programados futuros no aparecen ahí. Confirmar acepta monto y fecha.
+4. Transferencias y ajustes rechazan fechas futuras con DATE_IN_FUTURE (hoy solo lo limita la web).
+
+Una sola regla de compromisos:
+5. commitmentsByMonth recibe la parte pendiente de cada resumen no pagado (statementTotals) en lugar de cuotas sueltas, los fijos en apartado y en tarjeta, los fijos ya confirmados del período y los programados pendientes. Un fijo en tarjeta se suma solo si su consumo del período no existe todavía. Tests en libs/domain para cada caso del criterio de terminado.
+6. GET /commitments y GET /dashboard usan esa función con la misma entrada (armala en un solo lugar del backend). Test e2e que compara el comprometido del mes en las dos respuestas.
+7. Si al revisar el dashboard ves que algo cuenta dos veces (por ejemplo, un consumo del mes que ya está en un resumen que vence este mes), no lo arregles por tu cuenta: describímelo con un ejemplo y lo definimos.
+
+Web:
+8. Carga rápida y edición de ingresos y gastos: pl-date-field sin máximo; si la fecha es futura, debajo dice "Programado: no toca tu saldo hasta que lo confirmes" y el botón dice "Programar".
+9. Movimientos: los programados se ven con estilo pendiente y la etiqueta "Programado · 20/11". Compromisos y próximos 30 días los muestran con su ícono de categoría.
+
+Forma de trabajo:
+- Plan primero, esperame. Si conviene, dividila en 25a (compromisos) y 25b (programados).
+- Rama feat/fase-25-programados-compromisos. Todo en verde antes del PR, con capturas de la carga con fecha futura, de Compromisos y del inicio.
+```
+
+## Fase 26 — Edición y gráficos
+
+Dos arreglos de uso: corregir la cuenta de un movimiento sin borrarlo y ver el número exacto detrás de cada gráfico.
+
+**Terminado cuando:** edito un gasto de $ 12.000 en el Disponible de Galicia y lo paso a Mercado Pago; los dos saldos se actualizan; un apartado en dólares no aparece como opción; en cada gráfico de la app veo el monto exacto y su etiqueta con el mouse, con Tab y tocando, y con "ocultar montos" el tooltip también los oculta.
+
+```
+Leé CLAUDE.md, MOV-04 y DAS-06 de docs/especificacion.md y la tabla "Componentes y patrones de la iteración 5" de docs/arquitectura.md.
+
+Vamos a hacer la Fase 26 de docs/plan.md.
+
+Cambiar el apartado:
+1. PATCH /transactions/:id con pocketId: el apartado nuevo debe ser del usuario (404) y de la misma moneda (CURRENCY_MISMATCH); los de origen ADJUSTMENT y VALUATION no cambian de apartado. Tests e2e, incluido el aislamiento entre usuarios.
+2. movement-sheet: campo "Cuenta" con los apartados de la misma moneda agrupados por cuenta. Si el movimiento es de otra moneda que la que el usuario quiere, un texto explica que hay que borrarlo y cargarlo de nuevo. Al guardar, invalidá los dos apartados, sus cuentas, movimientos y dashboard.
+
+Tooltips:
+3. pl-chart-tooltip en libs/web-ui: posición junto al puntero o al elemento enfocado, sin salirse de la pantalla; monto con pl-money y etiqueta; se cierra con Escape, al salir o al tocar fuera.
+4. Hacé la lista de todos los gráficos de la app (inicio, tarjetas, detalle de cuenta y de apartado, inversiones, actualizar valores, compromisos, ahorros, metas, administración) y mostrámela. En cada uno, cada barra, segmento o punto es enfocable, tiene aria-label con etiqueta y monto y muestra el tooltip.
+5. Test de componente del tooltip (mouse, teclado, ocultar montos).
+
+Forma de trabajo:
+- Plan primero, esperame.
+- Rama feat/fase-26-edicion-graficos. Todo en verde antes del PR, con capturas de la edición con el selector de cuenta y de un tooltip en celular y en escritorio.
+```
+
 ## Después del MVP
 
 La segunda tanda de la especificación, en fases chicas que se pueden hacer en cualquier orden. Los prompts siguen el mismo molde que las fases anteriores: leer `CLAUDE.md` y la sección de la especificación, plan primero, rama propia, PR con todo en verde.

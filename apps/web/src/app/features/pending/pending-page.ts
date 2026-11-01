@@ -19,6 +19,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { errorMessage } from '../../core/errors';
 import { MovementsList } from '../transactions/movements-list';
 import { TransactionsStore } from '../transactions/transactions.store';
+import { Today } from '../../core/today';
 import { PENDING_TEXTS } from './pending.texts';
 
 interface Draft {
@@ -135,6 +136,7 @@ export class PendingPage {
   protected readonly list = inject(MovementsList);
   private readonly store = inject(TransactionsStore);
   private readonly auth = inject(AuthService);
+  private readonly today = inject(Today);
 
   private readonly drafts = signal<Record<string, Draft>>({});
   protected readonly busy = signal(false);
@@ -149,7 +151,8 @@ export class PendingPage {
   );
 
   constructor() {
-    void this.list.load({ status: 'PENDING' });
+    // Scheduled movements wait here until their date (MOV-08).
+    void this.list.load({ status: 'PENDING', until: this.today.date() });
     // New pending items start selected, with their expected amount.
     effect(() => {
       const current = this.drafts();

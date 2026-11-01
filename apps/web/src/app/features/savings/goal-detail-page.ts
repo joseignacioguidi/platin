@@ -11,6 +11,7 @@ import {
   PlBottomSheet,
   PlButton,
   PlMoney,
+  PlChartPoint,
   PlProgress,
   PlErrorState,
   PlSkeleton,
@@ -26,6 +27,7 @@ import { PlanGate } from '../plans/plan-gate';
 @Component({
   selector: 'pl-goal-detail-page',
   imports: [
+    PlChartPoint,
     PlSkeleton,
     PlErrorState,
     RouterLink,
@@ -75,12 +77,19 @@ import { PlanGate } from '../plans/plan-gate';
       </div>
 
       <section class="flex items-center gap-6 rounded-card bg-surface p-5">
-        <pl-progress
-          variant="ring"
-          [value]="percent()"
-          [tone]="g.currency === 'USD' ? 'savings' : 'brand'"
-          [label]="g.name"
-        />
+        <div
+          class="rounded-full"
+          [plChartPoint]="g.name"
+          [amount]="g.projection.accumulated"
+          [currency]="g.currency"
+        >
+          <pl-progress
+            variant="ring"
+            [value]="percent()"
+            [tone]="g.currency === 'USD' ? 'savings' : 'brand'"
+            [label]="g.name"
+          />
+        </div>
         <dl class="flex flex-col gap-3">
           <div>
             <dt class="text-sm text-muted">{{ t.saved }}</dt>

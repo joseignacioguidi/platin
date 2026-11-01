@@ -1,5 +1,5 @@
 import { as, registerUser, TestUser } from '../../test/auth-helpers';
-import { category, createPocket } from '../../test/fixtures';
+import { addPocket, category, createPocket } from '../../test/fixtures';
 import { createTestApp, resetDatabase, TestContext } from '../../test/test-app';
 
 describe('dashboard', () => {
@@ -118,9 +118,37 @@ describe('dashboard', () => {
       spent: '42800.00',
       committed: '410000.00',
       free: '1397200.00',
-      pending: { count: 2, names: ['Sueldo', 'Alquiler'] },
+      // The rent (Oct 28) is not to confirm until its date.
+      pending: { count: 1, names: ['Sueldo'] },
       rate: { type: 'MEP', sell: '1200.000000', date: '2026-10-23', stale: false },
     });
+  });
+
+  it('DAS-05: "Libre este mes" subtracts what was set apart to save or invest', async () => {
+    const { galicia } = await scenario();
+    const api = as(ctx.app, user);
+    const cedears = await addPocket(ctx.app, user, galicia.accountId, {
+      name: 'CEDEARs',
+      kind: 'INVESTMENT',
+    });
+    const reserva = await addPocket(ctx.app, user, galicia.accountId, { name: 'Reserva' });
+    const mp = await createPocket(ctx.app, user, { name: 'Mercado Pago' });
+    const transfer = (from: string, to: string, amount: string) =>
+      api
+        .post('/api/v1/transfers')
+        .send({ fromPocketId: from, toPocketId: to, amountOut: amount, date: '2026-10-23' })
+        .expect(201);
+    await transfer(galicia.id, cedears.id, '150000');
+    await transfer(galicia.id, reserva.id, '50000');
+    // Neither counts: between available pockets, and between savings and investment.
+    await transfer(galicia.id, mp.id, '1000');
+    await transfer(reserva.id, cedears.id, '5000');
+    let res = await api.get('/api/v1/dashboard').expect(200);
+    expect(res.body).toMatchObject({ separated: '200000.00', free: '1197200.00' });
+
+    await transfer(reserva.id, galicia.id, '30000');
+    res = await api.get('/api/v1/dashboard').expect(200);
+    expect(res.body).toMatchObject({ separated: '170000.00', free: '1227200.00' });
   });
 
   it('confirming a fixed expense moves it from committed to spent', async () => {

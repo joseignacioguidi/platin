@@ -1,93 +1,35 @@
 import { Injectable } from '@nestjs/common';
-import type { CommitmentItem, CommitmentsResponse } from '@platin/contracts';
-import {
-  addMonths,
-  commitmentsByMonth,
-  CurrencyTotals,
-  firstDayOf,
-  lastDayOf,
-  Money,
-  periodOf,
-  RateTable,
-  utcToLocalDate,
-} from '@platin/domain';
+import type { ColorToken, CommitmentItem, CommitmentsResponse } from '@platin/contracts';
+import { addMonths, commitmentsByMonth, CurrencyTotals, Money, periodOf } from '@platin/domain';
 import { ClockService } from '../common/clock.service';
-import { baseCurrency, cardCurrency, toDbDate } from '../common/serialize';
-import { FIXED_INCLUDE, toSchedule } from '../fixed/fixed.mapper';
-import { PrismaService } from '../prisma/prisma.service';
-
-/** Supplies today's rates (pesos per unit) used to value commitments in the base currency. */
-export abstract class CommitmentsRateSource {
-  abstract today(userId: string): Promise<RateTable>;
-}
+import { baseCurrency, cardCurrency } from '../common/serialize';
+import { CommitmentsInputBuilder } from './commitments-input';
 
 /**
- * COM-01/02: for each of the next months, installments of unpaid statements due that month
- * plus active fixed expenses with their amount in force; expected income from fixed incomes.
+ * COM-01/02: for each of the next months, what is still pending of the unpaid statements due
+ * that month, fixed expenses (on a pocket or a card) and scheduled expenses; expected income
+ * from fixed and scheduled incomes. Same rule and input as the home screen.
  */
 @Injectable()
 export class CommitmentsService {
   constructor(
-    private readonly prisma: PrismaService,
     private readonly clock: ClockService,
-    private readonly rates: CommitmentsRateSource,
+    private readonly builder: CommitmentsInputBuilder,
   ) {}
 
   async byMonth(userId: string, months: number): Promise<CommitmentsResponse> {
     const from = periodOf(this.clock.today());
     const to = addMonths(from, months - 1);
-    const [user, installments, fixed, rate] = await Promise.all([
-      this.prisma.user.findUniqueOrThrow({ where: { id: userId } }),
-      this.prisma.installment.findMany({
-        where: {
-          statement: {
-            userId,
-            status: { not: 'PAID' },
-            dueDate: { gte: toDbDate(firstDayOf(from)), lte: toDbDate(lastDayOf(to)) },
-          },
-        },
-        include: {
-          statement: { select: { dueDate: true, card: { select: { id: true, name: true } } } },
-          charge: { select: { id: true, description: true, installmentsCount: true } },
-        },
-      }),
-      this.prisma.fixedItem.findMany({
-        where: { userId, pocketId: { not: null } },
-        include: FIXED_INCLUDE,
-      }),
-      this.rates.today(userId),
-    ]);
-
-    const cardNames = new Map(
-      installments.map((i) => [i.statement.card.id, i.statement.card.name]),
-    );
-    const computed = commitmentsByMonth(
-      {
-        base: user.baseCurrency,
-        // A currency without a known rate is reported in its line but not valued in base.
-        rates: rate,
-        installments: installments.map((i) => ({
-          chargeId: i.charge.id,
-          description: i.charge.description,
-          number: i.number,
-          count: i.charge.installmentsCount,
-          amount: Money.of(i.amount.toFixed(2), i.currency),
-          cardId: i.statement.card.id,
-          dueDate: utcToLocalDate(i.statement.dueDate),
-        })),
-        fixed: fixed.map((f) => ({ ...toSchedule(f), id: f.id, name: f.name, cardId: null })),
-      },
-      from,
-      months,
-    );
+    const { input, rates, cardNames, scheduled } = await this.builder.build(userId, from, to);
+    const computed = commitmentsByMonth(input, from, months);
 
     const totals = (t: CurrencyTotals) => ({
       byCurrency: t.byCurrency.map((m) => ({ currency: m.currency, amount: m.toString() })),
       base: t.base.toString(),
     });
     return {
-      baseCurrency: baseCurrency(user.baseCurrency),
-      rate: rate.USD === undefined ? null : String(rate.USD),
+      baseCurrency: baseCurrency(input.base),
+      rate: rates.USD === undefined ? null : String(rates.USD),
       months: computed.map((month) => {
         const committed = totals(month.committed);
         const expectedIncome = totals(month.expectedIncome);
@@ -95,29 +37,48 @@ export class CommitmentsService {
           period: month.period,
           committed,
           expectedIncome,
-          free: Money.of(expectedIncome.base, user.baseCurrency)
-            .subtract(Money.of(committed.base, user.baseCurrency))
+          free: Money.of(expectedIncome.base, input.base)
+            .subtract(Money.of(committed.base, input.base))
             .toString(),
-          items: month.items.map((item): CommitmentItem =>
-            item.type === 'INSTALLMENT'
-              ? {
-                  type: 'INSTALLMENT',
-                  date: item.date,
-                  amount: item.amount.toString(),
-                  currency: cardCurrency(item.amount.currency),
-                  description: item.description,
-                  cardName: cardNames.get(item.cardId) ?? '',
-                  number: item.number,
-                  count: item.count,
-                }
-              : {
-                  type: 'FIXED',
-                  date: item.date,
-                  amount: item.amount.toString(),
-                  currency: item.amount.currency,
-                  name: item.name,
-                },
-          ),
+          items: month.items.map((item): CommitmentItem => {
+            if (item.type === 'STATEMENT') {
+              return {
+                type: 'STATEMENT',
+                date: item.date,
+                amount: item.amount.toString(),
+                currency: cardCurrency(item.amount.currency),
+                statementId: item.statementId,
+                cardName: cardNames.get(item.cardId) ?? '',
+                partiallyPaid: item.partiallyPaid,
+                installments: item.installments.map((i) => ({
+                  description: i.description,
+                  number: i.number,
+                  count: i.count,
+                  amount: i.amount.toString(),
+                })),
+              };
+            }
+            if (item.type === 'FIXED') {
+              return {
+                type: 'FIXED',
+                date: item.date,
+                amount: item.amount.toString(),
+                currency: item.amount.currency,
+                name: item.name,
+                cardName: item.cardId ? (cardNames.get(item.cardId) ?? '') : null,
+              };
+            }
+            const category = scheduled.get(item.scheduledId)?.category ?? null;
+            return {
+              type: 'SCHEDULED',
+              date: item.date,
+              amount: item.amount.toString(),
+              currency: item.amount.currency,
+              id: item.scheduledId,
+              description: item.description,
+              category: category ? { ...category, color: category.color as ColorToken } : null,
+            };
+          }),
         };
       }),
     };

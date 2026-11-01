@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { LocalDate, localDateAt, parseLocalDate } from '@platin/domain';
+import { HttpStatus, Injectable } from '@nestjs/common';
+import { compareDates, LocalDate, localDateAt, parseLocalDate } from '@platin/domain';
+import { AppException } from './app-exception';
 import { AppConfig } from '../config/app-config';
 
 /**
@@ -13,6 +14,17 @@ export class ClockService {
   today(): LocalDate {
     const simulated = this.config.env.CLOCK_TODAY;
     return simulated ? parseLocalDate(simulated) : localDateAt(this.now());
+  }
+
+  /** Transfers, adjustments and confirmed movements are dated up to today (MOV-08). */
+  assertNotFuture(date: LocalDate): void {
+    if (compareDates(date, this.today()) > 0) {
+      throw new AppException(
+        'DATE_IN_FUTURE',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'The date cannot be after today',
+      );
+    }
   }
 
   now(): Date {

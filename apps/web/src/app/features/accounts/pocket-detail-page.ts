@@ -13,7 +13,9 @@ import { LucideChevronLeft } from '@lucide/angular';
 import type { Movement, Pocket } from '@platin/contracts';
 import { Money, TransferIntent } from '@platin/domain';
 import {
+  formatPeriod,
   formatPeriodShort,
+  PlChartPoint,
   moneyText,
   PL_POCKET_ICONS,
   PL_TONE_CLASSES,
@@ -55,6 +57,7 @@ const ACTIONS: Record<Pocket['kind'], TransferIntent[]> = {
 @Component({
   selector: 'pl-pocket-detail-page',
   imports: [
+    PlChartPoint,
     RouterLink,
     PlButton,
     PlMoney,
@@ -122,7 +125,9 @@ const ACTIONS: Record<Pocket['kind'], TransferIntent[]> = {
                 {{ texts.move.titles[intent] }}
               </button>
             }
-            <button plButton="secondary" type="button" (click)="adjust()">{{ t.adjust }}</button>
+            <button plButton="secondary" type="button" (click)="adjust()">
+              {{ texts.adjust.kinds[pocket.kind].title }}
+            </button>
             <button plButton="secondary" type="button" (click)="edit()">{{ t.edit }}</button>
           </div>
         }
@@ -131,9 +136,14 @@ const ACTIONS: Record<Pocket['kind'], TransferIntent[]> = {
       @if (history().length > 1) {
         <section class="flex flex-col gap-3 rounded-tile bg-surface p-4">
           <h2 class="text-[17px] font-semibold">{{ t.evolution }}</h2>
-          <div class="flex h-32 items-end gap-2" role="img" [attr.aria-label]="historyLabel()">
+          <div class="flex h-32 items-end gap-2" role="group" [attr.aria-label]="historyLabel()">
             @for (bar of history(); track bar.period; let last = $last) {
-              <div class="flex flex-1 flex-col items-center justify-end gap-1">
+              <div
+                class="flex h-full flex-1 flex-col items-center justify-end gap-1 rounded-xl"
+                [plChartPoint]="bar.name"
+                [amount]="bar.balance.toString()"
+                [currency]="bar.balance.currency"
+              >
                 <div
                   class="w-full rounded-xl"
                   [class]="last ? 'bg-brand' : 'bg-brand-soft'"
@@ -239,6 +249,7 @@ export class PocketDetailPage {
       period: r.period,
       balance: r.balance,
       label: formatPeriodShort(r.period).slice(0, 3),
+      name: formatPeriod(r.period),
       height: Math.max(4, (Math.max(0, Number(r.balance.toString())) / max) * 96),
     }));
   });
@@ -277,7 +288,12 @@ export class PocketDetailPage {
 
   protected adjust(): void {
     const pocket = this.pocket();
-    if (pocket) this.sheet.open(AdjustBalanceSheet, { data: pocket, ariaLabel: this.t.adjust });
+    if (pocket) {
+      this.sheet.open(AdjustBalanceSheet, {
+        data: pocket,
+        ariaLabel: this.texts.adjust.kinds[pocket.kind].title,
+      });
+    }
   }
 
   protected edit(): void {

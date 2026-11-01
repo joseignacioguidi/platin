@@ -35,7 +35,12 @@ export const PL_TONE_CLASSES: Record<PlTone, string> = {
     }
     <span class="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
       <span class="flex items-center gap-2">
-        <span class="truncate text-[17px] font-semibold">{{ heading() }}</span>
+        <span
+          class="text-[17px] font-semibold"
+          [class.truncate]="!wrap()"
+          [class.line-clamp-2]="wrap()"
+          >{{ heading() }}</span
+        >
         <ng-content select="[badge]" />
       </span>
       @if (subtitle()) {
@@ -52,6 +57,8 @@ export class PlListItem {
   readonly subtitle = input<string | null>();
   readonly icon = input<LucideIconInput | null>();
   readonly tone = input<PlTone>('muted');
+  /** Lets a sentence-like heading take two lines ("Invertiste $ 150.000 en CEDEARs"). */
+  readonly wrap = input(false);
 
   protected readonly toneClass = computed(() => PL_TONE_CLASSES[this.tone()]);
 }

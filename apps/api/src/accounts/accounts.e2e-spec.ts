@@ -222,6 +222,20 @@ describe('accounts and pockets', () => {
     expect(same.body.adjustment).toBeNull();
   });
 
+  it('an investment pocket is not adjusted: it asks for a valuation (CTA-06)', async () => {
+    const account = await createAccount(ctx.app, user);
+    const cedears = await addPocket(ctx.app, user, account.id, {
+      name: 'CEDEARs',
+      kind: 'INVESTMENT',
+    });
+    const res = await as(ctx.app, user)
+      .post(`/api/v1/pockets/${cedears.id}/adjust`)
+      .send({ balance: '1000', date: '2026-10-23' })
+      .expect(422);
+    expect(res.body).toMatchObject({ code: 'USE_VALUATION', status: 422 });
+    expect(await balanceOf(ctx.app, user, cedears.id)).toBe('0.00');
+  });
+
   it('values the adjustment of a dollar pocket with the rate of the day or the one sent', async () => {
     const account = await createAccount(ctx.app, user);
     const usd = await addPocket(ctx.app, user, account.id, {

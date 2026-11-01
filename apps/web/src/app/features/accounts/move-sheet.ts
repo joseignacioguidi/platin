@@ -28,6 +28,8 @@ export interface MoveSheetData {
   intent: TransferIntent;
   /** Preselected origin (the pocket the action was opened from). */
   fromPocketId?: string;
+  /** Preselected destination ("Invertir" from an investment pocket). */
+  toPocketId?: string;
 }
 
 /** Which pockets each quick action moves money from and to (CTA-05, INV-02). */
@@ -144,7 +146,7 @@ export class MoveSheet {
   );
 
   protected readonly fromId = signal<string | null>(this.firstOrigin());
-  protected readonly toId = signal<string | null>(null);
+  protected readonly toId = signal<string | null>(this.data.toPocketId ?? null);
   protected readonly amount = signal('');
   protected readonly received = signal('');
   protected readonly date = signal<LocalDate>(this.today.date());

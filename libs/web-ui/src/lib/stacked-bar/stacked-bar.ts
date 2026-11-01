@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { Decimal, toDecimal } from '@platin/domain';
+import { Currency, Decimal, toDecimal } from '@platin/domain';
+import { PlChartPoint } from '../chart-tooltip/chart-tooltip';
 
 export type PlStackTone = 'expense' | 'card' | 'brand' | 'pending' | 'transfer' | 'savings';
 
@@ -22,19 +23,28 @@ const TONES: Record<PlStackTone, string> = {
 /** Horizontal bar split by proportion (gastado / comprometido / libre). */
 @Component({
   selector: 'pl-stacked-bar',
+  imports: [PlChartPoint],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <div class="flex h-3 gap-[3px]" role="img" [attr.aria-label]="label()">
+    <!-- DAS-06: each segment shows its exact amount; the hit area is taller than the bar. -->
+    <div class="flex h-11 items-center gap-[3px]" role="group" [attr.aria-label]="label()">
       @for (part of parts(); track part.label; let first = $first; let last = $last) {
         @if (part.percent > 0) {
           <div
-            [class]="part.tone"
+            class="flex h-full items-center rounded-md"
             [style.width.%]="part.percent"
-            [class.rounded-l-md]="first"
-            [class.rounded-r-md]="last"
-            class="rounded-[2px]"
-          ></div>
+            [plChartPoint]="part.label"
+            [amount]="part.amount"
+            [currency]="currency()"
+          >
+            <div
+              class="h-3 w-full rounded-[2px]"
+              [class]="part.tone"
+              [class.rounded-l-md]="first"
+              [class.rounded-r-md]="last"
+            ></div>
+          </div>
         }
       }
     </div>
@@ -42,12 +52,15 @@ const TONES: Record<PlStackTone, string> = {
 })
 export class PlStackedBar {
   readonly segments = input.required<readonly PlStackSegment[]>();
+  /** Currency of the amounts, for the tooltips. */
+  readonly currency = input<Currency>('ARS');
 
   protected readonly parts = computed(() => {
     const values = this.segments().map((s) => Decimal.max(toDecimal(s.amount), 0));
     const total = values.reduce((sum, v) => sum.plus(v), new Decimal(0));
     return this.segments().map((segment, i) => ({
       label: segment.label,
+      amount: segment.amount,
       tone: TONES[segment.tone],
       // Display only: percentages for widths, rounded to one decimal.
       percent: total.isZero()

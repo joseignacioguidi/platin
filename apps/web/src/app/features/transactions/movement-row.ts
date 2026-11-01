@@ -1,9 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import type { Movement } from '@platin/contracts';
 import { type Currency, parsePeriod } from '@platin/domain';
 import {
   formatPeriodShort,
   formatRate,
+  HideAmounts,
+  moneyText,
   PL_CURRENCY_NAMES,
   PlListItem,
   PlMoney,
@@ -30,6 +32,10 @@ interface RowView {
   icon: string;
   tone: PlTone;
   pending: boolean;
+  /** Badge text of a pending movement: "Pendiente" or "Programado · 20/11" (MOV-08). */
+  badge?: string | null;
+  /** The heading is a sentence that may take two lines. */
+  wrap?: boolean;
   lines: { sign: '-' | '+' | ''; amount: string; currency: Currency; positive: boolean }[];
 }
 
@@ -44,10 +50,11 @@ interface RowView {
       [subtitle]="view().subtitle"
       [icon]="view().icon"
       [tone]="view().tone"
+      [wrap]="!!view().wrap"
     >
-      @if (view().pending) {
+      @if (view().pending && view().badge !== null) {
         <span badge class="rounded-full bg-pending px-2.5 py-0.5 text-xs font-semibold text-ink">
-          {{ texts.pending }}
+          {{ view().badge ?? texts.pending }}
         </span>
       }
       @for (line of view().lines; track $index) {
@@ -70,6 +77,7 @@ export class MovementRow {
   /** The pocket the list belongs to, if any: transfers into it read as money in. */
   readonly pocketId = input<string | null>(null);
   protected readonly texts = TRANSACTIONS_TEXTS;
+  private readonly hideAmounts = inject(HideAmounts);
 
   protected readonly view = computed<RowView>(() => {
     const m = this.movement();
@@ -111,12 +119,23 @@ export class MovementRow {
         ? ` · ${formatRate(m.currencyOut, m.currencyIn, m.impliedRate)}`
         : '';
       const cross = m.currencyIn !== m.currencyOut;
-      const intent = !cross && m.intent && m.intent !== 'MOVE' ? m.intent : null;
+      // Investing or redeeming reads as a sentence even between currencies (MOV-07).
+      const investment = to && (m.intent === 'INVEST' || m.intent === 'REDEEM') ? m.intent : null;
+      const intent = investment ?? (!cross && m.intent === 'SAVE' ? m.intent : null);
+      const amount = moneyText(m.amountOut, m.currencyOut, this.hideAmounts.hidden());
+      const heading =
+        investment === 'INVEST' && to
+          ? this.texts.invested(amount, to.name)
+          : investment === 'REDEEM'
+            ? this.texts.redeemed(amount, m.fromPocket.name)
+            : m.description ||
+              (intent
+                ? this.texts.intents[intent]
+                : this.transferTitle(m.currencyOut, m.currencyIn));
       return {
-        heading:
-          m.description ||
-          (intent ? this.texts.intents[intent] : this.transferTitle(m.currencyOut, m.currencyIn)),
-        subtitle: route + rate,
+        heading,
+        wrap: !!investment,
+        subtitle: (investment && m.description ? m.description + ' · ' : '') + route + rate,
         icon: intent ? INTENT_ICONS[intent].icon : 'arrow-left-right',
         tone: intent ? INTENT_ICONS[intent].tone : 'transfer',
         pending: false,
@@ -138,6 +157,10 @@ export class MovementRow {
       };
     }
     const pending = m.status === 'PENDING';
+    const [, month, day] = m.date.split('-');
+    // A scheduled one says so in its subtitle, so the title keeps its room (MOV-08).
+    const scheduledLabel =
+      pending && m.origin === 'SCHEDULED' ? this.texts.scheduled(day + '/' + month) : null;
     if (m.type === 'ADJUSTMENT' || m.type === 'YIELD') {
       const negative = m.amount.startsWith('-');
       const yields = m.type === 'YIELD';
@@ -161,12 +184,13 @@ export class MovementRow {
     const category = m.category;
     return {
       heading: m.description || category?.name || this.texts.noCategory,
-      subtitle: m.description
-        ? [category?.name, pocketPlace(m.pocket)].filter(Boolean).join(' · ')
-        : pocketPlace(m.pocket),
+      subtitle: [scheduledLabel, m.description ? category?.name : null, pocketPlace(m.pocket)]
+        .filter(Boolean)
+        .join(' · '),
       icon: category?.icon ?? 'receipt',
       tone: pending ? 'pending' : income ? 'brand' : (category?.color ?? 'expense'),
       pending,
+      badge: scheduledLabel ? null : undefined,
       lines: [
         {
           sign: income ? '+' : '-',

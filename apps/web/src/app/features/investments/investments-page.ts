@@ -107,7 +107,7 @@ import { INVESTMENTS_TEXTS } from './investments.texts';
           </ul>
         }
         @if (composition().length > 0) {
-          <pl-stacked-bar [segments]="composition()" />
+          <pl-stacked-bar [segments]="composition()" [currency]="d.base.currency" />
           <ul class="flex flex-wrap gap-x-5 gap-y-1 text-[15px]" [attr.aria-label]="t.composition">
             @for (part of composition(); track part.label) {
               <li class="flex items-center gap-2">

@@ -14,6 +14,7 @@ export const txOriginSchema = z.enum([
   TxOrigin.FIXED,
   TxOrigin.ADJUSTMENT,
   TxOrigin.VALUATION,
+  TxOrigin.SCHEDULED,
 ]);
 
 /** MOV-01: an income or expense on a pocket, in the pocket currency. */
@@ -42,7 +43,7 @@ export const updateTransactionRequestSchema = z
   })
   .partial();
 
-/** MOV-05: confirm pending movements in batch, optionally fixing the amount. */
+/** MOV-05: confirm pending movements in batch, optionally fixing the amount and the date. */
 export const confirmTransactionsRequestSchema = z.object({
   items: z
     .array(
@@ -51,6 +52,8 @@ export const confirmTransactionsRequestSchema = z.object({
         amount: amountSchema.optional(),
         /** Same meaning as in a new movement; without it, the rate of the day. */
         exchangeRate: rateSchema.optional(),
+        /** The real date, when it differs (never after today). */
+        date: localDateSchema.optional(),
       }),
     )
     .min(1)

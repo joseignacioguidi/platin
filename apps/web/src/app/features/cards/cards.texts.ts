@@ -11,6 +11,7 @@ export const CARDS_TEXTS = {
   inDays: (days: number) => (days === 0 ? 'hoy' : days === 1 ? 'mañana' : `en ${days} días`),
   available: 'Disponible',
   limit: 'Límite',
+  used: 'Usado del límite',
   addCharge: 'Consumo',
   addChargeLabel: 'Cargar consumo',
   editChargeLabel: (description: string) => 'Editar consumo ' + description,

@@ -60,6 +60,7 @@ export const TxOrigin = {
   FIXED: 'FIXED',
   ADJUSTMENT: 'ADJUSTMENT',
   VALUATION: 'VALUATION',
+  SCHEDULED: 'SCHEDULED',
 } as const;
 export type TxOrigin = (typeof TxOrigin)[keyof typeof TxOrigin];
 

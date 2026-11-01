@@ -71,7 +71,11 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 - **CTA-03** Ver cada cuenta con sus apartados agrupados, el saldo de cada uno y el total de la cuenta por moneda; arriba, el total general por moneda.
 - **CTA-04** Ver el detalle de un apartado con sus movimientos y la evolución del saldo.
 - **CTA-05** Mover plata entre apartados de la misma cuenta en dos toques, con acciones con nombre: Apartar (a un ahorro), Invertir (a una inversión) y Rescatar (de vuelta al disponible).
-- **CTA-06** Ajustar el saldo de un apartado: se crea un movimiento de ajuste por la diferencia.
+- **CTA-06** Ajustar el saldo de un apartado de Disponible o de Ahorro: se crea un movimiento de ajuste por la diferencia. La hoja explica para qué sirve según el tipo y ofrece atajos a la acción correcta cuando lo que pasó fue otra cosa:
+  - **Ahorro** — "Ajustar saldo": "Usalo para sumar intereses o corregir una diferencia. Si pasaste plata desde otro apartado, usá Mover." Atajo: Mover.
+  - **Disponible** — "Ajustar saldo": "Corregí una diferencia con tu banco o billetera." Atajo: Mover.
+  - **Inversión** — no tiene "Ajustar saldo"; solo "Actualizar valor" (INV-03, 04): "Usalo cuando cambia lo que vale tu inversión: ganancias o pérdidas. Si compraste o vendiste, usá Invertir o Rescatar." Atajos: Invertir y Rescatar.
+  - Los atajos abren el formulario correspondiente con el apartado ya elegido.
 - **CTA-07** Archivar un apartado o una cuenta cuando su saldo es 0; el histórico se conserva.
 
 ### 3. Movimientos
@@ -79,9 +83,11 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 - **MOV-01** Cargar ingreso o gasto con cuenta, categoría, monto, fecha y nota. Carga rápida desde un botón siempre visible.
 - **MOV-02** Cargar una transferencia entre apartados, de la misma cuenta o de otra, incluida la compra o venta de dólares con su cotización.
 - **MOV-03** Listar, filtrar (fecha, cuenta, categoría, tipo, texto) y buscar movimientos.
-- **MOV-04** Editar y eliminar movimientos.
+- **MOV-04** Editar y eliminar movimientos. Al editar se puede cambiar el apartado (y con él la cuenta), solo por otro de la misma moneda; para cambiar de moneda hay que borrarlo y cargarlo de nuevo.
 - **MOV-05** Confirmar movimientos pendientes generados por fijos, en lote.
 - **MOV-06** Exportar movimientos a CSV.
+- **MOV-07** Invertir o rescatar desde la carga rápida: un cuarto modo "Invertir", con "Invertir" / "Rescatar". Invertir pasa plata de un apartado (por defecto, el Disponible) a un apartado de inversión, existente o nuevo ("+ Nueva inversión"); Rescatar hace lo inverso. Si las monedas son distintas pide los dos montos. Se guarda como transferencia con intención `INVEST` o `REDEEM` y en la lista se lee "Invertiste $ 150.000 en CEDEARs". Requiere el plan que incluye inversiones.
+- **MOV-08** Cargar un gasto o ingreso con fecha futura (un turno médico el 20 con su costo): queda programado, no toca saldos y aparece en compromisos y en los próximos 30 días. Cuando llega su fecha pasa a "Para confirmar".
 
 ### 4. Tarjetas de crédito
 
@@ -111,7 +117,7 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 ### 6. Compromisos
 
 - **COM-01** Ver una línea de tiempo de los próximos 12 meses: cuotas, resúmenes a pagar y fijos, por mes y por moneda.
-- **COM-02** Ver el total comprometido de un mes y cuánto queda libre según los ingresos esperados.
+- **COM-02** Ver el total comprometido de un mes y cuánto queda libre según los ingresos esperados. Incluye los fijos en tarjeta y los gastos programados (MOV-08).
 - **COM-03** Ver cuándo termina cada plan de cuotas y cuánto se libera ese mes.
 
 ### 7. Presupuestos
@@ -145,6 +151,8 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 - **LAN-02** Páginas de login y registro con la misma identidad visual.
 
 * **DAS-04** Accesos rápidos en el inicio a las demás funciones (cuentas, tarjetas, fijos, compromisos, ahorros, inversiones, categorías, presupuestos cuando existan). Cada usuario elige cuáles ver y en qué orden; hay un conjunto por defecto.
+* **DAS-05** "Libre este mes" descuenta lo que el usuario separó para ahorrar o invertir en el mes. La barra se reparte en Gastado · Comprometido · Ahorrado/Invertido · Libre.
+* **DAS-06** Todos los gráficos muestran el valor exacto y su etiqueta (mes, categoría, apartado) al pasar el mouse, al enfocar con teclado o al tocar.
 
 ### 11. Categorías
 
@@ -250,9 +258,30 @@ Varias monedas:
 * Un fijo en tarjeta no genera un pendiente: al sincronizar, crea directamente un consumo de un pago con su monto vigente, fechado el día del fijo, en el resumen que le corresponde, porque el banco lo debita solo. Se puede editar como cualquier consumo mientras su resumen esté abierto. Es idempotente por fijo y período.
 * Un fijo en tarjeta es en pesos o en dólares, como la tarjeta.
 
+### Movimientos programados
+
+- Un ingreso o gasto con fecha posterior a hoy se guarda como pendiente de origen "programado". No impacta saldos, presupuestos ni "gastado" hasta que se confirma.
+- Aparece en Compromisos y en los próximos 30 días de su mes. Desde el día de su fecha aparece en "Para confirmar", igual que los pendientes de fijos; al confirmar se puede corregir el monto y la fecha.
+- Se puede editar o borrar antes de su fecha. La cotización se congela al confirmarlo, no al cargarlo.
+- Las transferencias, inversiones y consumos con tarjeta no se programan: siguen con fecha hasta hoy.
+
 ### Compromisos de un mes
 
-Comprometido del mes M = cuotas de resúmenes que vencen en M + fijos de gasto activos en M (con su monto vigente) + fijos en tarjeta que caen en esos resúmenes. Libre del mes = ingresos fijos esperados − comprometido. Todo se muestra separado por moneda y además valuado en moneda base.
+Comprometido del mes M = parte pendiente de los resúmenes que vencen en M (cuotas, consumos y ajustes, menos lo ya pagado) + fijos de gasto en apartado activos en M que no estén confirmados (con su monto vigente) + gastos programados de M sin confirmar. Los fijos en tarjeta ya forman parte de sus resúmenes; si todavía no se generó el consumo del período, se suman por su monto vigente en el resumen que les toca. En Compromisos, ingresos esperados = ingresos fijos de M + ingresos programados de M. Un resumen pagado no compromete nada; uno pagado en parte compromete lo que le falta.
+
+La misma regla vale en Compromisos y en el inicio; lo que una pantalla muestra para un mes, la otra también. Todo se muestra separado por moneda y además valuado en moneda base.
+
+### Libre este mes
+
+Libre = ingresos esperados − comprometido − gastado − separado, en moneda base, y puede ser negativo.
+
+- **Ingresos esperados**: ingresos fijos del mes (por su monto real si ya se confirmaron) + otros ingresos confirmados del mes + ingresos programados del mes sin confirmar.
+- **Gastado**: gastos confirmados del mes + consumos con tarjeta hechos en el mes. Los pagos de resumen no son gasto.
+- **Separado**: transferencias del mes de un apartado Disponible a uno de Ahorro o Inversión, menos las que vuelven de Ahorro o Inversión a Disponible. Puede ser negativo si se rescató más de lo que se separó.
+- Las transferencias entre dos Disponibles, o entre dos apartados de Ahorro o Inversión, no cuentan: la plata no cambia de propósito.
+- Los ajustes y los rendimientos no cuentan.
+
+Ejemplo: ingresos esperados $ 1.200.000; comprometido $ 380.000; gastado $ 250.000; invertí $ 150.000 en CEDEARs y pasé $ 50.000 a una reserva. Libre = 1.200.000 − 380.000 − 250.000 − 200.000 = $ 370.000. Si después rescato $ 30.000 de la reserva al Disponible, Libre = $ 400.000.
 
 ### Presupuestos
 
@@ -365,6 +394,15 @@ Ajustes que salieron del uso diario:
 - Tarjetas: carga por valor de cuota (TAR-02), historial de resúmenes y de compras (TAR-12, 13) y fijos en tarjeta (TAR-09).
 - Varias monedas: euro, real, peso chileno y peso uruguayo (MON-01 a 05).
 
+### Iteración 5 (noviembre 2026)
+
+Que todo cierre: cada peso está en un solo lugar y los números de una pantalla coinciden con los de otra.
+
+- Invertir y rescatar como un movimiento más (MOV-07) y "Libre este mes" que descuenta lo separado (DAS-05).
+- Ajustar saldo y Actualizar valor explican para qué sirven y llevan a la acción correcta (CTA-06).
+- Gastos e ingresos programados (MOV-08) y compromisos que incluyen fijos en tarjeta y la parte pendiente de resúmenes pagados en parte (COM-02).
+- Cambiar el apartado al editar un movimiento (MOV-04) y valores exactos en todos los gráficos (DAS-06).
+
 ## Identidad visual y UX
 
 La app usa la paleta y la tipografía de Hecho, con los colores reasignados a significados financieros. La interfaz se diseña de cero, mobile-first, alrededor de una pregunta: cuánto puedo gastar este mes.
@@ -393,7 +431,7 @@ Coral pasa de acento a color funcional porque las finanzas necesitan un "negativ
 
 ### Propuesta de interfaz
 
-1. **Inicio = "Libre este mes"**: un número grande (ingresos esperados − comprometido − gastado) con una barra que muestra cómo se reparte. Debajo, los próximos 30 días como línea de tiempo: vencimientos de tarjeta, cuotas y fijos.
+1. **Inicio = "Libre este mes"**: un número grande (ingresos esperados − comprometido − gastado − separado para ahorro e inversión) con una barra que muestra cómo se reparte. Debajo, los próximos 30 días como línea de tiempo: vencimientos de tarjeta, cuotas y fijos.
 2. **Carga rápida en 3 toques**: botón + siempre visible que abre una hoja inferior. Primero el teclado numérico con el monto, después las categorías recientes como chips; la cuenta usada la última vez viene preseleccionada. En escritorio, también con Ctrl+K.
 3. **Bandeja "Para confirmar"**: los pendientes de fijos aparecen como una lista tipo inbox; se confirman deslizando o en lote.
 4. **Tarjetas como tarjetas**: cada una se ve como una tarjeta física en violeta con el resumen abierto, días al cierre y total en pesos y dólares. Dentro, las cuotas activas con una barra "4 de 12".

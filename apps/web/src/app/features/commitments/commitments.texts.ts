@@ -1,9 +1,14 @@
 export const COMMITMENTS_TEXTS = {
   title: 'Compromisos',
-  intro: 'Lo que ya tenés comprometido los próximos 12 meses: cuotas de tarjeta y gastos fijos.',
+  intro:
+    'Lo que ya tenés comprometido los próximos 12 meses: resúmenes de tarjeta, gastos fijos y programados.',
   free: 'Libre',
   expectedIncome: 'Ingresos esperados',
   fixed: 'fijo',
+  fixedOn: (card: string) => `fijo en ${card}`,
+  statement: (card: string) => `Resumen ${card}`,
+  partiallyPaid: 'falta pagar',
+  scheduled: 'programado',
   nothing: 'Nada comprometido este mes.',
   emptyTitle: 'No tenés compromisos',
   emptyBody: 'Cargá tus fijos y tus compras en cuotas para ver lo que viene.',

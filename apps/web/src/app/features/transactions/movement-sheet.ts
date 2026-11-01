@@ -1,7 +1,7 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import type { Movement } from '@platin/contracts';
-import { CategoryKind, LocalDate, parseLocalDate } from '@platin/domain';
+import { CategoryKind, compareDates, LocalDate, parseLocalDate } from '@platin/domain';
 import {
   displayAmount,
   formatDate,
@@ -10,11 +10,14 @@ import {
   PlButton,
   PlCategorySelect,
   PlDateField,
+  PlPocketSelect,
   PlSheet,
   formatRate,
 } from '@platin/web-ui';
+import { AccountsStore } from '../accounts/accounts.store';
 import { errorMessage } from '../../core/errors';
 import { FormField } from '../../core/forms/form-field';
+import { Today } from '../../core/today';
 import { ChargeFormData, ChargeFormSheet } from '../cards/charge-form-sheet';
 import { CardsStore } from '../cards/cards.store';
 import { CategoriesStore } from '../categories/categories.store';
@@ -28,7 +31,15 @@ const INPUT =
 /** MOV-04: see, edit, confirm or delete one movement. */
 @Component({
   selector: 'pl-movement-sheet',
-  imports: [PlSheet, PlButton, PlCategorySelect, PlDateField, FormField, MovementRow],
+  imports: [
+    PlSheet,
+    PlButton,
+    PlCategorySelect,
+    PlDateField,
+    PlPocketSelect,
+    FormField,
+    MovementRow,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet>
@@ -60,6 +71,21 @@ const INPUT =
               />
             </pl-form-field>
           }
+          @if (movement.kind === 'TRANSACTION' && categoryKind()) {
+            <!-- MOV-04: another pocket (and account) of the same currency. -->
+            <pl-form-field [label]="texts.account" controlId="movement-pocket">
+              <pl-pocket-select
+                inputId="movement-pocket"
+                display="account"
+                [label]="texts.account"
+                [pockets]="accountsStore.pockets()"
+                [currency]="movement.currency"
+                [value]="pocketId()"
+                (valueChange)="pocketId.set($event ?? pocketId())"
+              />
+            </pl-form-field>
+            <p class="-mt-1 text-xs text-muted">{{ texts.sameCurrency(movement.currency) }}</p>
+          }
           <label class="flex flex-col gap-1">
             <span class="text-sm font-medium">{{ texts.description }}</span>
             <input
@@ -71,13 +97,20 @@ const INPUT =
             />
           </label>
           <pl-form-field [label]="texts.date" controlId="movement-date">
+            <!-- MOV-08: only a pending income or expense can wait for a future date. -->
             <pl-date-field
               inputId="movement-date"
               [label]="texts.date"
+              [max]="pending && categoryKind() ? null : today.date()"
               [value]="date()"
               (valueChange)="setDate($event)"
             />
           </pl-form-field>
+          @if (scheduled()) {
+            <p class="rounded-2xl bg-pending-soft px-4 py-3 text-sm text-pending-ink" role="status">
+              {{ texts.scheduledHint }}
+            </p>
+          }
         </div>
       } @else {
         <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[15px]">
@@ -114,7 +147,7 @@ const INPUT =
         }
         @if (editable) {
           <button plButton size="lg" type="button" [disabled]="busy()" (click)="save()">
-            {{ texts.save }}
+            {{ scheduled() ? texts.schedule : texts.save }}
           </button>
         }
         @if (movement.kind === 'CARD_CHARGE') {
@@ -146,6 +179,8 @@ export class MovementSheet {
   protected readonly categoriesStore = inject(CategoriesStore);
   private readonly sheet = inject(PlBottomSheet);
   private readonly cardsStore = inject(CardsStore);
+  protected readonly today = inject(Today);
+  protected readonly accountsStore = inject(AccountsStore);
 
   /** Statement payments are undone from the card, not from the list. */
   protected readonly deletable = !(this.movement.kind === 'TRANSFER' && this.movement.statement);
@@ -164,6 +199,9 @@ export class MovementSheet {
     this.movement.kind === 'TRANSACTION' ? (this.movement.category?.id ?? '') : '',
   );
   protected readonly description = signal(this.movement.description ?? '');
+  protected readonly pocketId = signal<string | null>(
+    this.movement.kind === 'TRANSACTION' ? this.movement.pocket.id : null,
+  );
   protected readonly date = signal<LocalDate>(parseLocalDate(this.movement.date));
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -174,6 +212,11 @@ export class MovementSheet {
     (this.movement.type === 'INCOME' || this.movement.type === 'EXPENSE')
       ? this.movement.type
       : null,
+  );
+
+  /** A pending income or expense dated after today stays scheduled (MOV-08). */
+  protected readonly scheduled = computed(
+    () => this.pending && !!this.categoryKind() && compareDates(this.date(), this.today.date()) > 0,
   );
 
   protected value(event: Event): string {
@@ -216,6 +259,9 @@ export class MovementSheet {
         categoryId: this.categoryId() || undefined,
         description: this.description().trim() || null,
         date: this.date(),
+        ...(this.movement.kind === 'TRANSACTION' && this.pocketId() !== this.movement.pocket.id
+          ? { pocketId: this.pocketId() as string }
+          : {}),
       }),
     );
   }
