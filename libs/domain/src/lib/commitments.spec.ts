@@ -1,4 +1,4 @@
-import { commitmentsByMonth, CommitmentsInput, freeThisMonth } from './commitments';
+import { commitmentsByMonth, CommitmentsInput } from './commitments';
 import { ars, d, p, usd } from './test-helpers';
 
 const input: CommitmentsInput = {
@@ -96,17 +96,5 @@ describe('commitmentsByMonth', () => {
 
   it('rejects an invalid number of months', () => {
     expect(() => commitmentsByMonth(input, p('2026-11'), 0)).toThrow();
-  });
-});
-
-describe('freeThisMonth', () => {
-  it('matches the home mockup: 1.850.000 − 674.000 − 763.700 = 412.300', () => {
-    expect(freeThisMonth(ars('1850000'), ars('674000'), ars('763700')).toString()).toBe(
-      '412300.00',
-    );
-  });
-
-  it('can be negative', () => {
-    expect(freeThisMonth(ars('100'), ars('80'), ars('50')).toString()).toBe('-30.00');
   });
 });

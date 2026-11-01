@@ -145,6 +145,14 @@ export class PocketsService {
     request: AdjustBalanceRequest,
   ): Promise<Transaction | null> {
     const pocket = await this.getActive(userId, id);
+    if (pocket.kind === 'INVESTMENT') {
+      // An investment changes value through a valuation (INV-03), not an adjustment.
+      throw new AppException(
+        'USE_VALUATION',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'Update the value of an investment pocket with a valuation',
+      );
+    }
     const current = await this.balances.balance(userId, pocket);
     const difference = balanceAdjustment(current, Money.of(request.balance, pocket.currency));
     if (!difference) return null;

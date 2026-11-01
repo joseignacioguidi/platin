@@ -1,6 +1,6 @@
 import type { Pocket, Category, Movement } from '@platin/contracts';
 import { as, registerUser, TestUser } from '../../test/auth-helpers';
-import { category, createPocket } from '../../test/fixtures';
+import { addPocket, category, createPocket } from '../../test/fixtures';
 import { createTestApp, resetDatabase, TestContext } from '../../test/test-app';
 
 describe('movements', () => {
@@ -128,6 +128,46 @@ describe('movements', () => {
     expect(await get('status=PENDING')).toEqual(['Spotify']);
     expect(await get('q=coto')).toEqual(['Coto']);
     expect(await get('q=supermer')).toEqual(['Coto', 'Spotify', 'Dia']);
+  });
+
+  it('type=INVESTMENT lists what was invested and redeemed (MOV-07), only for its owner', async () => {
+    const cedears = await addPocket(ctx.app, user, galicia.accountId, {
+      name: 'CEDEARs',
+      kind: 'INVESTMENT',
+    });
+    const reserva = await addPocket(ctx.app, user, galicia.accountId, { name: 'Reserva' });
+    const transfer = (from: string, to: string, amount: string, description: string) =>
+      api()
+        .post('/api/v1/transfers')
+        .send({
+          fromPocketId: from,
+          toPocketId: to,
+          amountOut: amount,
+          date: '2026-10-24',
+          description,
+        })
+        .expect(201);
+    await transfer(galicia.id, cedears.id, '150000', 'Invierto');
+    await transfer(cedears.id, galicia.id, '50000', 'Rescato');
+    await transfer(galicia.id, reserva.id, '1000', 'Aparto');
+    await transfer(reserva.id, galicia.id, '500', 'Vuelve de la reserva');
+
+    const res = await api().get('/api/v1/movements?type=INVESTMENT').expect(200);
+    expect(labels(res.body.items)).toEqual(['transfer:Rescato', 'transfer:Invierto']);
+    expect(res.body.items.map((m: { intent: string }) => m.intent)).toEqual(['REDEEM', 'INVEST']);
+    expect(
+      labels(
+        (
+          await api()
+            .get(`/api/v1/movements?type=INVESTMENT&accountId=${galicia.accountId}`)
+            .expect(200)
+        ).body.items,
+      ),
+    ).toEqual(['transfer:Rescato', 'transfer:Invierto']);
+
+    const other = await registerUser(ctx.app);
+    const theirs = await as(ctx.app, other).get('/api/v1/movements?type=INVESTMENT').expect(200);
+    expect(theirs.body.items).toEqual([]);
   });
 
   it('paginates with a cursor without repeating or skipping', async () => {

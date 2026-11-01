@@ -8,6 +8,7 @@ export * from './lib/card-cycle';
 export * from './lib/installments';
 export * from './lib/fixed';
 export * from './lib/commitments';
+export * from './lib/free';
 export * from './lib/goals';
 export * from './lib/pockets';
 export * from './lib/investments';

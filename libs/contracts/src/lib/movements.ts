@@ -78,7 +78,8 @@ export const movementSchema = z.discriminatedUnion('kind', [
   cardChargeMovementSchema,
 ]);
 
-export const movementFilterSchema = z.enum(['EXPENSE', 'INCOME', 'TRANSFER', 'CARD']);
+/** INVESTMENT (MOV-07): transfers into an investment pocket or redeemed from one. */
+export const movementFilterSchema = z.enum(['EXPENSE', 'INCOME', 'TRANSFER', 'CARD', 'INVESTMENT']);
 
 /** MOV-03: `GET /movements` filters, with cursor pagination. */
 export const movementsQuerySchema = z.object({

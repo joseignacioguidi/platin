@@ -81,9 +81,11 @@ export class MovementsService {
       ? { gte: toDbDate(firstDayOf(query.period)), lte: toDbDate(lastDayOf(query.period)) }
       : undefined;
 
-    const wantsTransactions = query.type !== 'TRANSFER' && query.type !== 'CARD' && !query.cardId;
+    const wantsTransactions =
+      (query.type === undefined || query.type === 'EXPENSE' || query.type === 'INCOME') &&
+      !query.cardId;
     const wantsTransfers =
-      (query.type === undefined || query.type === 'TRANSFER') &&
+      (query.type === undefined || query.type === 'TRANSFER' || query.type === 'INVESTMENT') &&
       !query.categoryId &&
       query.status !== 'PENDING';
     // Card purchases are expenses; they never belong to a pocket (their payment does).
@@ -270,6 +272,18 @@ export class MovementsService {
       filters.AND = [{ OR: [{ fromPocketId: query.pocketId }, { toPocketId: query.pocketId }] }];
     }
     if (query.cardId) filters.statement = { cardId: query.cardId };
+    if (query.type === 'INVESTMENT') {
+      // INVEST (into an investment from another kind) or REDEEM (from an investment to available).
+      filters.AND = [
+        ...((filters.AND as Prisma.TransferWhereInput[] | undefined) ?? []),
+        {
+          OR: [
+            { toPocket: { kind: 'INVESTMENT' }, fromPocket: { kind: { not: 'INVESTMENT' } } },
+            { fromPocket: { kind: 'INVESTMENT' }, toPocket: { kind: 'AVAILABLE' } },
+          ],
+        },
+      ];
+    }
     if (query.q) filters.description = { contains: query.q, mode: 'insensitive' };
     return this.prisma.transfer.findMany({
       where: { AND: [filters, afterCursor(cursor)] },

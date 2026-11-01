@@ -42,7 +42,9 @@ export const dashboardSchema = z.object({
   spent: z.string(),
   /** Still to pay this month: installments of unpaid statements due and unconfirmed fixed expenses. */
   committed: z.string(),
-  /** expectedIncome − committed − spent (can be negative). */
+  /** DAS-05: set apart this month to savings or investments, minus what came back (can be negative). */
+  separated: z.string(),
+  /** expectedIncome − committed − spent − separated (can be negative). */
   free: z.string(),
   pending: z.object({ count: z.number().int(), names: z.array(z.string()) }),
   /** Next 30 days: statements due and fixed items. */

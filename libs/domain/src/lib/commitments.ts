@@ -137,11 +137,3 @@ export function commitmentsByMonth(
     };
   });
 }
-
-/**
- * "Libre este mes" of the home screen: expected income − committed − spent, in base currency.
- * Can be negative.
- */
-export function freeThisMonth(expectedIncome: Money, committed: Money, spent: Money): Money {
-  return expectedIncome.subtract(committed).subtract(spent);
-}

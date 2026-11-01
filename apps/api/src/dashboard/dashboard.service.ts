@@ -12,6 +12,12 @@ import {
   Money,
   Period,
   periodOf,
+  PocketKind,
+  RateTable,
+  RateType,
+  SeparatedTransfer,
+  separatedThisMonth,
+  transferBaseValue,
   utcToLocalDate,
   utcToPeriod,
   valueIn,
@@ -39,7 +45,8 @@ type StatementRow = Prisma.CardStatementGetPayload<{ include: typeof STATEMENT_W
  * - spent = confirmed expenses + card purchases of the month;
  * - committed = what is still to pay this month: pending part of unpaid statements due and
  *   fixed expenses not confirmed yet;
- * - free = expected − committed − spent.
+ * - separated = transfers of the month to savings or investments, minus the ones coming back;
+ * - free = expected − committed − spent − separated.
  */
 @Injectable()
 export class DashboardService {
@@ -152,6 +159,7 @@ export class DashboardService {
     const expectedIncome = money(otherIncome._sum.baseAmount).add(fixedIncome);
     const spent = money(expenses._sum.baseAmount).add(cardSpent);
     const committed = statementsCommitted.add(fixedCommitted);
+    const separated = await this.separated(userId, base, user.valuationRate, range);
 
     return {
       period,
@@ -159,7 +167,8 @@ export class DashboardService {
       expectedIncome: expectedIncome.toString(),
       spent: spent.toString(),
       committed: committed.toString(),
-      free: freeThisMonth(expectedIncome, committed, spent).toString(),
+      separated: separated.toString(),
+      free: freeThisMonth(expectedIncome, committed, spent, separated).toString(),
       pending: {
         count: pending.length,
         names: pending.slice(0, 3).map((p) => p.description ?? ''),
@@ -180,6 +189,47 @@ export class DashboardService {
         : null,
       valuationsOverdue: await this.investments.overdue(userId),
     };
+  }
+
+  /**
+   * DAS-05: transfers of the month between available and savings/investment pockets, valued in
+   * base currency (the base side if any, else the rate of the transfer's date; ADR 0021).
+   */
+  private async separated(
+    userId: string,
+    base: Currency,
+    valuationRate: RateType,
+    range: { gte: Date; lte: Date },
+  ): Promise<Money> {
+    const transfers = await this.prisma.transfer.findMany({
+      where: { userId, date: range, toPocketId: { not: null } },
+      include: {
+        fromPocket: { select: { kind: true, currency: true } },
+        toPocket: { select: { kind: true, currency: true } },
+      },
+    });
+    const kinds = new Map<string, PocketKind>();
+    const tables = new Map<LocalDate, RateTable>();
+    const items: SeparatedTransfer[] = [];
+    for (const transfer of transfers) {
+      if (!transfer.toPocket || !transfer.toPocketId) continue;
+      kinds.set(transfer.fromPocketId, transfer.fromPocket.kind);
+      kinds.set(transfer.toPocketId, transfer.toPocket.kind);
+      const out = Money.of(transfer.amountOut.toFixed(2), transfer.fromPocket.currency);
+      const into = Money.of(transfer.amountIn.toFixed(2), transfer.toPocket.currency);
+      let table: RateTable | undefined;
+      if (out.currency !== base && into.currency !== base) {
+        const day = utcToLocalDate(transfer.date);
+        table = tables.get(day) ?? (await this.rates.tableFor(valuationRate, day));
+        tables.set(day, table);
+      }
+      items.push({
+        fromPocketId: transfer.fromPocketId,
+        toPocketId: transfer.toPocketId,
+        value: transferBaseValue(out, into, base, table),
+      });
+    }
+    return separatedThisMonth(items, kinds, base);
   }
 
   /** Statements due and fixed occurrences in the next 30 days, by date. */
