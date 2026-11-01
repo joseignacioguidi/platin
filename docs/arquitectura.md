@@ -322,6 +322,33 @@ Otras decisiones:
 | `GET /charges?cardId=&from=&to=&query=&status=active\|finished&cursor=` | TAR-13 |
 | `POST /fixed` con `cardId` | TAR-09 |
 
+### Iteración 5: invertir, programados y compromisos
+
+Un solo cambio de esquema, con una migración normal:
+
+```prisma
+enum TxOrigin { MANUAL FIXED ADJUSTMENT VALUATION SCHEDULED }
+```
+
+- **Programados (MOV-08).** `POST /transactions` con `date` posterior a hoy guarda `status: PENDING` y `origin: SCHEDULED`. `rateToBase` y `baseAmount` se calculan con la cotización del día como estimación y se recalculan y congelan al confirmar (`POST /transactions/confirm`, que ya acepta monto y fecha). Los pendientes con `date <= hoy` aparecen en "Para confirmar" sin importar su origen. Hoy el límite de fecha está solo en la web: el backend agrega `DATE_IN_FUTURE` para transferencias y ajustes, como ya hace con las valuaciones.
+- **Invertir y rescatar (MOV-07).** No hay endpoint nuevo: la carga rápida usa `POST /transfers` con `intent: INVEST | REDEEM`. La validación de la intención contra el tipo de apartado (`TRANSFER_INTENT_MISMATCH`) y del plan ya existe. `GET /movements` suma el valor `INVESTMENT` a su filtro `type` para listar esas transferencias en el filtro "Inversiones".
+- **Ajuste por tipo (CTA-06).** `POST /pockets/:id/adjust` sobre un apartado de inversión responde `USE_VALUATION`; el valor se actualiza con `POST /investments/valuations`.
+- **Cambiar el apartado al editar (MOV-04).** `PATCH /transactions/:id` ya acepta `pocketId`; el servicio valida que el apartado nuevo sea del usuario (404 si no) y de la misma moneda (`CURRENCY_MISMATCH`). Los movimientos de origen `ADJUSTMENT` y `VALUATION` no cambian de apartado.
+- **Una sola regla de compromisos.** `commitmentsByMonth` en `libs/domain` pasa a ser la fuente única del comprometido de un mes; `GET /commitments` y `GET /dashboard` la usan con la misma entrada:
+  - parte pendiente de cada resumen no pagado (`statementTotals(...).pending`, por moneda) en lugar de sus cuotas sueltas, así un resumen pagado en parte compromete lo que falta;
+  - fijos en apartado y en tarjeta (`pocketId` o `cardId`); el fijo en tarjeta se suma solo si su consumo del período todavía no existe, para no contarlo dos veces;
+  - fijos ya confirmados en el período salen del comprometido;
+  - programados `PENDING` del mes: gastos a comprometido, ingresos a esperados.
+- **Libre este mes (DAS-05).** `freeThisMonth(expectedIncome, committed, spent, separated)` y `separatedThisMonth(transfers, pocketKinds)`: suma en moneda base las transferencias del mes de `AVAILABLE` a `SAVINGS`/`INVESTMENT` y resta las inversas; el resto no cuenta. `GET /dashboard` agrega `separated` a la respuesta.
+
+| Método y ruta | Caso de uso |
+| --- | --- |
+| `POST /transactions` con fecha futura | MOV-08 |
+| `PATCH /transactions/:id` con `pocketId` | MOV-04 |
+| `POST /transfers` con `intent: INVEST \| REDEEM` desde la carga rápida | MOV-07 |
+| `GET /movements?type=INVESTMENT` | MOV-07 |
+| `GET /dashboard` con `separated` | DAS-05 |
+
 ## Backend
 
 Un módulo de Nest por dominio; los controladores son finos, los servicios orquestan y las reglas viven en `libs/domain`.
@@ -391,7 +418,8 @@ Todo lo que tiene una regla de la especificación es una función pura en `libs/
 - `buildStatementDates(card, period)`: cierre y vencimiento por defecto de un período.
 - `splitInstallments(total, count, startAt)`: montos de cada cuota, con el redondeo en la última.
 - `duePeriods(fixed, from, to)`: períodos que un fijo debe generar.
-- `commitmentsByMonth(input, months)`: compromisos por mes y moneda.
+- `commitmentsByMonth(input, months)`: compromisos por mes y moneda; única fuente del comprometido para Compromisos y el inicio.
+- `freeThisMonth(...)` y `separatedThisMonth(...)`: libre del mes y lo separado para ahorro o inversión.
 - `goalProjection(goal, accumulated, today, monthly?)`: faltante, aporte mensual, ritmo y fecha estimada.
 - `pocketBalance(initial, transactions, transfers, at?)` y `accountTotals(pockets)`: saldo de un apartado a una fecha y totales de la cuenta por moneda.
 - `yieldFromValuation(balanceAt, value)`: rendimiento que genera una valuación.
@@ -487,6 +515,15 @@ Cada feature tiene sus rutas (carga diferida), sus componentes de página y un s
 | `pl-category-select` con `allowCreate` | Agrega "+ Nueva categoría" al final; abre el formulario de categoría en una hoja encima y devuelve la creada (CAT-06) |
 | `pl-currency-select` | Muestra solo las monedas activadas del usuario, o solo ARS y USD con `cardOnly` |
 | `HomeShortcuts` | Fila de accesos del inicio, con modo edición para elegir y ordenar (arrastrar en escritorio, botones subir y bajar en celular) |
+
+### Componentes y patrones de la iteración 5
+
+| Pieza | Uso |
+| --- | --- |
+| Modo "Invertir" en la carga rápida | Cuarto segmento junto a Gasto, Ingreso y Transferencia; reutiliza la lógica de `move-sheet` (dos montos entre monedas) con el destino limitado a apartados de inversión y "+ Nueva inversión" |
+| Hoja de ajuste por tipo | Título, explicación y atajos según el tipo del apartado (CTA-06); los textos viven en el archivo de textos de cuentas |
+| `pl-date-field` sin `max` | Solo en la carga y edición de ingresos y gastos; debajo muestra "Programado" cuando la fecha es posterior a hoy |
+| `pl-chart-tooltip` | Tooltip común a todos los gráficos (DAS-06): sigue al mouse, aparece al enfocar cada barra o punto con teclado (cada uno es enfocable y tiene `aria-label` con etiqueta y monto) y al tocar en celular; muestra el monto con `pl-money`, así respeta "ocultar montos" |
 
 ## Auth y seguridad
 
