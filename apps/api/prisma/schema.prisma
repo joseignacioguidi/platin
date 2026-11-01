@@ -71,6 +71,7 @@ enum TxOrigin {
   FIXED
   ADJUSTMENT
   VALUATION
+  SCHEDULED // MOV-08: income or expense with a future date, pending until confirmed
 }
 
 enum FixedKind {

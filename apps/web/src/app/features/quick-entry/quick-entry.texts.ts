@@ -39,6 +39,8 @@ export const QUICK_ENTRY_TEXTS = {
     INVEST: 'Invertir',
     REDEEM: 'Rescatar',
   },
+  schedule: 'Programar',
+  scheduledHint: 'Programado: no toca tu saldo hasta que lo confirmes.',
   saving: 'Guardando…',
   noAccountsTitle: 'Primero creá una cuenta',
   noAccountsBody: 'Los movimientos se cargan sobre una cuenta: efectivo, banco o billetera.',

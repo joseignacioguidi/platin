@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { colorTokenSchema } from './accounts';
 import { iconNameSchema } from './categories';
-import { currencySchema, periodSchema, uuidSchema } from './common';
+import { currencySchema, localDateSchema, periodSchema, uuidSchema } from './common';
 import { txOriginSchema, txStatusSchema, txTypeSchema } from './transactions';
 import { transferIntentSchema } from './transfers';
 
@@ -91,6 +91,8 @@ export const movementsQuerySchema = z.object({
   categoryId: uuidSchema.optional(),
   type: movementFilterSchema.optional(),
   status: txStatusSchema.optional(),
+  /** Up to this date ("Para confirmar" leaves out scheduled movements whose date has not come). */
+  until: localDateSchema.optional(),
   q: z.string().trim().max(60).optional(),
   cursor: z.string().max(200).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),

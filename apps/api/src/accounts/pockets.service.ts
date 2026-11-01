@@ -8,6 +8,7 @@ import type {
 } from '@platin/contracts';
 import { balanceAdjustment, Money } from '@platin/domain';
 import { AppException } from '../common/app-exception';
+import { ClockService } from '../common/clock.service';
 import { CurrenciesService } from '../common/currencies.service';
 import { freezeBase } from '../common/base-conversion';
 import { money, toDbDate } from '../common/serialize';
@@ -48,6 +49,7 @@ export class PocketsService {
     private readonly rates: UserRates,
     private readonly entitlements: EntitlementsService,
     private readonly currencies: CurrenciesService,
+    private readonly clock: ClockService,
   ) {}
 
   async get(userId: string, id: string): Promise<Pocket> {
@@ -153,6 +155,7 @@ export class PocketsService {
         'Update the value of an investment pocket with a valuation',
       );
     }
+    this.clock.assertNotFuture(request.date);
     const current = await this.balances.balance(userId, pocket);
     const difference = balanceAdjustment(current, Money.of(request.balance, pocket.currency));
     if (!difference) return null;

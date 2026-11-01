@@ -1,6 +1,6 @@
 import { httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { LucideChevronDown } from '@lucide/angular';
+import { LucideChevronDown, LucideDynamicIcon } from '@lucide/angular';
 import type { CommitmentsResponse, MonthCommitments } from '@platin/contracts';
 import { parseLocalDate, parsePeriod } from '@platin/domain';
 import {
@@ -10,6 +10,8 @@ import {
   PlMoney,
   PlErrorState,
   PlSkeleton,
+  PL_TONE_CLASSES,
+  PlTone,
 } from '@platin/web-ui';
 import { API } from '../../core/api';
 import { RefreshBus, reloadOn } from '../../core/data/refresh-bus';
@@ -18,7 +20,7 @@ import { COMMITMENTS_TEXTS } from './commitments.texts';
 /** COM-01/02: what is already committed in each of the next 12 months, by currency. */
 @Component({
   selector: 'pl-commitments-page',
-  imports: [PlSkeleton, PlErrorState, PlMoney, PlEmptyState, LucideChevronDown],
+  imports: [PlSkeleton, PlErrorState, PlMoney, PlEmptyState, LucideChevronDown, LucideDynamicIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
   template: `
@@ -92,12 +94,34 @@ import { COMMITMENTS_TEXTS } from './commitments.texts';
                     <span class="font-amount w-12 shrink-0 text-xs text-muted">{{
                       day(item.date)
                     }}</span>
+                    @if (item.type === 'SCHEDULED') {
+                      <span
+                        class="flex size-7 shrink-0 items-center justify-center rounded-lg"
+                        [class]="toneClass(item.category?.color)"
+                        aria-hidden="true"
+                      >
+                        <svg [lucideIcon]="item.category?.icon ?? 'calendar'" [size]="15"></svg>
+                      </span>
+                    }
                     <span class="min-w-0 flex-1 truncate text-[15px]">
-                      @if (item.type === 'INSTALLMENT') {
-                        {{ item.description }} · {{ item.number }}/{{ item.count }}
-                        <span class="text-muted">· {{ item.cardName }}</span>
-                      } @else {
-                        {{ item.name }} <span class="text-muted">· {{ texts.fixed }}</span>
+                      @switch (item.type) {
+                        @case ('STATEMENT') {
+                          {{ texts.statement(item.cardName) }}
+                          @if (item.partiallyPaid) {
+                            <span class="text-muted">· {{ texts.partiallyPaid }}</span>
+                          }
+                        }
+                        @case ('FIXED') {
+                          {{ item.name }}
+                          <span class="text-muted"
+                            >·
+                            {{ item.cardName ? texts.fixedOn(item.cardName) : texts.fixed }}</span
+                          >
+                        }
+                        @case ('SCHEDULED') {
+                          {{ item.description }}
+                          <span class="text-muted">· {{ texts.scheduled }}</span>
+                        }
                       }
                     </span>
                     <pl-money
@@ -106,6 +130,21 @@ import { COMMITMENTS_TEXTS } from './commitments.texts';
                       [currency]="item.currency"
                     />
                   </div>
+                  @if (item.type === 'STATEMENT') {
+                    <ul class="mb-1 ml-14 flex flex-col gap-0.5 text-[13px] text-muted">
+                      @for (installment of item.installments; track $index) {
+                        <li class="flex justify-between gap-3">
+                          <span class="truncate">
+                            {{ installment.description }}
+                            @if (installment.count > 1) {
+                              · {{ installment.number }}/{{ installment.count }}
+                            }
+                          </span>
+                          <pl-money [amount]="installment.amount" [currency]="item.currency" />
+                        </li>
+                      }
+                    </ul>
+                  }
                 } @empty {
                   <p class="py-2 text-sm text-muted">{{ texts.nothing }}</p>
                 }
@@ -133,6 +172,11 @@ export class CommitmentsPage {
   );
   protected readonly empty = computed(() => this.months().every((m) => m.items.length === 0));
   protected readonly open = signal<string | null>(null);
+
+  /** Category tint of a scheduled movement (COM-01 with MOV-08). */
+  protected toneClass(color: string | undefined): string {
+    return PL_TONE_CLASSES[(color as PlTone | undefined) ?? 'pending'] ?? PL_TONE_CLASSES.pending;
+  }
 
   constructor() {
     reloadOn(this.bus, ['commitments'], () => this.resource.reload());

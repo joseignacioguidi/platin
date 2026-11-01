@@ -10,6 +10,7 @@ import {
   Currency,
   firstDayOf,
   lastDayOf,
+  LocalDate,
   Money,
   Period,
   transferIntent,
@@ -30,7 +31,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UserRates } from '../rates/user-rates.service';
 import { toTransferDto } from '../transfers/transfers.service';
 
-type ParsedQuery = Omit<MovementsQuery, 'limit'> & { limit: number; period?: Period };
+type ParsedQuery = Omit<MovementsQuery, 'limit'> & {
+  limit: number;
+  period?: Period;
+  until?: LocalDate;
+};
 
 const pocketRef = {
   select: {
@@ -49,6 +54,16 @@ interface PocketRefRow {
   currency: Currency;
   accountId: string;
   account: { name: string };
+}
+
+/** The month range, cut at `until` when given. */
+function dateFilter(
+  range: { gte: Date; lte: Date } | undefined,
+  until: LocalDate | undefined,
+): Prisma.DateTimeFilter | undefined {
+  if (!until) return range;
+  const limit = toDbDate(until);
+  return { ...range, lte: range && range.lte < limit ? range.lte : limit };
 }
 
 /** "Mercado Pago · Disponible" as the contracts expect it. */
@@ -230,12 +245,13 @@ export class MovementsService {
   private findTransactions(
     userId: string,
     query: ParsedQuery,
-    range: Prisma.DateTimeFilter | undefined,
+    range: { gte: Date; lte: Date } | undefined,
     cursor: Cursor | undefined,
     take: number,
   ) {
     const filters: Prisma.TransactionWhereInput = { userId };
-    if (range) filters.date = range;
+    const date = dateFilter(range, query.until);
+    if (date) filters.date = date;
     if (query.accountId) filters.pocket = { accountId: query.accountId };
     if (query.pocketId) filters.pocketId = query.pocketId;
     if (query.categoryId) filters.categoryId = query.categoryId;
@@ -256,12 +272,13 @@ export class MovementsService {
   private findTransfers(
     userId: string,
     query: ParsedQuery,
-    range: Prisma.DateTimeFilter | undefined,
+    range: { gte: Date; lte: Date } | undefined,
     cursor: Cursor | undefined,
     take: number,
   ) {
     const filters: Prisma.TransferWhereInput = { userId };
-    if (range) filters.date = range;
+    const date = dateFilter(range, query.until);
+    if (date) filters.date = date;
     if (query.accountId) {
       filters.OR = [
         { fromPocket: { accountId: query.accountId } },
@@ -302,12 +319,13 @@ export class MovementsService {
   private findCharges(
     userId: string,
     query: ParsedQuery,
-    range: Prisma.DateTimeFilter | undefined,
+    range: { gte: Date; lte: Date } | undefined,
     cursor: Cursor | undefined,
     take: number,
   ) {
     const filters: Prisma.CardChargeWhereInput = { userId };
-    if (range) filters.date = range;
+    const date = dateFilter(range, query.until);
+    if (date) filters.date = date;
     if (query.cardId) filters.cardId = query.cardId;
     if (query.categoryId) filters.categoryId = query.categoryId;
     if (query.q) {

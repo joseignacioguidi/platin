@@ -118,7 +118,8 @@ describe('dashboard', () => {
       spent: '42800.00',
       committed: '410000.00',
       free: '1397200.00',
-      pending: { count: 2, names: ['Sueldo', 'Alquiler'] },
+      // The rent (Oct 28) is not to confirm until its date.
+      pending: { count: 1, names: ['Sueldo'] },
       rate: { type: 'MEP', sell: '1200.000000', date: '2026-10-23', stale: false },
     });
   });

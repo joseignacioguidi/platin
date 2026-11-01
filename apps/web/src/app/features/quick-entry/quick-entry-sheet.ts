@@ -15,6 +15,7 @@ import type { Pocket } from '@platin/contracts';
 import { Router } from '@angular/router';
 import { LucidePencil } from '@lucide/angular';
 import {
+  compareDates,
   currencySymbol,
   impliedRate,
   LocalDate,
@@ -167,15 +168,21 @@ type Direction = 'INVEST' | 'REDEEM';
               [value]="paymentValue()"
               (valueChange)="setPayment($event)"
             />
+            <!-- MOV-08: incomes and expenses can be scheduled; card purchases can't. -->
             <pl-date-field
               class="min-w-32"
               appearance="tile"
               [label]="texts.date"
-              [max]="today.date()"
+              [max]="card() ? today.date() : null"
               [value]="date()"
               (valueChange)="setDate($event)"
             />
           </div>
+          @if (scheduled()) {
+            <p class="rounded-2xl bg-pending-soft px-4 py-3 text-sm text-pending-ink" role="status">
+              {{ texts.scheduledHint }}
+            </p>
+          }
 
           @if (card()) {
             <fieldset class="flex flex-col gap-2">
@@ -350,7 +357,13 @@ type Direction = 'INVEST' | 'REDEEM';
             <svg lucidePencil [size]="20"></svg>
           </button>
           <button plButton size="lg" type="button" [disabled]="saving()" (click)="save()">
-            {{ saving() ? texts.saving : texts.save[mode() === 'INVEST' ? direction() : mode()] }}
+            {{
+              saving()
+                ? texts.saving
+                : scheduled()
+                  ? texts.schedule
+                  : texts.save[mode() === 'INVEST' ? direction() : mode()]
+            }}
           </button>
         </div>
       }
@@ -463,6 +476,13 @@ export class QuickEntrySheet {
   private readonly base = computed(() => this.auth.user()?.baseCurrency ?? 'ARS');
   protected readonly rateUnitText = computed(() => rateUnit(this.amountCurrency(), this.base()));
   protected readonly amountText = computed(() => displayAmount(this.amount()));
+  /** MOV-08: an income or expense with a date after today is scheduled. */
+  protected readonly scheduled = computed(
+    () =>
+      (this.mode() === 'EXPENSE' || this.mode() === 'INCOME') &&
+      !this.card() &&
+      compareDates(this.date(), this.today.date()) > 0,
+  );
 
   protected readonly visibleCategories = computed(() => {
     const mode = this.mode();
@@ -528,6 +548,20 @@ export class QuickEntrySheet {
       this.mode();
       this.categoryId.set(null);
       this.error.set(null);
+    });
+    // Only incomes and expenses are scheduled: anything else goes back to today at most.
+    effect(() => {
+      const canSchedule = (this.mode() === 'EXPENSE' || this.mode() === 'INCOME') && !this.card();
+      const today = this.today.date();
+      if (
+        !canSchedule &&
+        compareDates(
+          untracked(() => this.date()),
+          today,
+        ) > 0
+      ) {
+        this.date.set(today);
+      }
     });
     // Investing starts from a "Disponible" (of the account used last) and redeems back to one.
     effect(() => {

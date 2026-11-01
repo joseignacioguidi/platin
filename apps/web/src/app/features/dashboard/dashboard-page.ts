@@ -1,7 +1,7 @@
 import { httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { LucideChevronRight, LucideEye, LucideEyeOff } from '@lucide/angular';
+import { LucideChevronRight, LucideDynamicIcon, LucideEye, LucideEyeOff } from '@lucide/angular';
 import type { Dashboard, UpcomingItem } from '@platin/contracts';
 import { parseLocalDate, Period } from '@platin/domain';
 import {
@@ -16,6 +16,8 @@ import {
   PlStackSegment,
   PlErrorState,
   PlSkeleton,
+  PL_TONE_CLASSES,
+  PlTone,
 } from '@platin/web-ui';
 import { API } from '../../core/api';
 import { AuthService } from '../../core/auth/auth.service';
@@ -40,6 +42,7 @@ import { HomeShortcuts } from './home-shortcuts';
     LucideEye,
     LucideEyeOff,
     LucideChevronRight,
+    LucideDynamicIcon,
     HomeShortcuts,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -170,18 +173,29 @@ import { HomeShortcuts } from './home-shortcuts';
                 <span class="text-[17px] font-semibold">{{ badge(item.date).day }}</span>
                 <span class="text-[11px] text-muted">{{ badge(item.date).month }}</span>
               </span>
+              @if (item.type === 'SCHEDULED') {
+                <span
+                  class="flex size-9 shrink-0 items-center justify-center rounded-xl"
+                  [class]="toneClass(item.category?.color)"
+                  aria-hidden="true"
+                >
+                  <svg [lucideIcon]="item.category?.icon ?? 'calendar'" [size]="18"></svg>
+                </span>
+              }
               <span class="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span class="truncate text-[15px] font-semibold">
-                  {{ item.type === 'STATEMENT' ? item.cardName : item.name }}
+                  {{ title(item) }}
                 </span>
                 <span class="flex items-center gap-1.5 text-xs text-muted">
-                  <span
-                    class="size-2 rounded-full"
-                    [class.bg-card]="item.type === 'STATEMENT'"
-                    [class.bg-expense]="item.type === 'FIXED' && item.kind === 'EXPENSE'"
-                    [class.bg-brand]="item.type === 'FIXED' && item.kind === 'INCOME'"
-                    aria-hidden="true"
-                  ></span>
+                  @if (item.type !== 'SCHEDULED') {
+                    <span
+                      class="size-2 rounded-full"
+                      [class.bg-card]="item.type === 'STATEMENT'"
+                      [class.bg-expense]="item.type === 'FIXED' && item.kind === 'EXPENSE'"
+                      [class.bg-brand]="item.type === 'FIXED' && item.kind === 'INCOME'"
+                      aria-hidden="true"
+                    ></span>
+                  }
                   {{ subtitle(item) }}
                 </span>
               </span>
@@ -281,8 +295,19 @@ export class DashboardPage {
     return dateBadge(parseLocalDate(date));
   }
 
+  protected title(item: UpcomingItem): string {
+    if (item.type === 'STATEMENT') return item.cardName;
+    return item.type === 'FIXED' ? item.name : item.description;
+  }
+
+  /** Category tint of a scheduled movement (MOV-08). */
+  protected toneClass(color: string | undefined): string {
+    return PL_TONE_CLASSES[(color as PlTone | undefined) ?? 'pending'] ?? PL_TONE_CLASSES.pending;
+  }
+
   protected subtitle(item: UpcomingItem): string {
     if (item.type === 'STATEMENT') return this.texts.statementDue;
+    if (item.type === 'SCHEDULED') return `${this.texts.scheduled} · ${item.accountName}`;
     return `${item.kind === 'INCOME' ? this.texts.income : this.texts.fixed} · ${item.accountName}`;
   }
 }

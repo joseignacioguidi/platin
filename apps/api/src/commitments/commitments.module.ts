@@ -3,7 +3,8 @@ import type { RateTable } from '@platin/domain';
 import { ClockService } from '../common/clock.service';
 import { UserRates } from '../rates/user-rates.service';
 import { CommitmentsController } from './commitments.controller';
-import { CommitmentsRateSource, CommitmentsService } from './commitments.service';
+import { CommitmentsInputBuilder, CommitmentsRateSource } from './commitments-input';
+import { CommitmentsService } from './commitments.service';
 
 /** Values commitments with today's rate of the user's preferred type. */
 @Injectable()
@@ -22,6 +23,11 @@ export class TodayRates extends CommitmentsRateSource {
 
 @Module({
   controllers: [CommitmentsController],
-  providers: [CommitmentsService, { provide: CommitmentsRateSource, useClass: TodayRates }],
+  providers: [
+    CommitmentsService,
+    CommitmentsInputBuilder,
+    { provide: CommitmentsRateSource, useClass: TodayRates },
+  ],
+  exports: [CommitmentsInputBuilder],
 })
 export class CommitmentsModule {}

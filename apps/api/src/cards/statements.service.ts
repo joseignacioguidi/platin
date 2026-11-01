@@ -22,6 +22,7 @@ import {
 import { PocketsService } from '../accounts/pockets.service';
 import { CategoriesService } from '../categories/categories.service';
 import { AppException } from '../common/app-exception';
+import { ClockService } from '../common/clock.service';
 import { cardCurrency, date, money, toDbDate, toDbPeriod } from '../common/serialize';
 import type { CreditCard, Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -44,6 +45,7 @@ export class StatementsService {
     private readonly prisma: PrismaService,
     private readonly pockets: PocketsService,
     private readonly categories: CategoriesService,
+    private readonly clock: ClockService,
   ) {}
 
   /** Manual date corrections of a card (TAR-06), by period. */
@@ -270,6 +272,8 @@ export class StatementsService {
    * The expense was already recorded with the purchase; the payment doesn't duplicate it.
    */
   async pay(userId: string, id: string, request: PayStatementRequest): Promise<StatementSummary> {
+    // A statement payment is a transfer: dated up to today (MOV-08).
+    this.clock.assertNotFuture(request.date);
     const row = await this.getOwned(userId, id);
     if (row.status === 'OPEN') {
       throw new AppException(

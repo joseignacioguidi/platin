@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { Dashboard, UpcomingItem } from '@platin/contracts';
+import type { ColorToken, Dashboard, UpcomingItem } from '@platin/contracts';
 import {
   addDays,
   compareDates,
@@ -22,10 +22,12 @@ import {
   utcToPeriod,
   valueIn,
   canConvert,
+  commitmentsByMonth,
 } from '@platin/domain';
 import { STATEMENT_PARTS, statementTotals } from '../cards/statement-math';
 import { ClockService } from '../common/clock.service';
-import { baseCurrency, toDbDate, toDbPeriod } from '../common/serialize';
+import { CommitmentsInputBuilder } from '../commitments/commitments-input';
+import { baseCurrency, date, money as money2, toDbDate, toDbPeriod } from '../common/serialize';
 import { FIXED_INCLUDE, FixedRow, toSchedule } from '../fixed/fixed.mapper';
 import type { Prisma } from '../generated/prisma/client';
 import { InvestmentsService } from '../investments/investments.service';
@@ -43,8 +45,10 @@ type StatementRow = Prisma.CardStatementGetPayload<{ include: typeof STATEMENT_W
  * - expected income = fixed incomes of the month (the confirmed amount once confirmed) + other
  *   confirmed incomes;
  * - spent = confirmed expenses + card purchases of the month;
- * - committed = what is still to pay this month: pending part of unpaid statements due and
- *   fixed expenses not confirmed yet;
+ * - expected income also adds the scheduled incomes of the month (MOV-08);
+ * - committed = what is still to pay this month, with the rule and input of Compromisos
+ *   (commitmentsByMonth): pending part of unpaid statements due, unconfirmed fixed expenses on a
+ *   pocket or a card, and scheduled expenses;
  * - separated = transfers of the month to savings or investments, minus the ones coming back;
  * - free = expected − committed − spent − separated.
  */
@@ -56,6 +60,7 @@ export class DashboardService {
     private readonly rates: RatesService,
     private readonly userRates: UserRates,
     private readonly investments: InvestmentsService,
+    private readonly commitments: CommitmentsInputBuilder,
   ) {}
 
   async get(userId: string, requested?: Period): Promise<Dashboard> {
@@ -73,7 +78,7 @@ export class DashboardService {
         ? valueIn(money, base, todayRates)
         : Money.zero(base);
 
-    const [otherIncome, expenses, charges, fixedItems, monthFixedTx, statements, pending] =
+    const [otherIncome, expenses, charges, fixedItems, monthFixedTx, statements, pending, built] =
       await Promise.all([
         this.prisma.transaction.aggregate({
           where: {
@@ -101,40 +106,40 @@ export class DashboardService {
           where: {
             userId,
             status: { not: 'PAID' },
-            dueDate: { gte: range.gte, lte: toDbDate(addDays(today, UPCOMING_DAYS)) },
+            dueDate: { gte: toDbDate(today), lte: toDbDate(addDays(today, UPCOMING_DAYS)) },
           },
           include: STATEMENT_WITH_CARD,
           orderBy: { dueDate: 'asc' },
         }),
+        // "Para confirmar": pending movements whose date arrived (scheduled ones wait for it).
         this.prisma.transaction.findMany({
-          where: { userId, status: 'PENDING' },
+          where: { userId, status: 'PENDING', date: { lte: toDbDate(today) } },
           orderBy: { date: 'asc' },
           select: { description: true },
         }),
+        this.commitments.build(userId, period, period),
       ]);
 
     const money = (value: { toFixed(d: number): string } | null) =>
       Money.of((value ?? 0).toFixed(2), base);
 
-    // Fixed items of the month: confirmed ones by their real amount, the rest by the expected one.
+    // Fixed incomes of the month: confirmed ones by their real amount, the rest by the expected one.
     let fixedIncome = Money.zero(base);
-    let fixedCommitted = Money.zero(base);
-    for (const fixed of fixedItems) {
+    for (const fixed of fixedItems.filter((f) => f.kind === 'INCOME')) {
       for (const due of duePeriods(toSchedule(fixed), period, period)) {
         const tx = monthFixedTx.find((t) => t.fixedId === fixed.id);
-        if (fixed.kind === 'INCOME') {
-          fixedIncome = fixedIncome.add(
-            tx?.status === 'CONFIRMED'
-              ? money(tx.baseAmount)
-              : toBase(tx ? Money.of(tx.amount.toFixed(2), tx.currency) : due.amount),
-          );
-        } else if (tx?.status !== 'CONFIRMED') {
-          fixedCommitted = fixedCommitted.add(
-            toBase(tx ? Money.of(tx.amount.toFixed(2), tx.currency) : due.amount),
-          );
-        }
+        fixedIncome = fixedIncome.add(
+          tx?.status === 'CONFIRMED'
+            ? money(tx.baseAmount)
+            : toBase(tx ? Money.of(tx.amount.toFixed(2), tx.currency) : due.amount),
+        );
       }
     }
+    // Scheduled incomes of the month not confirmed yet (MOV-08).
+    const scheduledIncome = Money.sum(
+      (built.input.scheduled ?? []).filter((s) => s.kind === 'INCOME').map((s) => toBase(s.amount)),
+      base,
+    );
 
     let cardSpent = Money.zero(base);
     for (const charge of charges) {
@@ -147,18 +152,11 @@ export class DashboardService {
       if (rate) cardSpent = cardSpent.add(valueIn(amount, base, rate));
     }
 
-    const inPeriod = (d: Date) => utcToPeriod(d) === period;
-    let statementsCommitted = Money.zero(base);
-    for (const statement of statements.filter((s) => inPeriod(s.dueDate))) {
-      const totals = statementTotals(statement);
-      statementsCommitted = statementsCommitted
-        .add(toBase(totals.pending.ARS))
-        .add(toBase(totals.pending.USD));
-    }
-
-    const expectedIncome = money(otherIncome._sum.baseAmount).add(fixedIncome);
+    // The same rule and input as Compromisos (COM-02), for this month.
+    const [month] = commitmentsByMonth(built.input, period, 1);
+    const expectedIncome = money(otherIncome._sum.baseAmount).add(fixedIncome).add(scheduledIncome);
     const spent = money(expenses._sum.baseAmount).add(cardSpent);
-    const committed = statementsCommitted.add(fixedCommitted);
+    const committed = month.committed.base;
     const separated = await this.separated(userId, base, user.valuationRate, range);
 
     return {
@@ -178,6 +176,7 @@ export class DashboardService {
         statements,
         fixedItems,
         await this.confirmedFixedKeys(userId, today),
+        await this.upcomingScheduled(userId, today),
       ),
       rate: todayRate
         ? {
@@ -238,9 +237,10 @@ export class DashboardService {
     statements: StatementRow[],
     fixedItems: FixedRow[],
     confirmed: Set<string>,
+    scheduled: UpcomingItem[],
   ): UpcomingItem[] {
     const until = addDays(today, UPCOMING_DAYS);
-    const items: UpcomingItem[] = [];
+    const items: UpcomingItem[] = [...scheduled];
     for (const statement of statements) {
       const due = utcToLocalDate(statement.dueDate);
       if (compareDates(due, today) < 0) continue;
@@ -274,6 +274,34 @@ export class DashboardService {
       }
     }
     return items.sort((a, b) => compareDates(a.date as LocalDate, b.date as LocalDate));
+  }
+
+  /** MOV-08: scheduled incomes and expenses of the next 30 days. */
+  private async upcomingScheduled(userId: string, today: LocalDate): Promise<UpcomingItem[]> {
+    const rows = await this.prisma.transaction.findMany({
+      where: {
+        userId,
+        origin: 'SCHEDULED',
+        status: 'PENDING',
+        date: { gte: toDbDate(today), lte: toDbDate(addDays(today, UPCOMING_DAYS)) },
+      },
+      include: {
+        pocket: { select: { name: true, account: { select: { name: true } } } },
+        category: { select: { id: true, name: true, icon: true, color: true } },
+      },
+    });
+    return rows.map((row) => ({
+      type: 'SCHEDULED',
+      date: date(row.date),
+      id: row.id,
+      kind: row.type === 'INCOME' ? 'INCOME' : 'EXPENSE',
+      description: row.description ?? row.category?.name ?? '',
+      pocketName: row.pocket.name,
+      accountName: row.pocket.account.name,
+      amount: money2(row.amount),
+      currency: row.currency,
+      category: row.category ? { ...row.category, color: row.category.color as ColorToken } : null,
+    }));
   }
 
   private async confirmedFixedKeys(userId: string, today: LocalDate): Promise<Set<string>> {

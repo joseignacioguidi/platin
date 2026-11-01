@@ -1,31 +1,62 @@
 import { z } from 'zod';
+import { colorTokenSchema } from './accounts';
+import { iconNameSchema } from './categories';
 import {
   baseCurrencySchema,
   cardCurrencySchema,
   currencyAmountSchema,
   currencySchema,
+  uuidSchema,
 } from './common';
 
 /** One line per currency that appears (MON-03) and everything valued in the base currency. */
 const totalsSchema = z.object({ byCurrency: z.array(currencyAmountSchema), base: z.string() });
 
+/** A category as the lists show it (icon and color). */
+export const commitmentCategorySchema = z.object({
+  id: uuidSchema,
+  name: z.string(),
+  icon: iconNameSchema,
+  color: colorTokenSchema,
+});
+
 export const commitmentItemSchema = z.discriminatedUnion('type', [
+  /** What is still pending of an unpaid statement in one currency, with its installments. */
   z.object({
-    type: z.literal('INSTALLMENT'),
+    type: z.literal('STATEMENT'),
     date: z.string(),
     amount: z.string(),
     currency: cardCurrencySchema,
-    description: z.string(),
+    statementId: uuidSchema,
     cardName: z.string(),
-    number: z.number().int(),
-    count: z.number().int(),
+    partiallyPaid: z.boolean(),
+    installments: z.array(
+      z.object({
+        description: z.string(),
+        number: z.number().int(),
+        count: z.number().int(),
+        amount: z.string(),
+      }),
+    ),
   }),
+  /** A fixed expense on a pocket, or on a card before its charge of the period exists. */
   z.object({
     type: z.literal('FIXED'),
     date: z.string(),
     amount: z.string(),
     currency: currencySchema,
     name: z.string(),
+    cardName: z.string().nullable(),
+  }),
+  /** MOV-08: a scheduled expense. */
+  z.object({
+    type: z.literal('SCHEDULED'),
+    date: z.string(),
+    amount: z.string(),
+    currency: currencySchema,
+    id: uuidSchema,
+    description: z.string(),
+    category: commitmentCategorySchema.nullable(),
   }),
 ]);
 

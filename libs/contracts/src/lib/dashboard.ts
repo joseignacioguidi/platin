@@ -6,6 +6,7 @@ import {
   rateTypeSchema,
   uuidSchema,
 } from './common';
+import { commitmentCategorySchema } from './commitments';
 
 export const dashboardQuerySchema = z.object({ period: periodSchema.optional() });
 
@@ -30,6 +31,19 @@ export const upcomingItemSchema = z.discriminatedUnion('type', [
     amount: z.string(),
     currency: currencySchema,
   }),
+  /** MOV-08: a scheduled income or expense, with its category icon. */
+  z.object({
+    type: z.literal('SCHEDULED'),
+    date: z.string(),
+    id: uuidSchema,
+    kind: z.enum(['INCOME', 'EXPENSE']),
+    description: z.string(),
+    pocketName: z.string(),
+    accountName: z.string(),
+    amount: z.string(),
+    currency: currencySchema,
+    category: commitmentCategorySchema.nullable(),
+  }),
 ]);
 
 /** DAS-01: "Libre este mes" and what surrounds it, all in base currency. */
@@ -40,7 +54,7 @@ export const dashboardSchema = z.object({
   expectedIncome: z.string(),
   /** Confirmed expenses + card purchases of the month. */
   spent: z.string(),
-  /** Still to pay this month: installments of unpaid statements due and unconfirmed fixed expenses. */
+  /** Still to pay this month, by the rule of Compromisos (COM-02): pending part of statements due, unconfirmed fixed expenses (pocket or card) and scheduled expenses. */
   committed: z.string(),
   /** DAS-05: set apart this month to savings or investments, minus what came back (can be negative). */
   separated: z.string(),

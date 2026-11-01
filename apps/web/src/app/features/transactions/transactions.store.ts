@@ -13,7 +13,8 @@ import { API } from '../../core/api';
 import { DataKey, RefreshBus } from '../../core/data/refresh-bus';
 
 /** What a movement write can change. */
-const AFFECTED: DataKey[] = ['movements', 'accounts', 'dashboard', 'goals'];
+// Scheduled movements are commitments too (MOV-08).
+const AFFECTED: DataKey[] = ['movements', 'accounts', 'dashboard', 'goals', 'commitments'];
 
 /** Writes of incomes, expenses and transfers. */
 @Injectable({ providedIn: 'root' })

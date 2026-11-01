@@ -11,6 +11,7 @@ import {
 import { PocketsService } from '../accounts/pockets.service';
 import { AppException } from '../common/app-exception';
 import { CurrenciesService } from '../common/currencies.service';
+import { ClockService } from '../common/clock.service';
 import { date, money, toDbDate } from '../common/serialize';
 import type { Pocket, Transfer as TransferRow } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -48,9 +49,12 @@ export class TransfersService {
     private readonly prisma: PrismaService,
     private readonly pockets: PocketsService,
     private readonly currencies: CurrenciesService,
+    private readonly clock: ClockService,
   ) {}
 
   async create(userId: string, request: CreateTransferRequest): Promise<Transfer> {
+    // Transfers are not scheduled (MOV-08).
+    this.clock.assertNotFuture(request.date);
     const from = await this.pockets.getActive(userId, request.fromPocketId);
     const to = await this.pockets.getActive(userId, request.toPocketId);
     await this.currencies.assertEnabled(userId, from.currency, to.currency);

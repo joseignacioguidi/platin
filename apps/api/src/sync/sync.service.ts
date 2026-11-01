@@ -130,7 +130,10 @@ export class SyncService {
         const createdStatements = (await tx.cardStatement.count({ where: { userId } })) - before;
 
         await tx.user.update({ where: { id: userId }, data: { lastSyncedAt: this.clock.now() } });
-        const pendingCount = await tx.transaction.count({ where: { userId, status: 'PENDING' } });
+        // Scheduled movements whose date has not come are not "to confirm" yet (MOV-08).
+        const pendingCount = await tx.transaction.count({
+          where: { userId, status: 'PENDING', date: { lte: toDbDate(today) } },
+        });
         return { generatedPending, generatedCharges, createdStatements, pendingCount };
       },
       { timeout: 20_000 },

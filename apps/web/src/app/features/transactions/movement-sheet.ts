@@ -1,7 +1,7 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import type { Movement } from '@platin/contracts';
-import { CategoryKind, LocalDate, parseLocalDate } from '@platin/domain';
+import { CategoryKind, compareDates, LocalDate, parseLocalDate } from '@platin/domain';
 import {
   displayAmount,
   formatDate,
@@ -15,6 +15,7 @@ import {
 } from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
 import { FormField } from '../../core/forms/form-field';
+import { Today } from '../../core/today';
 import { ChargeFormData, ChargeFormSheet } from '../cards/charge-form-sheet';
 import { CardsStore } from '../cards/cards.store';
 import { CategoriesStore } from '../categories/categories.store';
@@ -71,13 +72,20 @@ const INPUT =
             />
           </label>
           <pl-form-field [label]="texts.date" controlId="movement-date">
+            <!-- MOV-08: only a pending income or expense can wait for a future date. -->
             <pl-date-field
               inputId="movement-date"
               [label]="texts.date"
+              [max]="pending && categoryKind() ? null : today.date()"
               [value]="date()"
               (valueChange)="setDate($event)"
             />
           </pl-form-field>
+          @if (scheduled()) {
+            <p class="rounded-2xl bg-pending-soft px-4 py-3 text-sm text-pending-ink" role="status">
+              {{ texts.scheduledHint }}
+            </p>
+          }
         </div>
       } @else {
         <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[15px]">
@@ -114,7 +122,7 @@ const INPUT =
         }
         @if (editable) {
           <button plButton size="lg" type="button" [disabled]="busy()" (click)="save()">
-            {{ texts.save }}
+            {{ scheduled() ? texts.schedule : texts.save }}
           </button>
         }
         @if (movement.kind === 'CARD_CHARGE') {
@@ -146,6 +154,7 @@ export class MovementSheet {
   protected readonly categoriesStore = inject(CategoriesStore);
   private readonly sheet = inject(PlBottomSheet);
   private readonly cardsStore = inject(CardsStore);
+  protected readonly today = inject(Today);
 
   /** Statement payments are undone from the card, not from the list. */
   protected readonly deletable = !(this.movement.kind === 'TRANSFER' && this.movement.statement);
@@ -174,6 +183,11 @@ export class MovementSheet {
     (this.movement.type === 'INCOME' || this.movement.type === 'EXPENSE')
       ? this.movement.type
       : null,
+  );
+
+  /** A pending income or expense dated after today stays scheduled (MOV-08). */
+  protected readonly scheduled = computed(
+    () => this.pending && !!this.categoryKind() && compareDates(this.date(), this.today.date()) > 0,
   );
 
   protected value(event: Event): string {

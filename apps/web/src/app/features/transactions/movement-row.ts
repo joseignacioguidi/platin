@@ -32,6 +32,8 @@ interface RowView {
   icon: string;
   tone: PlTone;
   pending: boolean;
+  /** Badge text of a pending movement: "Pendiente" or "Programado · 20/11" (MOV-08). */
+  badge?: string | null;
   /** The heading is a sentence that may take two lines. */
   wrap?: boolean;
   lines: { sign: '-' | '+' | ''; amount: string; currency: Currency; positive: boolean }[];
@@ -50,9 +52,9 @@ interface RowView {
       [tone]="view().tone"
       [wrap]="!!view().wrap"
     >
-      @if (view().pending) {
+      @if (view().pending && view().badge !== null) {
         <span badge class="rounded-full bg-pending px-2.5 py-0.5 text-xs font-semibold text-ink">
-          {{ texts.pending }}
+          {{ view().badge ?? texts.pending }}
         </span>
       }
       @for (line of view().lines; track $index) {
@@ -155,6 +157,10 @@ export class MovementRow {
       };
     }
     const pending = m.status === 'PENDING';
+    const [, month, day] = m.date.split('-');
+    // A scheduled one says so in its subtitle, so the title keeps its room (MOV-08).
+    const scheduledLabel =
+      pending && m.origin === 'SCHEDULED' ? this.texts.scheduled(day + '/' + month) : null;
     if (m.type === 'ADJUSTMENT' || m.type === 'YIELD') {
       const negative = m.amount.startsWith('-');
       const yields = m.type === 'YIELD';
@@ -178,12 +184,13 @@ export class MovementRow {
     const category = m.category;
     return {
       heading: m.description || category?.name || this.texts.noCategory,
-      subtitle: m.description
-        ? [category?.name, pocketPlace(m.pocket)].filter(Boolean).join(' · ')
-        : pocketPlace(m.pocket),
+      subtitle: [scheduledLabel, m.description ? category?.name : null, pocketPlace(m.pocket)]
+        .filter(Boolean)
+        .join(' · '),
       icon: category?.icon ?? 'receipt',
       tone: pending ? 'pending' : income ? 'brand' : (category?.color ?? 'expense'),
       pending,
+      badge: scheduledLabel ? null : undefined,
       lines: [
         {
           sign: income ? '+' : '-',

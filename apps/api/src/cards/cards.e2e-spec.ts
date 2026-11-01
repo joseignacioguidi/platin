@@ -165,13 +165,13 @@ describe('cards', () => {
 
     const partial = await api()
       .post(`/api/v1/statements/${october.id}/payments`)
-      .send({ pocketId: galicia.id, currency: 'ARS', amount: '20000', date: '2026-11-04' })
+      .send({ pocketId: galicia.id, currency: 'ARS', amount: '20000', date: '2026-10-22' })
       .expect(201);
     expect(partial.body).toMatchObject({ status: 'PARTIALLY_PAID', pending: { ARS: '27333.33' } });
 
     const paid = await api()
       .post(`/api/v1/statements/${october.id}/payments`)
-      .send({ pocketId: galicia.id, currency: 'ARS', amount: '27333.33', date: '2026-11-05' })
+      .send({ pocketId: galicia.id, currency: 'ARS', amount: '27333.33', date: '2026-10-23' })
       .expect(201);
     expect(paid.body).toMatchObject({ status: 'PAID', pending: { ARS: '0.00', USD: '0.00' } });
     expect(await balanceOf(ctx.app, user, galicia.id)).toBe('1952666.67');
@@ -196,7 +196,7 @@ describe('cards', () => {
     await api().post(`/api/v1/statements/${october.id}/close`).send({}).expect(200);
     const missing = await api()
       .post(`/api/v1/statements/${october.id}/payments`)
-      .send({ pocketId: galicia.id, currency: 'USD', amount: '24.99', date: '2026-11-05' })
+      .send({ pocketId: galicia.id, currency: 'USD', amount: '24.99', date: '2026-10-23' })
       .expect(422);
     expect(missing.body.code).toBe('PAYMENT_AMOUNT_OUT_REQUIRED');
     const paid = await api()
@@ -206,7 +206,7 @@ describe('cards', () => {
         currency: 'USD',
         amount: '24.99',
         amountOut: '31237.50',
-        date: '2026-11-05',
+        date: '2026-10-23',
       })
       .expect(201);
     expect(paid.body.status).toBe('PAID');
