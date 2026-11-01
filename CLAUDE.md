@@ -1,7 +1,7 @@
 # platin
 
 App web de finanzas personales: "Tu plata, más clara."
-Ingresos, gastos, tarjetas con cuotas, compromisos futuros, metas de ahorro e inversiones, en pesos y dólares. Uso personal, multiusuario, mobile-first.
+Ingresos, gastos, tarjetas con cuotas, compromisos futuros, metas de ahorro e inversiones, en pesos, dólares y otras monedas (euro, real, peso chileno y peso uruguayo). Uso personal, multiusuario, mobile-first.
 
 ## Documentos de referencia
 
