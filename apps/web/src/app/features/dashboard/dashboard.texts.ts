@@ -6,6 +6,7 @@ export const DASHBOARD_TEXTS = {
   spent: 'Gastado',
   committed: 'Comprometido',
   committedHint: '· cuotas y fijos',
+  separated: 'Ahorrado/Invertido',
   freeShort: 'Libre',
   pendingTitle: 'Para confirmar',
   valuationsOverdue: 'Pasó más de un mes desde que actualizaste tus inversiones.',

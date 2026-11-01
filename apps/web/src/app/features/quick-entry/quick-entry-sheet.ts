@@ -7,11 +7,21 @@ import {
   ElementRef,
   HostListener,
   inject,
+  Injector,
   signal,
+  untracked,
 } from '@angular/core';
+import type { Pocket } from '@platin/contracts';
 import { Router } from '@angular/router';
 import { LucidePencil } from '@lucide/angular';
-import { currencySymbol, impliedRate, LocalDate, Money, toDecimal } from '@platin/domain';
+import {
+  currencySymbol,
+  impliedRate,
+  LocalDate,
+  Money,
+  PocketKind,
+  toDecimal,
+} from '@platin/domain';
 import {
   applyKey,
   displayAmount,
@@ -33,6 +43,7 @@ import {
   PlCategorySelect,
   pocketSelectOptions,
   HideAmounts,
+  PlBottomSheet,
   PlSheet,
 } from '@platin/web-ui';
 import { AuthService } from '../../core/auth/auth.service';
@@ -42,14 +53,20 @@ import { AccountsStore } from '../accounts/accounts.store';
 import { CardsStore } from '../cards/cards.store';
 import { CategoriesStore } from '../categories/categories.store';
 import { RatesStore } from '../../core/rates.store';
+import { PocketFormData, PocketFormSheet } from '../accounts/pocket-form-sheet';
+import { showPlanBlock } from '../plans/plan-gate';
+import { PlanStore } from '../plans/plan.store';
+import { PLANS_TEXTS } from '../plans/plans.texts';
 import { TransactionsStore } from '../transactions/transactions.store';
 import { QUICK_ENTRY_TEXTS } from './quick-entry.texts';
 
-type Mode = 'EXPENSE' | 'INCOME' | 'TRANSFER';
+type Mode = 'EXPENSE' | 'INCOME' | 'TRANSFER' | 'INVEST';
+type Direction = 'INVEST' | 'REDEEM';
 
 /**
  * MOV-01/02 in three taps: amount on the keypad, a recent category, save. The account used
- * last is preselected and the date defaults to today.
+ * last is preselected and the date defaults to today. "Invertir" (MOV-07) moves money into an
+ * investment pocket, or back from one, as a transfer.
  */
 @Component({
   selector: 'pl-quick-entry-sheet',
@@ -81,7 +98,12 @@ type Mode = 'EXPENSE' | 'INCOME' | 'TRANSFER';
         </pl-empty-state>
       } @else {
         <h2 class="sr-only">{{ texts.title }}</h2>
-        <pl-segmented [label]="texts.typeLabel" [options]="modeOptions" [(value)]="mode" />
+        <pl-segmented
+          [label]="texts.typeLabel"
+          [options]="modeOptions()"
+          [(value)]="mode"
+          (lockedChoose)="showInvestmentsBlock()"
+        />
 
         <!-- Amount -->
         <div class="flex flex-col items-center gap-2 py-1">
@@ -109,7 +131,7 @@ type Mode = 'EXPENSE' | 'INCOME' | 'TRANSFER';
           }
         </div>
 
-        @if (mode() !== 'TRANSFER') {
+        @if (mode() === 'EXPENSE' || mode() === 'INCOME') {
           <!-- Categories -->
           <section class="flex flex-col gap-2">
             <h3 class="text-sm text-muted">{{ texts.categoryRecent }}</h3>
@@ -187,31 +209,92 @@ type Mode = 'EXPENSE' | 'INCOME' | 'TRANSFER';
             </label>
           }
         } @else {
-          <!-- Transfer -->
-          <div class="grid grid-cols-2 gap-2">
-            <pl-pocket-select
-              appearance="tile"
-              display="account"
-              [label]="texts.from"
-              [pockets]="pockets()"
-              [value]="accountId()"
-              (valueChange)="accountId.set($event)"
+          @if (mode() === 'TRANSFER') {
+            <!-- Transfer -->
+            <div class="grid grid-cols-2 gap-2">
+              <pl-pocket-select
+                appearance="tile"
+                display="account"
+                [label]="texts.from"
+                [pockets]="pockets()"
+                [value]="accountId()"
+                (valueChange)="accountId.set($event)"
+              />
+              <pl-pocket-select
+                appearance="tile"
+                display="account"
+                [label]="texts.to"
+                placeholder="—"
+                [pockets]="pockets()"
+                [exclude]="accountId() ? [accountId()!] : []"
+                [value]="toAccountId()"
+                (valueChange)="toAccountId.set($event)"
+              />
+            </div>
+          } @else {
+            <!-- MOV-07: invest or redeem -->
+            <pl-segmented
+              tone="surface"
+              [label]="texts.directionLabel"
+              [options]="directionOptions"
+              [(value)]="direction"
             />
-            <pl-pocket-select
-              appearance="tile"
-              display="account"
-              [label]="texts.to"
-              placeholder="—"
-              [pockets]="pockets()"
-              [exclude]="accountId() ? [accountId()!] : []"
-              [value]="toAccountId()"
-              (valueChange)="toAccountId.set($event)"
-            />
-          </div>
+            <div class="grid grid-cols-2 gap-2">
+              @if (direction() === 'INVEST') {
+                <pl-pocket-select
+                  appearance="tile"
+                  display="account"
+                  [label]="texts.from"
+                  [pockets]="pockets()"
+                  [kinds]="investOrigins"
+                  [value]="accountId()"
+                  (valueChange)="accountId.set($event)"
+                />
+                <pl-pocket-select
+                  appearance="tile"
+                  [label]="texts.investment"
+                  placeholder="—"
+                  [pockets]="pockets()"
+                  [kinds]="investmentKinds"
+                  [value]="investmentId()"
+                  (valueChange)="investmentId.set($event)"
+                />
+              } @else {
+                <pl-pocket-select
+                  appearance="tile"
+                  [label]="texts.investment"
+                  placeholder="—"
+                  [pockets]="pockets()"
+                  [kinds]="investmentKinds"
+                  [value]="investmentId()"
+                  (valueChange)="investmentId.set($event)"
+                />
+                <pl-pocket-select
+                  appearance="tile"
+                  display="account"
+                  [label]="texts.to"
+                  [pockets]="pockets()"
+                  [kinds]="redeemDestinations"
+                  [value]="accountId()"
+                  (valueChange)="accountId.set($event)"
+                />
+              }
+            </div>
+            @if (!hasInvestments()) {
+              <p class="rounded-2xl bg-pending-soft px-4 py-3 text-sm text-pending-ink">
+                {{ texts.noInvestments }}
+              </p>
+            }
+            @if (direction() === 'INVEST') {
+              <button plButton="secondary" type="button" (click)="newInvestment()">
+                {{ texts.newInvestment }}
+              </button>
+            }
+          }
           @if (crossCurrency()) {
             <label class="flex flex-col gap-1">
               <span class="text-sm font-medium">
-                {{ texts.received }} ({{ toAccount()?.currency }})
+                {{ texts.received }} ({{ toPocket()?.currency }})
               </span>
               <input
                 type="text"
@@ -267,7 +350,7 @@ type Mode = 'EXPENSE' | 'INCOME' | 'TRANSFER';
             <svg lucidePencil [size]="20"></svg>
           </button>
           <button plButton size="lg" type="button" [disabled]="saving()" (click)="save()">
-            {{ saving() ? texts.saving : texts.save[mode()] }}
+            {{ saving() ? texts.saving : texts.save[mode() === 'INVEST' ? direction() : mode()] }}
           </button>
         </div>
       }
@@ -287,12 +370,36 @@ export class QuickEntrySheet {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly hideAmounts = inject(HideAmounts);
+  private readonly planStore = inject(PlanStore);
+  private readonly sheet = inject(PlBottomSheet);
+  private readonly injector = inject(Injector);
 
-  protected readonly modeOptions: PlSegmentOption<Mode>[] = (
-    ['EXPENSE', 'INCOME', 'TRANSFER'] as const
-  ).map((value) => ({ value, label: QUICK_ENTRY_TEXTS.types[value] }));
+  /** "Invertir" needs the plan that includes investments (PLN-07). */
+  protected readonly modeOptions = computed<PlSegmentOption<Mode>[]>(() => {
+    const block = this.planStore.block('investments');
+    return (['EXPENSE', 'INCOME', 'TRANSFER', 'INVEST'] as const).map((value) => ({
+      value,
+      label: QUICK_ENTRY_TEXTS.types[value],
+      ...(value === 'INVEST' && block
+        ? {
+            locked: true,
+            badge: block.upgrade,
+            lockedLabel: PLANS_TEXTS.gate.locked(block.upgrade),
+          }
+        : {}),
+    }));
+  });
+  protected readonly directionOptions: PlSegmentOption<Direction>[] = (
+    ['INVEST', 'REDEEM'] as const
+  ).map((value) => ({ value, label: QUICK_ENTRY_TEXTS.directions[value] }));
+  protected readonly investOrigins: PocketKind[] = ['AVAILABLE', 'SAVINGS'];
+  protected readonly investmentKinds: PocketKind[] = ['INVESTMENT'];
+  protected readonly redeemDestinations: PocketKind[] = ['AVAILABLE'];
 
   protected readonly mode = signal<Mode>('EXPENSE');
+  protected readonly direction = signal<Direction>('INVEST');
+  /** The investment pocket of "Invertir": destination when investing, origin when redeeming. */
+  protected readonly investmentId = signal<string | null>(null);
   protected readonly amount = signal('');
   protected readonly accountId = signal<string | null>(null);
   protected readonly toAccountId = signal<string | null>(null);
@@ -334,8 +441,23 @@ export class QuickEntrySheet {
   /** The pocket the money leaves (or enters, for an income). */
   protected readonly account = computed(() => this.accountsStore.pocketById(this.accountId()));
   protected readonly toAccount = computed(() => this.accountsStore.pocketById(this.toAccountId()));
+  protected readonly investment = computed(() =>
+    this.accountsStore.pocketById(this.investmentId()),
+  );
+  protected readonly hasInvestments = computed(() =>
+    this.pockets().some((p) => p.kind === 'INVESTMENT'),
+  );
+  /** Where the money leaves and enters, for a transfer or an investment. */
+  protected readonly fromPocket = computed(() =>
+    this.mode() === 'INVEST' && this.direction() === 'REDEEM' ? this.investment() : this.account(),
+  );
+  protected readonly toPocket = computed(() => {
+    if (this.mode() === 'TRANSFER') return this.toAccount();
+    if (this.mode() !== 'INVEST') return undefined;
+    return this.direction() === 'INVEST' ? this.investment() : this.account();
+  });
   protected readonly amountCurrency = computed(() =>
-    this.card() ? this.cardCurrency() : (this.account()?.currency ?? 'ARS'),
+    this.card() ? this.cardCurrency() : (this.fromPocket()?.currency ?? 'ARS'),
   );
   protected readonly symbol = computed(() => currencySymbol(this.amountCurrency()));
   private readonly base = computed(() => this.auth.user()?.baseCurrency ?? 'ARS');
@@ -344,7 +466,7 @@ export class QuickEntrySheet {
 
   protected readonly visibleCategories = computed(() => {
     const mode = this.mode();
-    if (mode === 'TRANSFER') return [];
+    if (mode === 'TRANSFER' || mode === 'INVEST') return [];
     const all = this.categoriesStore.ofKind(mode);
     const recent = this.categoriesStore.recent(mode);
     const selected = all.find((c) => c.id === this.categoryId());
@@ -354,7 +476,7 @@ export class QuickEntrySheet {
   protected readonly needsRate = computed(() => {
     const base = this.auth.user()?.baseCurrency ?? 'ARS';
     return (
-      this.mode() !== 'TRANSFER' &&
+      (this.mode() === 'EXPENSE' || this.mode() === 'INCOME') &&
       !this.card() &&
       !!this.account() &&
       this.amountCurrency() !== base
@@ -378,12 +500,12 @@ export class QuickEntrySheet {
       : this.texts.rateHintNoRate;
   });
   protected readonly crossCurrency = computed(
-    () => !!this.toAccount() && this.toAccount()?.currency !== this.account()?.currency,
+    () => !!this.toPocket() && this.toPocket()?.currency !== this.fromPocket()?.currency,
   );
   protected readonly rateLabel = computed(() => {
     const received = parseTypedAmount(this.receivedText());
-    const from = this.account();
-    const to = this.toAccount();
+    const from = this.fromPocket();
+    const to = this.toPocket();
     if (!received || !from || !to || !isValidAmount(this.amount())) return null;
     const rate = impliedRate(
       Money.of(this.amount(), from.currency),
@@ -406,6 +528,46 @@ export class QuickEntrySheet {
       this.mode();
       this.categoryId.set(null);
       this.error.set(null);
+    });
+    // Investing starts from a "Disponible" (of the account used last) and redeems back to one.
+    effect(() => {
+      if (this.mode() !== 'INVEST') return;
+      const allowed = this.direction() === 'INVEST' ? this.investOrigins : this.redeemDestinations;
+      const pockets = this.pockets();
+      const current = untracked(() => this.account());
+      if (current && allowed.includes(current.kind)) return;
+      const available = pockets.filter((p) => p.kind === 'AVAILABLE');
+      const choice =
+        available.find((p) => p.accountId === current?.accountId) ??
+        available.find((p) => p.currency === current?.currency) ??
+        available[0];
+      if (choice) this.accountId.set(choice.id);
+    });
+    // The investment defaults to the first one of the account (or any).
+    effect(() => {
+      if (this.mode() !== 'INVEST' || this.investmentId()) return;
+      const investments = this.pockets().filter((p) => p.kind === 'INVESTMENT');
+      const accountId = untracked(() => this.account()?.accountId);
+      const choice = investments.find((p) => p.accountId === accountId) ?? investments[0];
+      if (choice) this.investmentId.set(choice.id);
+    });
+  }
+
+  protected showInvestmentsBlock(): void {
+    const block = this.planStore.block('investments');
+    if (block) showPlanBlock(this.injector, block);
+  }
+
+  /** "+ Nueva inversión": the pocket form on top; back here with the new one chosen. */
+  protected newInvestment(): void {
+    const block = this.planStore.block(['investments', 'pockets']);
+    if (block) return showPlanBlock(this.injector, block);
+    const ref = this.sheet.open<PocketFormSheet, PocketFormData, Pocket>(PocketFormSheet, {
+      data: { kind: 'INVESTMENT' } satisfies PocketFormData,
+      ariaLabel: this.texts.newInvestment,
+    });
+    ref.closed.subscribe((pocket) => {
+      if (pocket) this.investmentId.set(pocket.id);
     });
   }
 
@@ -469,14 +631,15 @@ export class QuickEntrySheet {
     const accountId = this.accountId() as string;
     const description = this.note().trim() || undefined;
     try {
-      if (this.mode() === 'TRANSFER') {
+      if (this.mode() === 'TRANSFER' || this.mode() === 'INVEST') {
         await this.transactions.transfer({
-          fromPocketId: accountId,
-          toPocketId: this.toAccountId() as string,
+          fromPocketId: this.fromPocket()?.id as string,
+          toPocketId: this.toPocket()?.id as string,
           amountOut: this.amount(),
           amountIn: this.crossCurrency() ? parseTypedAmount(this.receivedText()) : undefined,
           date: this.date(),
           description,
+          ...(this.mode() === 'INVEST' ? { intent: this.direction() } : {}),
         });
       } else if (this.card()) {
         const categoryId = this.categoryId() as string;
@@ -518,6 +681,11 @@ export class QuickEntrySheet {
     if (this.mode() === 'TRANSFER') {
       if (!this.toAccount()) return errors.account;
       if (this.toAccountId() === this.accountId()) return errors.sameAccount;
+      if (this.crossCurrency() && !parseTypedAmount(this.receivedText())) return errors.received;
+      return null;
+    }
+    if (this.mode() === 'INVEST') {
+      if (!this.investment()) return errors.investment;
       if (this.crossCurrency() && !parseTypedAmount(this.receivedText())) return errors.received;
       return null;
     }

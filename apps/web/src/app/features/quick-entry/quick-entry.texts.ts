@@ -1,7 +1,12 @@
 export const QUICK_ENTRY_TEXTS = {
   title: 'Carga rápida',
   typeLabel: 'Tipo de movimiento',
-  types: { EXPENSE: 'Gasto', INCOME: 'Ingreso', TRANSFER: 'Transferencia' },
+  types: { EXPENSE: 'Gasto', INCOME: 'Ingreso', TRANSFER: 'Transferir', INVEST: 'Invertir' },
+  directionLabel: 'Invertir o rescatar',
+  directions: { INVEST: 'Invertir', REDEEM: 'Rescatar' },
+  investment: 'Inversión',
+  newInvestment: '+ Nueva inversión',
+  noInvestments: 'Todavía no tenés inversiones: creá una sin salir de la carga.',
   amountLabel: 'Monto',
   categoryRecent: 'Categoría · recientes',
   categoryAll: 'Todas las categorías',
@@ -27,7 +32,13 @@ export const QUICK_ENTRY_TEXTS = {
     `Si la dejás vacía usamos la ${type} del día: $ ${value}.`,
   rateHintNoRate: 'Si la dejás vacía usamos la del día.',
 
-  save: { EXPENSE: 'Guardar gasto', INCOME: 'Guardar ingreso', TRANSFER: 'Guardar transferencia' },
+  save: {
+    EXPENSE: 'Guardar gasto',
+    INCOME: 'Guardar ingreso',
+    TRANSFER: 'Guardar transferencia',
+    INVEST: 'Invertir',
+    REDEEM: 'Rescatar',
+  },
   saving: 'Guardando…',
   noAccountsTitle: 'Primero creá una cuenta',
   noAccountsBody: 'Los movimientos se cargan sobre una cuenta: efectivo, banco o billetera.',
@@ -38,5 +49,6 @@ export const QUICK_ENTRY_TEXTS = {
     account: 'Elegí una cuenta.',
     sameAccount: 'Elegí dos cuentas distintas.',
     received: 'Ingresá cuánto recibís en la otra moneda.',
+    investment: 'Elegí una inversión.',
   },
 } as const;

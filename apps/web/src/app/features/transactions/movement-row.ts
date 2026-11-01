@@ -1,9 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import type { Movement } from '@platin/contracts';
 import { type Currency, parsePeriod } from '@platin/domain';
 import {
   formatPeriodShort,
   formatRate,
+  HideAmounts,
+  moneyText,
   PL_CURRENCY_NAMES,
   PlListItem,
   PlMoney,
@@ -30,6 +32,8 @@ interface RowView {
   icon: string;
   tone: PlTone;
   pending: boolean;
+  /** The heading is a sentence that may take two lines. */
+  wrap?: boolean;
   lines: { sign: '-' | '+' | ''; amount: string; currency: Currency; positive: boolean }[];
 }
 
@@ -44,6 +48,7 @@ interface RowView {
       [subtitle]="view().subtitle"
       [icon]="view().icon"
       [tone]="view().tone"
+      [wrap]="!!view().wrap"
     >
       @if (view().pending) {
         <span badge class="rounded-full bg-pending px-2.5 py-0.5 text-xs font-semibold text-ink">
@@ -70,6 +75,7 @@ export class MovementRow {
   /** The pocket the list belongs to, if any: transfers into it read as money in. */
   readonly pocketId = input<string | null>(null);
   protected readonly texts = TRANSACTIONS_TEXTS;
+  private readonly hideAmounts = inject(HideAmounts);
 
   protected readonly view = computed<RowView>(() => {
     const m = this.movement();
@@ -111,12 +117,23 @@ export class MovementRow {
         ? ` · ${formatRate(m.currencyOut, m.currencyIn, m.impliedRate)}`
         : '';
       const cross = m.currencyIn !== m.currencyOut;
-      const intent = !cross && m.intent && m.intent !== 'MOVE' ? m.intent : null;
+      // Investing or redeeming reads as a sentence even between currencies (MOV-07).
+      const investment = to && (m.intent === 'INVEST' || m.intent === 'REDEEM') ? m.intent : null;
+      const intent = investment ?? (!cross && m.intent === 'SAVE' ? m.intent : null);
+      const amount = moneyText(m.amountOut, m.currencyOut, this.hideAmounts.hidden());
+      const heading =
+        investment === 'INVEST' && to
+          ? this.texts.invested(amount, to.name)
+          : investment === 'REDEEM'
+            ? this.texts.redeemed(amount, m.fromPocket.name)
+            : m.description ||
+              (intent
+                ? this.texts.intents[intent]
+                : this.transferTitle(m.currencyOut, m.currencyIn));
       return {
-        heading:
-          m.description ||
-          (intent ? this.texts.intents[intent] : this.transferTitle(m.currencyOut, m.currencyIn)),
-        subtitle: route + rate,
+        heading,
+        wrap: !!investment,
+        subtitle: (investment && m.description ? m.description + ' · ' : '') + route + rate,
         icon: intent ? INTENT_ICONS[intent].icon : 'arrow-left-right',
         tone: intent ? INTENT_ICONS[intent].tone : 'transfer',
         pending: false,

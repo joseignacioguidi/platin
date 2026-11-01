@@ -236,6 +236,7 @@ export class DashboardPage {
     return [
       { label: this.texts.spent, amount: d.spent, tone: 'expense' },
       { label: this.texts.committed, amount: d.committed, tone: 'card' },
+      { label: this.texts.separated, amount: d.separated, tone: 'savings' },
       { label: this.texts.freeShort, amount: d.free, tone: 'brand' },
     ];
   });
@@ -250,6 +251,13 @@ export class DashboardPage {
         hint: this.texts.committedHint,
         amount: d.committed,
         dot: 'bg-card',
+        strong: false,
+      },
+      {
+        label: this.texts.separated,
+        hint: '',
+        amount: d.separated,
+        dot: 'bg-savings',
         strong: false,
       },
       { label: this.texts.freeShort, hint: '', amount: d.free, dot: 'bg-brand', strong: true },

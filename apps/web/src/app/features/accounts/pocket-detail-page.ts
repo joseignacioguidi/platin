@@ -122,7 +122,9 @@ const ACTIONS: Record<Pocket['kind'], TransferIntent[]> = {
                 {{ texts.move.titles[intent] }}
               </button>
             }
-            <button plButton="secondary" type="button" (click)="adjust()">{{ t.adjust }}</button>
+            <button plButton="secondary" type="button" (click)="adjust()">
+              {{ texts.adjust.kinds[pocket.kind].title }}
+            </button>
             <button plButton="secondary" type="button" (click)="edit()">{{ t.edit }}</button>
           </div>
         }
@@ -277,7 +279,12 @@ export class PocketDetailPage {
 
   protected adjust(): void {
     const pocket = this.pocket();
-    if (pocket) this.sheet.open(AdjustBalanceSheet, { data: pocket, ariaLabel: this.t.adjust });
+    if (pocket) {
+      this.sheet.open(AdjustBalanceSheet, {
+        data: pocket,
+        ariaLabel: this.texts.adjust.kinds[pocket.kind].title,
+      });
+    }
   }
 
   protected edit(): void {
