@@ -72,6 +72,15 @@ export const statementSummarySchema = z.object({
   bankTotalUsd: z.string().nullable(),
 });
 
+export const startStatementSchema = z.enum(['OPEN', 'PREVIOUS']);
+
+/** TAR-03: the statement that closed and is not yet due, when today is in that window. */
+export const previousStatementSchema = z.object({
+  period: periodSchema,
+  closingDate: z.string(),
+  dueDate: z.string(),
+});
+
 export const cardSchema = z.object({
   id: uuidSchema,
   name: z.string(),
@@ -84,6 +93,8 @@ export const cardSchema = z.object({
   archived: z.boolean(),
   /** The statement that collects today's purchases. */
   openStatement: statementSummarySchema.nullable(),
+  /** Closed and still to be paid (TAR-03); null outside the window between closing and due date. */
+  previousStatement: previousStatementSchema.nullable(),
   /** Pesos still to be paid in unpaid statements (open, closed and future ones). */
   committedArs: z.string(),
   /** creditLimit − committedArs, when there is a limit. */
@@ -167,6 +178,12 @@ export const createChargeRequestSchema = z
     installmentsCount: z.number().int().min(1).max(60).default(1),
     /** "Voy por la k de N": only installments k..N are generated, from the open statement. */
     startInstallment: z.number().int().min(1).default(1),
+    /** Where the first generated installment goes: the open statement or the one closed and unpaid. */
+    startStatement: startStatementSchema.default('OPEN'),
+  })
+  .refine((c) => c.startStatement === 'OPEN' || c.startInstallment > 1, {
+    message: 'Solo una compra ya empezada puede ir al resumen anterior',
+    path: ['startStatement'],
   })
   .refine((c) => c.startInstallment <= c.installmentsCount, {
     message: 'La cuota inicial no puede superar la cantidad de cuotas',
@@ -184,6 +201,7 @@ export const updateChargeRequestSchema = z
     categoryId: uuidSchema,
     totalAmount: amountSchema,
     installmentsCount: z.number().int().min(1).max(60),
+    startStatement: startStatementSchema,
   })
   .partial();
 
@@ -298,6 +316,7 @@ export const payStatementRequestSchema = z.object({
 export type CreateCardRequest = z.input<typeof createCardRequestSchema>;
 export type UpdateCardRequest = z.infer<typeof updateCardRequestSchema>;
 export type StatementSummary = z.infer<typeof statementSummarySchema>;
+export type StartStatement = z.infer<typeof startStatementSchema>;
 export type Card = z.infer<typeof cardSchema>;
 export type StatementDetail = z.infer<typeof statementDetailSchema>;
 export type StatementInstallment = z.infer<typeof statementInstallmentSchema>;

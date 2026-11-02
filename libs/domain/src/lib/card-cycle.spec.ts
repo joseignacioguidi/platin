@@ -1,4 +1,9 @@
-import { buildStatementDates, StatementDates, statementPeriodFor } from './card-cycle';
+import {
+  buildStatementDates,
+  previousStatementWindow,
+  StatementDates,
+  statementPeriodFor,
+} from './card-cycle';
 import { Period } from './dates';
 import { d, p } from './test-helpers';
 
@@ -83,5 +88,44 @@ describe('statementPeriodFor', () => {
       [p('2026-10'), { closingDate: d('2026-10-28'), dueDate: d('2026-11-05') }],
     ]);
     expect(statementPeriodFor(visa, d('2026-10-29'), earlier)).toBe('2026-11');
+  });
+});
+
+describe('previousStatementWindow', () => {
+  const card = { closingDay: 26, dueDay: 5 };
+
+  it('returns the closed statement that is not yet due (spec example)', () => {
+    expect(previousStatementWindow(card, d('2026-11-02'))).toEqual({
+      period: '2026-10',
+      closingDate: '2026-10-26',
+      dueDate: '2026-11-05',
+    });
+  });
+
+  it('is none on the closing day and open from the day after', () => {
+    expect(previousStatementWindow(card, d('2026-10-26'))).toBeNull();
+    expect(previousStatementWindow(card, d('2026-10-27'))?.period).toBe('2026-10');
+  });
+
+  it('includes the due day and excludes the day after', () => {
+    expect(previousStatementWindow(card, d('2026-11-05'))?.period).toBe('2026-10');
+    expect(previousStatementWindow(card, d('2026-11-06'))).toBeNull();
+  });
+
+  it('handles a short month', () => {
+    expect(previousStatementWindow({ closingDay: 31, dueDay: 10 }, d('2026-03-05'))).toEqual({
+      period: '2026-02',
+      closingDate: '2026-02-28',
+      dueDate: '2026-03-10',
+    });
+  });
+
+  it('respects corrected dates', () => {
+    const overrides = new Map<Period, StatementDates>([
+      [p('2026-10'), { closingDate: d('2026-10-28'), dueDate: d('2026-11-09') }],
+    ]);
+    expect(previousStatementWindow(card, d('2026-11-07'))).toBeNull();
+    expect(previousStatementWindow(card, d('2026-11-07'), overrides)?.dueDate).toBe('2026-11-09');
+    expect(previousStatementWindow(card, d('2026-10-27'), overrides)).toBeNull();
   });
 });

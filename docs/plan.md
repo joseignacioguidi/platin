@@ -798,7 +798,7 @@ Forma de trabajo:
 
 ## Iteración 5: que todo cierre
 
-Tres fases para que cada peso esté en un solo lugar y los números de una pantalla coincidan con los de otra. La 24 va primero porque cambia cómo se lee el inicio; la 25 y la 26 son independientes. La 27 se sumó después y tampoco depende de las otras.
+Tres fases para que cada peso esté en un solo lugar y los números de una pantalla coincidan con los de otra. La 24 va primero porque cambia cómo se lee el inicio; la 25 y la 26 son independientes. La 27 y la 28 se sumaron después y tampoco dependen de las otras.
 
 | Fase | Qué se construye | Casos de uso | Terminado cuando |
 | --- | --- | --- | --- |
@@ -806,6 +806,7 @@ Tres fases para que cada peso esté en un solo lugar y los números de una panta
 | 25 | Gastos programados y compromisos que cierran | MOV-08, COM-01, 02 | Cargo un turno médico para el 20, lo veo en Compromisos y en el inicio sin que toque mi saldo, y el comprometido de un mes es el mismo en las dos pantallas |
 | 26 | Cambiar el apartado al editar y valores en los gráficos | MOV-04, DAS-06 | Paso un gasto de Galicia a Mercado Pago y veo el monto exacto de cualquier barra con mouse, teclado o dedo |
 | 27 | Empezar de cero | AUTH-09 | Borro todos mis datos desde el perfil, mantengo mis categorías y quedo como un usuario nuevo sin perder mi ingreso con Google ni mi plan |
+| 28 | Cuota en el resumen que falta pagar | TAR-03 | Entre el cierre y el vencimiento cargo "voy por la 3 de 9" en el resumen que vence el 5/11 y Compromisos de noviembre lo incluye |
 
 ## Fase 24 — Invertir y saldos con sentido
 
@@ -920,6 +921,35 @@ Web:
 Forma de trabajo:
 - Plan primero, esperame.
 - Rama feat/fase-27-empezar-de-cero. Todo en verde antes del PR, con capturas de la zona peligrosa, de la hoja de confirmación y del inicio vacío después.
+```
+
+## Fase 28 — Cuota en el resumen que falta pagar
+
+Al migrar compras en cuotas entre el cierre y el vencimiento de una tarjeta, la cuota que se está por pagar quedaba en el resumen abierto, y el resumen que vence en unos días no existía en platin. Compromisos mostraba de menos para ese mes.
+
+**Terminado cuando:** con una Visa que cierra el 26 y vence el 5, el 2/11 cargo "voy por la 3 de 9" de $ 30.555,44 y elijo "En el que cerró y todavía no pagaste (vence 5/11)": la cuota 3 queda en el resumen que vence el 5/11, la 4 en el que vence el 5/12 y la 9 en el que vence el 5/5; Compromisos de noviembre suma esa cuota; la app me sugiere cerrar ese resumen, lo cierro con el total del banco y lo pago; edito una compra ya cargada como "4 de 9" en el abierto, la paso a "3 de 9" en el anterior y las cuotas se reacomodan; el 6/11 la pregunta ya no aparece; una compra nueva en un pago sigue cayendo según su fecha.
+
+```
+Leé CLAUDE.md, TAR-03 y las reglas "Ciclo de la tarjeta" y "Cuotas" de docs/especificacion.md (incluido el ejemplo), y la sección "Cuota en el resumen que falta pagar (TAR-03)" de docs/arquitectura.md.
+
+Vamos a hacer la Fase 28 de docs/plan.md.
+
+Dominio:
+1. previousStatementWindow(card, today, overrides) en libs/domain, con el ejemplo de la especificación como test literal, más un mes corto, fechas corregidas y los bordes (el día del cierre y el día del vencimiento).
+
+Backend:
+2. startStatement en los esquemas de crear y editar consumo, válido solo con startInstallment > 1.
+3. charges.service: ancla según startStatement; PREVIOUS_STATEMENT_NOT_AVAILABLE si no hay ventana o ese resumen está cerrado o pagado en platin. Si el resumen anterior no existe, se crea con statements.ensure. Al editar sin startStatement, el ancla es el resumen de la primera cuota actual: revisá que hoy una edición posterior no corra el plan y, si lo hace, arreglalo con un test.
+4. GET /cards/:id con previousStatement.
+5. Tests e2e: el escenario del criterio de terminado (con ClockService fijo en 2026-11-02), la edición de 4 de 9 a 3 de 9, el error fuera de la ventana y con el resumen anterior cerrado, y el aislamiento entre usuarios. Comprobá que GET /commitments incluye la cuota en noviembre.
+
+Web:
+6. Formulario de consumo (crear y editar): con "Ya empezada" y previousStatement presente, la pregunta "¿En qué resumen está la cuota k?" con las dos opciones y sus fechas, en un segmentado; por defecto el abierto. Textos en el archivo de textos de tarjetas.
+7. Al guardar con la segunda opción, un aviso con acción: "Cerrá el resumen que vence el 5/11 con el total del banco para poder pagarlo", que abre el cierre (TAR-07).
+
+Forma de trabajo:
+- Plan primero, esperame.
+- Rama feat/fase-28-resumen-anterior. Todo en verde antes del PR, con capturas del formulario con la pregunta y de Compromisos de noviembre.
 ```
 
 ## Después del MVP

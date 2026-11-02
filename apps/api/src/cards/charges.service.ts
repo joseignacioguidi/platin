@@ -6,6 +6,7 @@ import type {
   ChargesQuery,
   ColorToken,
   CreateChargeRequest,
+  StartStatement,
   UpdateChargeRequest,
 } from '@platin/contracts';
 import {
@@ -14,6 +15,8 @@ import {
   LocalDate,
   Money,
   parseLocalDate,
+  Period,
+  previousStatementWindow,
   scheduleInstallments,
   splitInstallments,
   totalFromInstallment,
@@ -39,6 +42,7 @@ export interface NewCharge {
   currency: Currency;
   installmentsCount: number;
   startInstallment: number;
+  startStatement?: StartStatement;
   fixedId?: string;
   fixedPeriod?: Date;
 }
@@ -49,6 +53,10 @@ interface Plan {
   currency: Currency;
   installmentsCount: number;
   startInstallment: number;
+  /** Where a started plan begins; ignored for a plan that starts at its first installment. */
+  startStatement?: StartStatement;
+  /** The statement a started plan already sits in, kept when the edit doesn't choose one. */
+  keepPeriod?: Period;
 }
 
 const WITH_INSTALLMENTS = {
@@ -92,6 +100,7 @@ export class ChargesService {
         currency: request.currency,
         installmentsCount,
         startInstallment: request.startInstallment ?? 1,
+        startStatement: request.startStatement ?? 'OPEN',
       }),
     );
     return this.get(userId, id);
@@ -236,7 +245,30 @@ export class ChargesService {
       (changes.date !== undefined && changes.date !== utcToLocalDate(row.date)) ||
       (changes.installmentsCount !== undefined &&
         changes.installmentsCount !== row.installmentsCount);
-    if (replan) this.assertNothingClosed(row.installments);
+    const card = await this.prisma.creditCard.findUniqueOrThrow({ where: { id: row.cardId } });
+    const currentFirst = row.installments[0]
+      ? utcToPeriod(row.installments[0].statement.period)
+      : undefined;
+    if (changes.startStatement && row.startInstallment === 1) {
+      throw new AppException(
+        'VALIDATION_FAILED',
+        HttpStatus.BAD_REQUEST,
+        'Only a started purchase can choose its starting statement',
+      );
+    }
+    // The chosen statement moves the plan only when it is not where the plan already is.
+    const targetPeriod = changes.startStatement
+      ? await this.startPeriod(this.prisma, card, {
+          date: utcToLocalDate(row.date),
+          totalAmount: row.totalAmount.toFixed(2),
+          currency: row.currency,
+          installmentsCount: row.installmentsCount,
+          startInstallment: row.startInstallment,
+          startStatement: changes.startStatement,
+        })
+      : undefined;
+    const moved = targetPeriod !== undefined && targetPeriod !== currentFirst;
+    if (replan || moved) this.assertNothingClosed(row.installments);
     if (
       changes.installmentsCount !== undefined &&
       changes.installmentsCount < row.startInstallment
@@ -261,10 +293,10 @@ export class ChargesService {
           ...(changes.installmentsCount ? { installmentsCount: changes.installmentsCount } : {}),
         },
       });
-      if (!replan) return;
+      if (!replan && !moved) return;
       await tx.installment.deleteMany({ where: { chargeId: id } });
-      const card = await tx.creditCard.findUniqueOrThrow({ where: { id: row.cardId } });
       await this.createInstallments(tx, card, id, {
+        keepPeriod: targetPeriod ?? currentFirst,
         date: utcToLocalDate(updated.date),
         totalAmount: updated.totalAmount.toFixed(2),
         currency: updated.currency,
@@ -287,10 +319,7 @@ export class ChargesService {
     chargeId: string,
     plan: Plan,
   ): Promise<void> {
-    // A plan migrated as "k of N" starts at today's open statement; a new purchase, at the
-    // statement of its date.
-    const anchor = plan.startInstallment > 1 ? this.clock.today() : plan.date;
-    const firstPeriod = await this.statements.openPeriodFor(tx, card, anchor);
+    const firstPeriod = await this.startPeriod(tx, card, plan);
     const schedule = scheduleInstallments(
       splitInstallments(
         Money.of(plan.totalAmount, plan.currency),
@@ -318,6 +347,41 @@ export class ChargesService {
         currency: plan.currency,
       })),
     });
+  }
+
+  /**
+   * A plan migrated as "k of N" starts at today's open statement, or at the one that closed and
+   * is not yet due when asked (TAR-03); a new purchase, at the statement of its date.
+   */
+  private async startPeriod(
+    db: Prisma.TransactionClient | PrismaService,
+    card: CreditCard,
+    plan: Plan,
+  ): Promise<Period> {
+    if (plan.startInstallment <= 1) return this.statements.openPeriodFor(db, card, plan.date);
+    if (plan.startStatement === 'PREVIOUS') {
+      const window = previousStatementWindow(
+        card,
+        this.clock.today(),
+        await this.statements.overrides(db, card.id),
+      );
+      const existing = window
+        ? await db.cardStatement.findFirst({
+            where: { cardId: card.id, period: toDbPeriod(window.period) },
+            select: { status: true },
+          })
+        : null;
+      if (!window || (existing && existing.status !== 'OPEN')) {
+        throw new AppException(
+          'PREVIOUS_STATEMENT_NOT_AVAILABLE',
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          'The previous statement is not available for this purchase',
+        );
+      }
+      return window.period;
+    }
+    if (plan.startStatement === undefined && plan.keepPeriod) return plan.keepPeriod;
+    return this.statements.openPeriodFor(db, card, this.clock.today());
   }
 
   private assertNothingClosed(installments: { statement: { status: string } }[]): void {

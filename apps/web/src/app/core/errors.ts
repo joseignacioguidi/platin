@@ -9,6 +9,8 @@ const MESSAGES: Record<string, string> = {
   TOO_MANY_REQUESTS: 'Demasiados intentos. Esperá un minuto y probá de nuevo.',
   NOT_FOUND: 'No encontramos lo que buscabas.',
   CARD_STATEMENT_CLOSED: 'El resumen ya está cerrado y no se puede modificar.',
+  PREVIOUS_STATEMENT_NOT_AVAILABLE:
+    'Ese resumen ya no está disponible para cargar la cuota. Elegí el resumen abierto.',
   PAYMENT_EXCEEDS_PENDING: 'El pago es mayor que lo que queda por pagar del resumen.',
   AMOUNT_TOO_LARGE: 'El monto es demasiado grande.',
   PAYLOAD_TOO_LARGE: 'Lo que querés guardar es demasiado largo.',
