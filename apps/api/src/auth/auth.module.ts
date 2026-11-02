@@ -30,6 +30,7 @@ import { UserOnboardingService } from './user-onboarding.service';
     }),
   ],
   controllers: [AuthController, OAuthController, SignInMethodsController],
+  exports: [PasswordService, UserOnboardingService],
   providers: [
     AuthService,
     PasswordService,

@@ -1,8 +1,12 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
-import type { UpdateUserRequest, User } from '@platin/contracts';
+import type { DataSummary, ResetRequest, UpdateUserRequest, User } from '@platin/contracts';
 import { blockedCurrencies, normalizeCurrencies } from '@platin/domain';
+import { AuditService } from '../audit/audit.service';
+import { PasswordService } from '../auth/password.service';
+import { UserOnboardingService } from '../auth/user-onboarding.service';
 import { AppException } from '../common/app-exception';
 import { CurrenciesService } from '../common/currencies.service';
+import { countUserData, deleteFinancialData } from '../common/user-data';
 import { PrismaService } from '../prisma/prisma.service';
 import { readPreferences, toUserDto } from './user.mapper';
 
@@ -11,7 +15,54 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly currencies: CurrenciesService,
+    private readonly passwords: PasswordService,
+    private readonly onboarding: UserOnboardingService,
+    private readonly audit: AuditService,
   ) {}
+
+  async dataSummary(userId: string): Promise<DataSummary> {
+    return this.prisma.$transaction((tx) => countUserData(tx, userId));
+  }
+
+  /**
+   * AUTH-09: deletes every financial row, then recreates what a new user has. The account, its
+   * sign-in methods, plan, preferences and sessions stay. All or nothing.
+   */
+  async reset(userId: string, request: ResetRequest): Promise<DataSummary> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw AppException.notFound('User not found');
+    if (request.confirmEmail.toLowerCase() !== user.email.toLowerCase()) {
+      throw new AppException(
+        'CONFIRMATION_MISMATCH',
+        HttpStatus.BAD_REQUEST,
+        'The email does not match the account',
+      );
+    }
+    if (user.passwordHash) {
+      const valid =
+        request.password !== undefined &&
+        (await this.passwords.verify(user.passwordHash, request.password));
+      if (!valid) {
+        throw new AppException(
+          'INVALID_CREDENTIALS',
+          HttpStatus.UNAUTHORIZED,
+          'Wrong email or password',
+        );
+      }
+    }
+    return this.prisma.$transaction(async (tx) => {
+      const counts = await countUserData(tx, userId);
+      await deleteFinancialData(tx, userId, { keepCategories: request.keepCategories });
+      await this.onboarding.seedInitialData(tx, userId, { categories: !request.keepCategories });
+      await this.audit.record(tx, {
+        actorId: userId,
+        action: 'user.reset',
+        targetUserId: userId,
+        payload: { keepCategories: request.keepCategories, counts },
+      });
+      return counts;
+    });
+  }
 
   async get(userId: string): Promise<User> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
