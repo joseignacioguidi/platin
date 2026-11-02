@@ -1,5 +1,5 @@
 import { httpResource } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LucideChevronRight, LucideDynamicIcon, LucideEye, LucideEyeOff } from '@lucide/angular';
 import type { Dashboard, UpcomingItem } from '@platin/contracts';
@@ -26,6 +26,7 @@ import { Today } from '../../core/today';
 import { AccountsStore } from '../accounts/accounts.store';
 import { DASHBOARD_TEXTS } from './dashboard.texts';
 import { HomeShortcuts } from './home-shortcuts';
+import { SETTINGS_TEXTS } from '../settings/settings.texts';
 
 /** DAS-01: "Libre este mes", pending items and the next 30 days (mockup "Inicio"). */
 @Component({
@@ -67,6 +68,10 @@ import { HomeShortcuts } from './home-shortcuts';
         }
       </button>
     </header>
+
+    @if (restarted()) {
+      <p class="rounded-2xl bg-brand-soft px-4 py-3 text-sm" role="status">{{ restartedText }}</p>
+    }
 
     @if (accounts.resource.hasValue() && accounts.accounts().length === 0) {
       <pl-empty-state icon="wallet" [heading]="texts.emptyTitle" [description]="texts.emptyBody">
@@ -225,6 +230,10 @@ import { HomeShortcuts } from './home-shortcuts';
   `,
 })
 export class DashboardPage {
+  /** Set by the profile after starting over (AUTH-09): `?reiniciado=1`. */
+  readonly reiniciado = input<string>();
+  protected readonly restarted = computed(() => this.reiniciado() === '1');
+  protected readonly restartedText = SETTINGS_TEXTS.startOver.done;
   protected readonly texts = DASHBOARD_TEXTS;
   protected readonly today = inject(Today);
   protected readonly hideAmounts = inject(HideAmounts);

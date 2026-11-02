@@ -798,13 +798,14 @@ Forma de trabajo:
 
 ## Iteración 5: que todo cierre
 
-Tres fases para que cada peso esté en un solo lugar y los números de una pantalla coincidan con los de otra. La 24 va primero porque cambia cómo se lee el inicio; la 25 y la 26 son independientes.
+Tres fases para que cada peso esté en un solo lugar y los números de una pantalla coincidan con los de otra. La 24 va primero porque cambia cómo se lee el inicio; la 25 y la 26 son independientes. La 27 se sumó después y tampoco depende de las otras.
 
 | Fase | Qué se construye | Casos de uso | Terminado cuando |
 | --- | --- | --- | --- |
 | 24 | Invertir desde la carga, ajuste explicado y libre que descuenta lo separado | MOV-07, CTA-06, DAS-05 | Compro CEDEARs desde el +, el Disponible baja, la inversión sube, el patrimonio no cambia y "Libre este mes" baja lo mismo |
 | 25 | Gastos programados y compromisos que cierran | MOV-08, COM-01, 02 | Cargo un turno médico para el 20, lo veo en Compromisos y en el inicio sin que toque mi saldo, y el comprometido de un mes es el mismo en las dos pantallas |
 | 26 | Cambiar el apartado al editar y valores en los gráficos | MOV-04, DAS-06 | Paso un gasto de Galicia a Mercado Pago y veo el monto exacto de cualquier barra con mouse, teclado o dedo |
+| 27 | Empezar de cero | AUTH-09 | Borro todos mis datos desde el perfil, mantengo mis categorías y quedo como un usuario nuevo sin perder mi ingreso con Google ni mi plan |
 
 ## Fase 24 — Invertir y saldos con sentido
 
@@ -891,6 +892,34 @@ Tooltips:
 Forma de trabajo:
 - Plan primero, esperame.
 - Rama feat/fase-26-edicion-graficos. Todo en verde antes del PR, con capturas de la edición con el selector de cuenta y de un tooltip en celular y en escritorio.
+```
+
+## Fase 27 — Empezar de cero
+
+Poder arrancar de nuevo sin tocar la base a mano y sin perder la cuenta, el plan ni las preferencias.
+
+**Terminado cuando:** en el perfil, "Zona peligrosa" > "Empezar de cero" muestra cuántas cuentas, movimientos, tarjetas, fijos y metas tengo; con el email mal escrito o la contraseña incorrecta no se borra nada; con la casilla "Mantener mis categorías" marcada, quedan mis categorías (con sus íconos y subcategorías), la cuenta "Efectivo" con su Disponible en $ 0 y nada más; desmarcada, quedan las categorías sugeridas; sigo con la sesión abierta, mi plan, mis monedas y mis accesos del inicio; puedo volver a ingresar con Google; los datos de otro usuario no cambian; en la auditoría aparece "user.reset".
+
+```
+Leé CLAUDE.md, AUTH-09 y la regla "Empezar de cero" de docs/especificacion.md, y la sección "Empezar de cero (AUTH-09)" de docs/arquitectura.md.
+
+Vamos a hacer la Fase 27 de docs/plan.md.
+
+Backend:
+1. Separá deleteUserData en deleteFinancialData(tx, userId, { keepCategories }) y el borrado del usuario, en un lugar que puedan usar admin y users. El borrado del administrador (ADM-04) tiene que seguir funcionando igual: sus tests e2e no cambian.
+2. Separá en UserOnboardingService la creación de los datos iniciales (cuenta "Efectivo", Disponible en pesos, categorías sugeridas y de sistema) de la asignación del plan.
+3. GET /users/me/data-summary con los conteos y POST /users/me/reset con { confirmEmail, password?, keepCategories }, con sus esquemas en libs/contracts. Todo en una transacción: borrar, crear los datos iniciales y registrar user.reset en la auditoría con los conteos. Límite de intentos más estricto para este endpoint.
+4. Tests e2e: borra todo lo del usuario (incluidos pendientes, programados, resúmenes y valuaciones); con keepCategories conserva categorías y subcategorías; sin él quedan las sugeridas; email o contraseña incorrectos no borran nada; cuenta solo con Google confirma con email; no toca datos de otro usuario; la sesión, el plan, las preferencias y los proveedores siguen.
+
+Web:
+5. Perfil: sección "Zona peligrosa" al final, con borde y texto en expense, y el botón "Empezar de cero".
+6. Hoja de confirmación: los conteos, la lista de lo que se conserva, la casilla "Mantener mis categorías" marcada, el campo de email y, si la cuenta tiene contraseña, el de contraseña. El botón "Borrar todo" se habilita solo con el email correcto y dice cuántos movimientos se van a borrar.
+7. Al terminar: limpiar lo que la app guarda en el navegador sobre datos del usuario (último apartado usado, categorías recientes, filtros), invalidar todas las claves de RefreshBus, ir al inicio y mostrar "Listo, empezaste de cero".
+8. Textos en el archivo de textos del perfil.
+
+Forma de trabajo:
+- Plan primero, esperame.
+- Rama feat/fase-27-empezar-de-cero. Todo en verde antes del PR, con capturas de la zona peligrosa, de la hoja de confirmación y del inicio vacío después.
 ```
 
 ## Después del MVP

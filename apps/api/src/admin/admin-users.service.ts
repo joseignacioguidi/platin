@@ -3,6 +3,7 @@ import type { AdminUser, AdminUserDetail, AdminUsersPage, UserStatus } from '@pl
 import { AuditService } from '../audit/audit.service';
 import { AppException } from '../common/app-exception';
 import { ClockService } from '../common/clock.service';
+import { deleteUser } from '../common/user-data';
 import { afterCreatedAtCursor, toPage } from '../common/created-at-cursor';
 import type { Prisma } from '../generated/prisma/client';
 import { CurrentPlan, PlansService } from '../plans/plans.service';
@@ -162,7 +163,7 @@ export class AdminUsersService {
       );
     }
     await this.prisma.$transaction(async (tx) => {
-      await deleteUserData(tx, id);
+      await deleteUser(tx, id);
       await this.audit.record(tx, {
         actorId,
         action: 'user.delete',
@@ -219,30 +220,4 @@ function toAdminUser(user: AccountRow, current: CurrentPlan): AdminUser {
       endsAt: current.assignment?.endsAt?.toISOString() ?? null,
     },
   };
-}
-
-/**
- * Every row a user owns, children first: the financial relations are `Restrict` so nothing is
- * ever deleted by accident. Runs inside the caller's transaction.
- */
-export async function deleteUserData(tx: Prisma.TransactionClient, userId: string): Promise<void> {
-  const where = { userId };
-  await tx.pocketValuation.deleteMany({ where: { pocket: { userId } } });
-  await tx.goal.deleteMany({ where });
-  await tx.transfer.deleteMany({ where });
-  await tx.transaction.deleteMany({ where });
-  await tx.fixedItem.deleteMany({ where });
-  await tx.cardCharge.deleteMany({ where });
-  await tx.cardStatement.deleteMany({ where });
-  await tx.creditCard.deleteMany({ where });
-  await tx.pocket.deleteMany({ where });
-  await tx.account.deleteMany({ where });
-  await tx.category.deleteMany({ where: { userId, parentId: { not: null } } });
-  await tx.category.deleteMany({ where });
-  await tx.refreshToken.deleteMany({ where });
-  await tx.authIdentity.deleteMany({ where });
-  await tx.activityDay.deleteMany({ where });
-  await tx.userPlan.deleteMany({ where });
-  await tx.planRequest.deleteMany({ where });
-  await tx.user.delete({ where: { id: userId } });
 }

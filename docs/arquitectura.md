@@ -349,6 +349,22 @@ enum TxOrigin { MANUAL FIXED ADJUSTMENT VALUATION SCHEDULED }
 | `GET /movements?type=INVESTMENT` | MOV-07 |
 | `GET /dashboard` con `separated` | DAS-05 |
 
+### Empezar de cero (AUTH-09)
+
+Sin cambios de esquema.
+
+- `deleteUserData` (hoy en `admin-users.service.ts`) se divide en `deleteFinancialData(tx, userId, { keepCategories })`, con el orden de borrado que ya respeta las relaciones, y el borrado del usuario, que la usa y después borra sesiones, identidades, actividad, plan, solicitudes y el usuario. Las dos viven en un lugar común a `admin` y `users`.
+- `UserOnboardingService` separa la creación de los datos iniciales (cuenta "Efectivo" con su Disponible y categorías) de la asignación del plan, así el reinicio reutiliza la primera sin tocar el plan.
+- Con `keepCategories: true` no se toca ninguna categoría. Con `false` se borran todas y se vuelven a sembrar las sugeridas vigentes y las de sistema.
+- Confirmación: `confirmEmail` debe coincidir (sin distinguir mayúsculas) y, si el usuario tiene contraseña, `password` se verifica como en el login. Errores `CONFIRMATION_MISMATCH` e `INVALID_CREDENTIALS`, con un límite de intentos propio del throttler más estricto que el general.
+- Todo en una transacción de Prisma: borrado, datos iniciales y el registro `user.reset` en `AuditLog` con `actorId` y `targetUserId` iguales al usuario y los conteos en `payload`.
+- `GET /users/me/data-summary` devuelve los conteos (los mismos que ve el administrador en ADM-03).
+
+| Método y ruta | Caso de uso |
+| --- | --- |
+| `GET /users/me/data-summary` | AUTH-09 (conteos para la confirmación) |
+| `POST /users/me/reset` con `{ confirmEmail, password?, keepCategories }` | AUTH-09 |
+
 ## Backend
 
 Un módulo de Nest por dominio; los controladores son finos, los servicios orquestan y las reglas viven en `libs/domain`.

@@ -155,3 +155,31 @@ export type LoginRequest = z.infer<typeof loginRequestSchema>;
 export type User = z.infer<typeof userSchema>;
 export type UpdateUserRequest = z.infer<typeof updateUserRequestSchema>;
 export type AuthResponse = z.infer<typeof authResponseSchema>;
+
+// ---------- Start over (AUTH-09) ----------
+
+const count = z.number().int().nonnegative();
+
+/** How many records of each type a user has; never their content. */
+export const dataSummarySchema = z.object({
+  accounts: count,
+  pockets: count,
+  categories: count,
+  transactions: count,
+  transfers: count,
+  cards: count,
+  cardCharges: count,
+  fixed: count,
+  goals: count,
+  valuations: count,
+});
+
+export const resetRequestSchema = z.object({
+  confirmEmail: z.string().trim().max(254),
+  /** Required when the account has a password. */
+  password: z.string().min(1).max(200).optional(),
+  keepCategories: z.boolean(),
+});
+
+export type DataSummary = z.infer<typeof dataSummarySchema>;
+export type ResetRequest = z.infer<typeof resetRequestSchema>;

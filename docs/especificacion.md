@@ -63,6 +63,7 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 * **AUTH-06** Registrarse e ingresar con una cuenta externa. Por ahora, Google; la estructura admite sumar Facebook y Apple sin cambiar el resto de la app. Los botones de proveedores aparecen solo si están habilitados en el servidor.
 * **AUTH-07** Ver en el perfil las formas de ingreso de la cuenta (contraseña y proveedores), vincular un proveedor nuevo y desvincular uno, siempre que quede al menos una forma de ingresar.
 * **AUTH-08** Una cuenta creada con un proveedor puede definir una contraseña después, para tener una segunda forma de ingresar.
+* **AUTH-09** Empezar de cero: desde el perfil, borrar todos los datos financieros propios y quedar como un usuario recién registrado, conservando la cuenta de platin, sus formas de ingreso, el plan y las preferencias. Una casilla "Mantener mis categorías", marcada por defecto, decide si se conservan las categorías.
 
 ### 2. Cuentas y apartados
 
@@ -336,6 +337,17 @@ Ejemplo: ingresos esperados $ 1.200.000; comprometido $ 380.000; gastado $ 250.0
 - Solo se aceptan emails que el proveedor marca como verificados.
 - Las reglas de usuario suspendido y registro cerrado se aplican igual que en el ingreso con contraseña.
 
+### Empezar de cero
+
+- Está en el perfil, en una sección "Zona peligrosa" al final, separada del resto.
+- Antes de confirmar se muestra qué se va a borrar, con conteos: cuentas, apartados, movimientos (incluidos pendientes y programados), transferencias, tarjetas con sus compras, fijos, metas y valuaciones.
+- Para confirmar hay que escribir el email de la cuenta y, si la cuenta tiene contraseña, también la contraseña. Una cuenta que solo ingresa con Google confirma solo con el email.
+- **Se borra**, todo junto o nada: cuentas, apartados, movimientos, transferencias, tarjetas con sus resúmenes, compras, cuotas, ajustes y pagos, fijos, metas y valuaciones. Si la casilla "Mantener mis categorías" está desmarcada, también las categorías propias.
+- **Se conserva**: el usuario, la contraseña y los proveedores vinculados, el plan y las solicitudes de plan, las preferencias (moneda base, cotización, monedas activadas, accesos del inicio) y la sesión actual.
+- Después queda igual que un usuario nuevo: la cuenta "Efectivo" con su Disponible en pesos y, si se borraron las categorías, las sugeridas vigentes. Las categorías de sistema (Ajuste, Rendimientos) existen siempre.
+- Queda en la auditoría como acción del propio usuario, con los conteos y sin datos financieros.
+- No se puede deshacer.
+
 ## Alcance: MVP, backlog y fuera de alcance
 
 El MVP es lo mínimo para dejar de usar la versión actual: cuentas, movimientos, tarjetas con cuotas, fijos, compromisos y metas. Presupuestos, inversiones y reportes completos van en una segunda tanda.
@@ -402,6 +414,7 @@ Que todo cierre: cada peso está en un solo lugar y los números de una pantalla
 - Ajustar saldo y Actualizar valor explican para qué sirven y llevan a la acción correcta (CTA-06).
 - Gastos e ingresos programados (MOV-08) y compromisos que incluyen fijos en tarjeta y la parte pendiente de resúmenes pagados en parte (COM-02).
 - Cambiar el apartado al editar un movimiento (MOV-04) y valores exactos en todos los gráficos (DAS-06).
+- Empezar de cero desde el perfil, con la opción de mantener las categorías (AUTH-09).
 
 ## Identidad visual y UX
 

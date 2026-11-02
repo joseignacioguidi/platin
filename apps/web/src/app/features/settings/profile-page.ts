@@ -3,7 +3,7 @@ import { NonNullableFormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { LucideLogOut, LucideMoon } from '@lucide/angular';
 import type { CardCurrency, RateType } from '@platin/domain';
-import { PlButton, PlSegmented, PlSegmentOption } from '@platin/web-ui';
+import { PlBottomSheet, PlButton, PlSegmented, PlSegmentOption } from '@platin/web-ui';
 import { AuthService } from '../../core/auth/auth.service';
 import { errorMessage } from '../../core/errors';
 import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
@@ -12,6 +12,7 @@ import { PlanSummary } from '../plans/plan-summary';
 import { CurrenciesSettings } from './currencies-settings';
 import { SETTINGS_TEXTS } from './settings.texts';
 import { SignInMethods } from './sign-in-methods';
+import { StartOverSheet } from './start-over-sheet';
 
 /** AUTH-04: name, base currency and preferred rate; the plan (PLN-03); appearance and logout. */
 @Component({
@@ -116,6 +117,22 @@ import { SignInMethods } from './sign-in-methods';
         {{ texts.logout }}
       </button>
     </section>
+
+    <section
+      class="mt-8 flex flex-col gap-3 rounded-card border border-expense bg-surface p-5"
+      aria-labelledby="danger-title"
+    >
+      <h2 id="danger-title" class="text-lg font-bold text-expense">{{ danger.dangerTitle }}</h2>
+      <p class="text-[15px] text-muted">{{ danger.dangerBody }}</p>
+      <button
+        plButton="secondary"
+        type="button"
+        class="!border-expense !text-expense"
+        (click)="startOver()"
+      >
+        {{ danger.open }}
+      </button>
+    </section>
   `,
 })
 export class ProfilePage {
@@ -124,7 +141,9 @@ export class ProfilePage {
   readonly error = input<string>();
 
   protected readonly texts = SETTINGS_TEXTS.profile;
+  protected readonly danger = SETTINGS_TEXTS.startOver;
   protected readonly inputClass = INPUT_CLASS;
+  private readonly sheet = inject(PlBottomSheet);
   protected readonly auth = inject(AuthService);
   protected readonly theme = inject(ThemeService);
   private readonly router = inject(Router);
@@ -170,6 +189,10 @@ export class ProfilePage {
     } finally {
       this.saving.set(false);
     }
+  }
+
+  protected startOver(): void {
+    this.sheet.open(StartOverSheet, { ariaLabel: this.danger.title });
   }
 
   protected async logout(): Promise<void> {
