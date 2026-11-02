@@ -112,6 +112,13 @@ export const CARDS_TEXTS = {
     started: 'Ya venía pagándola',
     startAt: 'Voy por la cuota',
     preview: 'Así se reparte',
+    statementQuestion: (k: number) => `¿En qué resumen está la cuota ${k}?`,
+    statementOpen: (closes: string) => `En el abierto (cierra ${closes})`,
+    statementPrevious: (due: string) => `En el que cerró y todavía no pagaste (vence ${due})`,
+    closeSuggestion: (due: string) =>
+      `Cerrá el resumen que vence el ${due} con el total del banco para poder pagarlo.`,
+    closeSuggestionAction: 'Cerrar resumen',
+    later: 'Más tarde',
     save: 'Guardar consumo',
     editTitle: 'Editar consumo',
     saveChanges: 'Guardar cambios',

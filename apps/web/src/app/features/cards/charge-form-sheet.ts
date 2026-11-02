@@ -1,6 +1,6 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import type { Card, Charge, UpdateChargeRequest } from '@platin/contracts';
+import type { Card, Charge, StartStatement, UpdateChargeRequest } from '@platin/contracts';
 import {
   CardCurrency,
   formatMoney,
@@ -16,8 +16,10 @@ import {
 } from '@platin/domain';
 import {
   displayAmount,
+  formatDate,
   formatPeriodShort,
   parseTypedAmount,
+  PlBottomSheet,
   PlButton,
   PlCategorySelect,
   PlCurrencySelect,
@@ -34,6 +36,7 @@ import { Today } from '../../core/today';
 import { CategoriesStore } from '../categories/categories.store';
 import { CardsStore } from './cards.store';
 import { CARDS_TEXTS } from './cards.texts';
+import { CloseStatementSheet } from './close-statement-sheet';
 
 const COUNTS = [1, 3, 6, 12, 18, 24];
 const MODE_KEY = 'platin.chargeAmountMode';
@@ -207,6 +210,19 @@ export interface ChargeFormData {
         }
       }
 
+      @if (asksStatement()) {
+        <div class="flex flex-col gap-1.5">
+          <span class="text-sm font-medium">{{ t.statementQuestion(start()) }}</span>
+          <pl-segmented
+            tone="surface"
+            [label]="t.statementQuestion(start())"
+            [options]="statementOptions()"
+            [value]="startStatement()"
+            (valueChange)="startStatement.set($event)"
+          />
+        </div>
+      }
+
       @if (preview().length > 0) {
         <section class="flex flex-col gap-2 rounded-tile bg-field p-4">
           <h3 class="text-sm font-semibold">{{ t.preview }}</h3>
@@ -227,7 +243,17 @@ export interface ChargeFormData {
         <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">{{ error() }}</p>
       }
 
-      @if (confirmingRemove()) {
+      @if (closeSuggestion(); as suggestion) {
+        <p class="rounded-2xl bg-pending-soft px-4 py-3 text-sm text-pending-ink" role="status">
+          {{ t.closeSuggestion(suggestion.dueText) }}
+        </p>
+        <button plButton size="lg" type="button" [disabled]="saving()" (click)="closeStatement()">
+          {{ t.closeSuggestionAction }}
+        </button>
+        <button plButton="secondary" type="button" (click)="ref.close(true)">
+          {{ t.later }}
+        </button>
+      } @else if (confirmingRemove()) {
         <p class="text-[15px] font-semibold">{{ t.confirmRemove }}</p>
         <div class="grid grid-cols-2 gap-2">
           <button plButton="secondary" type="button" (click)="confirmingRemove.set(false)">
@@ -262,7 +288,8 @@ export class ChargeFormSheet {
   protected readonly today = inject(Today);
   protected readonly categoriesStore = inject(CategoriesStore);
   private readonly store = inject(CardsStore);
-  private readonly ref = inject(DialogRef);
+  protected readonly ref = inject(DialogRef);
+  private readonly sheet = inject(PlBottomSheet);
 
   protected readonly description = signal(this.charge?.description ?? '');
   protected readonly amountText = signal(
@@ -278,6 +305,14 @@ export class ChargeFormSheet {
   protected readonly count = signal(this.charge?.installmentsCount ?? 1);
   protected readonly started = signal(false);
   protected readonly startAt = signal(2);
+  /** TAR-03: where a started plan begins; an existing one keeps the statement it is in. */
+  protected readonly startStatement = signal<StartStatement>(
+    this.charge && this.card.previousStatement?.period === this.charge.installments[0]?.period
+      ? 'PREVIOUS'
+      : 'OPEN',
+  );
+  /** Set after saving into the previous statement: suggests closing it to be able to pay it. */
+  protected readonly closeSuggestion = signal<{ period: string; dueText: string } | null>(null);
   protected readonly saving = signal(false);
   protected readonly confirmingRemove = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -291,14 +326,42 @@ export class ChargeFormSheet {
         : 1,
   );
 
+  /** Between closing and due date a started plan can begin in the statement still to be paid. */
+  protected readonly asksStatement = computed(
+    () => !this.locked && this.start() > 1 && this.card.previousStatement !== null,
+  );
+
+  protected readonly statementOptions = computed<PlSegmentOption<StartStatement>[]>(() => {
+    const previous = this.card.previousStatement;
+    const open = this.card.openStatement;
+    return [
+      {
+        value: 'OPEN',
+        label: this.t.statementOpen(open ? this.dayMonth(open.closingDate) : ''),
+      },
+      {
+        value: 'PREVIOUS',
+        label: this.t.statementPrevious(previous ? this.dayMonth(previous.dueDate) : ''),
+      },
+    ];
+  });
+
   /** Same rules as the API: first statement by date (or today's open one for a started plan). */
   protected readonly preview = computed(() => {
     const amount = this.total();
     const start = this.start();
     if (!amount || start > this.count()) return [];
     const open = this.card.openStatement?.period;
+    const previous = this.card.previousStatement?.period;
+    const kept = this.charge?.installments[0]?.period;
     const first: Period =
-      start > 1 && open ? parsePeriod(open) : statementPeriodFor(this.card, this.date());
+      start > 1 && this.asksStatement() && this.startStatement() === 'PREVIOUS' && previous
+        ? parsePeriod(previous)
+        : start > 1 && this.charge && !this.asksStatement() && kept
+          ? parsePeriod(kept)
+          : start > 1 && open
+            ? parsePeriod(open)
+            : statementPeriodFor(this.card, this.date());
     const plan = scheduleInstallments(
       splitInstallments(Money.of(amount, this.currency()), this.count(), start),
       first,
@@ -378,6 +441,7 @@ export class ChargeFormSheet {
     if (!amount) return this.error.set(errors.amount);
     if (!this.categoryId()) return this.error.set(errors.category);
     const charge = this.charge;
+    const toPrevious = this.asksStatement() && this.startStatement() === 'PREVIOUS';
     await this.run(async () => {
       if (charge) {
         await this.store.updateCharge(charge.id, this.changes(charge, amount));
@@ -391,10 +455,11 @@ export class ChargeFormSheet {
           date: this.date(),
           installmentsCount: this.count(),
           startInstallment: this.start(),
+          ...(this.asksStatement() ? { startStatement: this.startStatement() } : {}),
         });
       }
       this.categoriesStore.markUsed(this.categoryId());
-    });
+    }, toPrevious);
   }
 
   protected async remove(): Promise<void> {
@@ -413,14 +478,49 @@ export class ChargeFormSheet {
       changes.totalAmount = amount;
     if (this.date() !== charge.date) changes.date = this.date();
     if (this.count() !== charge.installmentsCount) changes.installmentsCount = this.count();
+    if (this.asksStatement()) changes.startStatement = this.startStatement();
     return changes;
   }
 
-  private async run(action: () => Promise<unknown>): Promise<void> {
+  /** TAR-03: opens the close form of the statement the plan was just placed in. */
+  protected async closeStatement(): Promise<void> {
+    const suggestion = this.closeSuggestion();
+    if (!suggestion) return;
+    this.saving.set(true);
+    try {
+      const statement = await this.store.statementOf(this.card.id, suggestion.period);
+      this.ref.close(true);
+      if (statement) {
+        this.sheet.open(CloseStatementSheet, {
+          data: statement,
+          ariaLabel: CARDS_TEXTS.closeStatement,
+        });
+      }
+    } catch (error) {
+      this.error.set(errorMessage(error));
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  /** "26/11": a date without its year. */
+  private dayMonth(date: string): string {
+    return formatDate(parseLocalDate(date)).replace(/\/\d{4}$/, '');
+  }
+
+  private async run(action: () => Promise<unknown>, suggestClose = false): Promise<void> {
     this.saving.set(true);
     this.error.set(null);
     try {
       await action();
+      const previous = this.card.previousStatement;
+      if (suggestClose && previous) {
+        this.closeSuggestion.set({
+          period: previous.period,
+          dueText: this.dayMonth(previous.dueDate),
+        });
+        return;
+      }
       this.ref.close(true);
     } catch (error) {
       this.error.set(errorMessage(error));

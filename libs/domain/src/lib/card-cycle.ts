@@ -67,3 +67,24 @@ function assertDay(day: number, name: string): void {
     throw new Error(`${name} must be an integer between 1 and 31`);
   }
 }
+
+export interface PreviousStatementWindow extends StatementDates {
+  period: Period;
+}
+
+/**
+ * The statement just before the open one while it is closed but not yet due (TAR-03): today is
+ * after its closing date and not after its due date. Outside that window there is none.
+ */
+export function previousStatementWindow(
+  card: CardCycle,
+  today: LocalDate,
+  overrides: StatementOverrides = new Map(),
+): PreviousStatementWindow | null {
+  const period = addMonths(statementPeriodFor(card, today, overrides), -1);
+  const dates = statementDatesFor(card, period, overrides);
+  if (compareDates(today, dates.closingDate) > 0 && compareDates(today, dates.dueDate) <= 0) {
+    return { period, ...dates };
+  }
+  return null;
+}

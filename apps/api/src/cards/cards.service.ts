@@ -7,11 +7,17 @@ import type {
   StatementSummary,
   UpdateCardRequest,
 } from '@platin/contracts';
-import { installmentProgress, Money, Period, utcToPeriod } from '@platin/domain';
+import {
+  installmentProgress,
+  Money,
+  Period,
+  previousStatementWindow,
+  utcToPeriod,
+} from '@platin/domain';
 import { PocketsService } from '../accounts/pockets.service';
 import { AppException } from '../common/app-exception';
 import { ClockService } from '../common/clock.service';
-import { cardCurrency } from '../common/serialize';
+import { cardCurrency, toDbPeriod } from '../common/serialize';
 import type { CreditCard } from '../generated/prisma/client';
 import { EntitlementsService } from '../plans/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -160,6 +166,26 @@ export class CardsService {
     return card;
   }
 
+  /** TAR-03: the closed, not yet due statement a started purchase can go into, if it can. */
+  private async previousStatement(card: CreditCard): Promise<Card['previousStatement']> {
+    const window = previousStatementWindow(
+      card,
+      this.clock.today(),
+      await this.statements.overrides(this.prisma, card.id),
+    );
+    if (!window) return null;
+    const existing = await this.prisma.cardStatement.findFirst({
+      where: { cardId: card.id, period: toDbPeriod(window.period) },
+      select: { status: true },
+    });
+    if (existing && existing.status !== 'OPEN') return null;
+    return {
+      period: window.period,
+      closingDate: window.closingDate,
+      dueDate: window.dueDate,
+    };
+  }
+
   private async toDto(card: CreditCard): Promise<Card> {
     const openPeriod = await this.statements.openPeriodFor(this.prisma, card, this.clock.today());
     await this.statements.ensure(this.prisma, card, [openPeriod]);
@@ -184,6 +210,7 @@ export class CardsService {
       defaultPaymentPocketId: card.defaultPaymentPocketId,
       archived: card.archivedAt !== null,
       openStatement: open ? toStatementSummary(open) : null,
+      previousStatement: await this.previousStatement(card),
       committedArs: committed.toString(),
       available: limit ? limit.subtract(committed).toString() : null,
     };

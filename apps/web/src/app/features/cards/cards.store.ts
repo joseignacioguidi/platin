@@ -47,6 +47,16 @@ export class CardsStore {
     return this.write(this.http.post<Charge>(`${API}/cards/${cardId}/charges`, request));
   }
 
+  /** The statement of one period of a card, if it exists. */
+  async statementOf(cardId: string, period: string): Promise<StatementSummary | undefined> {
+    const list = await firstValueFrom(
+      this.http.get<StatementSummary[]>(`${API}/cards/${cardId}/statements`, {
+        params: { from: period, to: period },
+      }),
+    );
+    return list.find((x) => x.period === period);
+  }
+
   /** TAR-12: closed statements, newest first; `cursor` = period of the last one shown. */
   statementHistory(cardId: string, cursor?: string, limit = 12): Promise<StatementSummary[]> {
     const params: Record<string, string> = { status: 'closed', limit: String(limit) };
