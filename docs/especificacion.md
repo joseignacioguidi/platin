@@ -94,7 +94,7 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 
 - **TAR-01** Alta de tarjeta con día de cierre, día de vencimiento y límite.
 - **TAR-02** Cargar un consumo en 1 o N cuotas, indicando el monto total o el valor de cada cuota (como figura en el resumen del banco); la app reparte las cuotas en los resúmenes que correspondan y muestra el otro valor calculado.
-- **TAR-03** Cargar un consumo en cuotas ya empezado ("voy por la 4 de 12"), para migrar compras existentes.
+- **TAR-03** Cargar un consumo en cuotas ya empezado ("voy por la 4 de 12"), para migrar compras existentes. Si el banco ya cerró el resumen anterior y todavía no venció, se elige en qué resumen está esa cuota: en el abierto o en el que cerró y falta pagar.
 - **TAR-04** Ver el resumen actual (abierto) y los próximos, con el detalle de cuotas y consumos de cada uno.
 - **TAR-05** Ver las cuotas activas: qué compra, cuál cuota va, cuántas faltan y cuánto resta pagar.
 - **TAR-06** Ajustar fechas de cierre y vencimiento de un resumen puntual (el banco las corre por feriados).
@@ -244,6 +244,13 @@ Varias monedas:
 - Un consumo de N cuotas genera N cuotas: la 1 en el resumen que corresponde a la fecha de compra, la i en el resumen siguiente a la i − 1.
 - Monto de cada cuota = total / N redondeado a 2 decimales; la diferencia de redondeo va a la última cuota.
 - Un consumo cargado como "voy por la k de N" genera solo las cuotas k a N, desde el resumen abierto.
+- **Cuota en el resumen que falta pagar.** Entre el cierre de un resumen y su vencimiento, la cuota que la persona está pagando está en ese resumen y no en el abierto. Por eso, al cargar o editar un consumo ya empezado, si hoy está después del cierre del resumen anterior al abierto y no después de su vencimiento, el formulario pregunta "¿En qué resumen está la cuota k?":
+  - "En el abierto (cierra 26/11)" — la opción por defecto; la cuota k va al resumen abierto, como hasta ahora.
+  - "En el que cerró y todavía no pagaste (vence 5/11)" — la cuota k va a ese resumen y la k + 1 al abierto.
+  - La segunda opción se ofrece solo si ese resumen no existe en platin o sigue sin cerrar en platin. Si no existe, se crea con sus fechas por defecto (o las corregidas).
+  - Después de guardar, la app sugiere cerrar ese resumen con el total del banco (TAR-07), para poder pagarlo.
+  - Al editar un consumo ya empezado, la opción vigente es la del resumen donde está hoy su primera cuota, y se puede cambiar mientras ninguna cuota esté en un resumen cerrado.
+- Ejemplo: Visa con cierre el 26 y vencimiento el 5. El 2/11 cargo "voy por la 3 de 9" de $ 30.555,44 y elijo el resumen que vence el 5/11. La cuota 3 queda en el resumen de octubre (vence 5/11), la 4 en el de noviembre (vence 5/12) y la 9 en el de abril (vence 5/5). En Compromisos, noviembre suma $ 30.555,44 de esa compra.
 - Editar el consumo regenera las cuotas que todavía no están en un resumen cerrado.
 - Cuotas restantes = N menos cuotas en resúmenes cerrados; monto restante = suma de esas cuotas.
 
@@ -415,6 +422,7 @@ Que todo cierre: cada peso está en un solo lugar y los números de una pantalla
 - Gastos e ingresos programados (MOV-08) y compromisos que incluyen fijos en tarjeta y la parte pendiente de resúmenes pagados en parte (COM-02).
 - Cambiar el apartado al editar un movimiento (MOV-04) y valores exactos en todos los gráficos (DAS-06).
 - Empezar de cero desde el perfil, con la opción de mantener las categorías (AUTH-09).
+- Cargar compras ya empezadas cuando el banco ya cerró el resumen y todavía no venció (TAR-03).
 
 ## Identidad visual y UX
 

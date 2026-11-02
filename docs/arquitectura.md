@@ -365,6 +365,20 @@ Sin cambios de esquema.
 | `GET /users/me/data-summary` | AUTH-09 (conteos para la confirmación) |
 | `POST /users/me/reset` con `{ confirmEmail, password?, keepCategories }` | AUTH-09 |
 
+### Cuota en el resumen que falta pagar (TAR-03)
+
+Sin cambios de esquema.
+
+- `createChargeRequestSchema` y `updateChargeRequestSchema` suman `startStatement: 'OPEN' | 'PREVIOUS'` (por defecto `OPEN`), válido solo con `startInstallment > 1`.
+- `libs/domain`: `previousStatementWindow(card, today, overrides)` devuelve el período anterior al abierto con sus fechas cuando `cierre < hoy <= vencimiento`, o nada. Tests con el ejemplo de la especificación, con un mes corto y con fechas corregidas.
+- `charges.service`: el ancla de un consumo ya empezado deja de ser siempre `today`. Con `PREVIOUS`, la primera cuota va al período que devuelve `previousStatementWindow`; si no hay ventana, o ese resumen está cerrado o pagado en platin, responde `PREVIOUS_STATEMENT_NOT_AVAILABLE`. Al editar sin mandar `startStatement`, el ancla es el resumen donde está la primera cuota actual (no `today`), así una edición posterior no corre el plan.
+- `GET /cards/:id` suma `previousStatement: { period, closingDate, dueDate } | null` para que el formulario sepa si mostrar la pregunta y con qué fechas.
+
+| Método y ruta | Caso de uso |
+| --- | --- |
+| `POST /cards/:id/charges` y `PATCH /charges/:id` con `startStatement` | TAR-03 |
+| `GET /cards/:id` con `previousStatement` | TAR-03 |
+
 ## Backend
 
 Un módulo de Nest por dominio; los controladores son finos, los servicios orquestan y las reglas viven en `libs/domain`.
