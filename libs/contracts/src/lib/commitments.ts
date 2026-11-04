@@ -109,3 +109,4 @@ export type CommitmentItem = z.infer<typeof commitmentItemSchema>;
 export type MonthCommitments = z.infer<typeof monthCommitmentsSchema>;
 export type CommitmentsResponse = z.infer<typeof commitmentsResponseSchema>;
 export type SyncResponse = z.infer<typeof syncResponseSchema>;
+export type PayFrom = NonNullable<z.infer<typeof payFromSchema>>;

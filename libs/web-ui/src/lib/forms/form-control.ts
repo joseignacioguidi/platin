@@ -46,3 +46,13 @@ export abstract class PlFormControl<T> implements ControlValueAccessor {
     this.onTouched();
   }
 }
+
+/** Trigger of the `chip` appearance: a 44 px pill that fits in a row (MOV-09). */
+export function chipTrigger(open: boolean, invalid: boolean): string {
+  const border = invalid ? 'border-expense' : open ? 'border-brand' : 'border-line';
+  return (
+    `inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full border ${border} bg-surface ` +
+    'px-3.5 text-[15px] text-ink transition-colors focus:outline-none focus-visible:border-brand ' +
+    'focus-visible:ring-2 focus-visible:ring-brand/30 disabled:cursor-not-allowed disabled:opacity-60'
+  );
+}

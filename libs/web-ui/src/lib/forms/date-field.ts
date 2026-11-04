@@ -29,7 +29,7 @@ import {
   periodParts,
 } from '@platin/domain';
 import { formatLongDate, formatMonthYear } from '../format/format';
-import { PlFormControl, plUniqueId } from './form-control';
+import { chipTrigger, PlFormControl, plUniqueId } from './form-control';
 import { PlPopover, PlPopoverContext, PlPopoverHandle } from './popover';
 
 /** "Today" in the app's time zone; the app provides its own clock. */
@@ -116,6 +116,9 @@ function shiftMonths(date: LocalDate, months: number): LocalDate {
           <span class="text-xs text-muted">{{ label() }}</span>
           <span class="truncate font-semibold">{{ display() }}</span>
         </span>
+      } @else if (appearance() === 'chip') {
+        <svg lucideCalendar [size]="16" class="shrink-0 text-muted" aria-hidden="true"></svg>
+        <span class="truncate font-medium first-letter:uppercase">{{ display() }}</span>
       } @else {
         <span class="min-w-0 flex-1 truncate text-left first-letter:uppercase">{{
           display()
@@ -232,7 +235,7 @@ export class PlDateField extends PlFormControl<LocalDate | null> {
   readonly min = input<LocalDate | null>(null);
   readonly max = input<LocalDate | null>(null);
   readonly placeholder = input('Elegí una fecha');
-  readonly appearance = input<'field' | 'tile'>('field');
+  readonly appearance = input<'field' | 'tile' | 'chip'>('field');
 
   protected readonly today = inject(PL_TODAY);
   protected readonly weekdays = WEEKDAYS;
@@ -301,6 +304,7 @@ export class PlDateField extends PlFormControl<LocalDate | null> {
       'transition-colors focus:outline-none focus-visible:border-brand focus-visible:ring-2 ' +
       'focus-visible:ring-brand/30 disabled:cursor-not-allowed disabled:opacity-60';
     const border = this.isOpen() ? 'border-brand' : 'border-line';
+    if (this.appearance() === 'chip') return chipTrigger(this.isOpen(), false);
     return this.appearance() === 'tile'
       ? `${base} ${border} min-h-[60px] py-2`
       : `${base} ${border} min-h-12`;

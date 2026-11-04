@@ -17,7 +17,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { NG_VALUE_ACCESSOR } from '@angular/forms';
 import { LucideCheck, LucideChevronDown, LucideDynamicIcon, LucideSearch } from '@lucide/angular';
 import { PL_TONE_CLASSES, PlTone } from '../list-item/list-item';
-import { PlFormControl, plUniqueId } from './form-control';
+import { chipTrigger, PlFormControl, plUniqueId } from './form-control';
 import { PlPopover, PlPopoverContext, PlPopoverHandle } from './popover';
 
 export interface PlSelectOption<T = string> {
@@ -79,7 +79,7 @@ interface Group<T> {
       role="combobox"
       aria-haspopup="listbox"
       [id]="inputId() ?? triggerId"
-      [attr.aria-label]="appearance() === 'tile' || !inputId() ? label() + ': ' + display() : null"
+      [attr.aria-label]="appearance() !== 'field' || !inputId() ? label() + ': ' + display() : null"
       [attr.aria-expanded]="isOpen()"
       [attr.aria-controls]="isOpen() ? listId : null"
       [attr.aria-invalid]="invalid() || null"
@@ -96,6 +96,11 @@ interface Group<T> {
             <ng-container [ngTemplateOutlet]="selectedLead" />
             <span class="truncate">{{ display() }}</span>
           </span>
+        </span>
+      } @else if (appearance() === 'chip') {
+        <span class="flex min-w-0 flex-1 items-center gap-2 text-left font-medium">
+          <ng-container [ngTemplateOutlet]="selectedLead" />
+          <span class="truncate">{{ display() }}</span>
         </span>
       } @else {
         <span class="flex min-w-0 flex-1 items-center gap-2 text-left">
@@ -255,7 +260,7 @@ export class PlSelect<T = string> extends PlFormControl<T | null> {
   readonly searchLabel = input('Buscar');
   readonly noResults = input('Sin resultados');
   /** `field`: like a text input. `tile`: small label above a bold value (quick entry). */
-  readonly appearance = input<'field' | 'tile'>('field');
+  readonly appearance = input<'field' | 'tile' | 'chip'>('field');
   readonly invalid = input(false);
   /**
    * Adds an action at the end of the list ("+ Nueva categoría", CAT-06). Choosing it closes the
@@ -358,6 +363,7 @@ export class PlSelect<T = string> extends PlFormControl<T | null> {
       : this.isOpen()
         ? 'border-brand'
         : 'border-line';
+    if (this.appearance() === 'chip') return chipTrigger(this.isOpen(), this.invalid());
     return this.appearance() === 'tile'
       ? `${base} ${border} min-h-[60px] py-2`
       : `${base} ${border} min-h-12`;

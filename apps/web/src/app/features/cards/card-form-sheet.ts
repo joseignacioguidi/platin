@@ -1,5 +1,12 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import {
+  afterNextRender,
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import {
   AbstractControl,
   NonNullableFormBuilder,
@@ -15,6 +22,12 @@ import { fieldError, zodValidator } from '../../core/forms/zod-validator';
 import { AccountsStore } from '../accounts/accounts.store';
 import { CardsStore } from './cards.store';
 import { CARDS_TEXTS } from './cards.texts';
+
+/** COM-04: "Sin cuenta asignada" opens the card on its payment account field. */
+export interface CardFormData {
+  card: Card;
+  focus: 'payment';
+}
 
 function optionalAmount(control: AbstractControl<string>): ValidationErrors | null {
   return !control.value.trim() || parseTypedAmount(control.value)
@@ -138,7 +151,9 @@ export class CardFormSheet {
   protected readonly f = CARDS_TEXTS.form;
   protected readonly inputClass = INPUT_CLASS;
   protected readonly fieldError = fieldError;
-  protected readonly card = inject<Card | null>(DIALOG_DATA);
+  private readonly data = inject<Card | CardFormData | null>(DIALOG_DATA);
+  protected readonly card = this.data && 'focus' in this.data ? this.data.card : this.data;
+  private readonly payment = viewChild(PlAccountSelect);
   protected readonly accounts = inject(AccountsStore);
   private readonly store = inject(CardsStore);
   private readonly ref = inject(DialogRef);
@@ -158,6 +173,10 @@ export class CardFormSheet {
     last4: [this.card?.last4 ?? '', Validators.pattern(/^(\d{4})?$/)],
     defaultPaymentPocketId: [this.card?.defaultPaymentPocketId ?? ''],
   });
+
+  constructor() {
+    if (this.data && 'focus' in this.data) afterNextRender(() => this.payment()?.open());
+  }
 
   protected async save(): Promise<void> {
     this.form.markAllAsTouched();

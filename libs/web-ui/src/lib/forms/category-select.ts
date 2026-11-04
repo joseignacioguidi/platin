@@ -85,7 +85,7 @@ export class PlCategorySelect extends PlFormControl<string | null> {
   readonly inputId = input<string>();
   readonly placeholder = input('Elegí una categoría');
   readonly emptyLabel = input<string | null>(null);
-  readonly appearance = input<'field' | 'tile'>('field');
+  readonly appearance = input<'field' | 'tile' | 'chip'>('field');
   readonly invalid = input(false);
   /** CAT-06: "+ Nueva categoría" at the end; the created one is chosen. */
   readonly allowCreate = input(false, { transform: booleanAttribute });

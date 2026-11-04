@@ -13,7 +13,6 @@ import {
 } from '@angular/core';
 import type { Pocket } from '@platin/contracts';
 import { Router } from '@angular/router';
-import { LucidePencil } from '@lucide/angular';
 import {
   compareDates,
   currencySymbol,
@@ -84,11 +83,10 @@ type Direction = 'INVEST' | 'REDEEM';
     PlAccountSelect,
     PlCategorySelect,
     PlDateField,
-    LucidePencil,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <pl-sheet>
+    <pl-sheet compact>
       @if (accountsStore.resource.hasValue() && pockets().length === 0) {
         <pl-empty-state
           icon="wallet"
@@ -108,63 +106,73 @@ type Direction = 'INVEST' | 'REDEEM';
           (lockedChoose)="showInvestmentsBlock()"
         />
 
-        <!-- Amount -->
-        <div class="flex flex-col items-center gap-2 py-1">
+        <!-- Amount, with the currency next to it -->
+        <div class="flex min-h-11 items-center justify-center gap-2">
           <p
-            class="font-amount flex items-center text-5xl font-semibold tracking-tight"
+            class="font-amount flex items-center text-[40px] leading-none font-semibold tracking-tight"
             [attr.aria-label]="texts.amountLabel + ': ' + amountText()"
             aria-live="polite"
           >
             <span>{{ symbol() }}&nbsp;{{ amountText() }}</span>
-            <span class="ml-1 h-12 w-1 animate-pulse rounded bg-brand" aria-hidden="true"></span>
+            <span class="ml-1 h-9 w-1 animate-pulse rounded bg-brand" aria-hidden="true"></span>
           </p>
           @if (card()) {
             <button
               type="button"
-              class="font-amount min-h-11 rounded-full border border-line px-4 text-sm"
+              class="font-amount min-h-11 rounded-full border border-line px-3 text-sm"
               [attr.aria-label]="texts.currencyToggle(amountCurrency())"
               (click)="cardCurrency.set(cardCurrency() === 'ARS' ? 'USD' : 'ARS')"
             >
               {{ amountCurrency() }} ⇄
             </button>
           } @else {
-            <span class="font-amount rounded-full border border-line px-3 py-1 text-sm">
+            <span class="font-amount rounded-full border border-line px-2.5 py-1 text-sm">
               {{ amountCurrency() }}
             </span>
           }
         </div>
 
+        <!-- MOV-09: the reason, always visible; empty, it takes the category's name. -->
+        <input
+          type="text"
+          maxlength="120"
+          class="min-h-11 rounded-2xl border border-line bg-surface px-4 text-center text-[15px]"
+          [attr.aria-label]="texts.note"
+          [placeholder]="texts.notePlaceholder"
+          [value]="note()"
+          (input)="note.set(inputValue($event))"
+        />
+
         @if (mode() === 'EXPENSE' || mode() === 'INCOME') {
-          <!-- Categories -->
-          <section class="flex flex-col gap-2">
-            <h3 class="text-sm text-muted">{{ texts.categoryRecent }}</h3>
-            <div class="flex flex-wrap gap-2">
-              @for (category of visibleCategories(); track category.id) {
-                <button
-                  plChip
-                  [selected]="category.id === categoryId()"
-                  (click)="categoryId.set(category.id)"
-                >
-                  {{ category.name }}
-                </button>
-              }
-            </div>
-            <!-- CAT-06: every category, plus "+ Nueva categoría"; what was typed stays. -->
+          <!-- Recent categories in one row; "Más" opens all of them (and creates one). -->
+          <div role="group" [attr.aria-label]="texts.categoryRecent" [class]="row">
+            @for (category of visibleCategories(); track category.id) {
+              <button
+                plChip
+                [selected]="category.id === categoryId()"
+                (click)="categoryId.set(category.id)"
+              >
+                {{ category.name }}
+              </button>
+            }
             <pl-category-select
+              class="shrink-0"
+              appearance="chip"
               allowCreate
               [kind]="mode() === 'INCOME' ? 'INCOME' : 'EXPENSE'"
               [label]="texts.categoryAll"
-              [placeholder]="texts.categorySearch"
+              [placeholder]="texts.more"
               [categories]="categoriesStore.categories()"
               [recentIds]="categoriesStore.recentIds()"
-              [value]="categoryId()"
-              (valueChange)="categoryId.set($event)"
+              [value]="null"
+              (valueChange)="$event && categoryId.set($event)"
             />
-          </section>
+          </div>
 
-          <div class="grid grid-cols-[1fr_auto] gap-2">
+          <div [class]="row">
             <pl-select
-              appearance="tile"
+              class="shrink-0"
+              appearance="chip"
               [label]="card() ? texts.card : texts.account"
               [options]="paymentOptions()"
               [value]="paymentValue()"
@@ -172,8 +180,8 @@ type Direction = 'INVEST' | 'REDEEM';
             />
             <!-- MOV-08: incomes and expenses can be scheduled; card purchases can't. -->
             <pl-date-field
-              class="min-w-32"
-              appearance="tile"
+              class="shrink-0"
+              appearance="chip"
               [label]="texts.date"
               [max]="card() ? today.date() : null"
               [value]="date()"
@@ -181,45 +189,40 @@ type Direction = 'INVEST' | 'REDEEM';
             />
           </div>
           @if (scheduled()) {
-            <p class="rounded-2xl bg-pending-soft px-4 py-3 text-sm text-pending-ink" role="status">
+            <p class="text-center text-xs text-pending-ink" role="status">
               {{ texts.scheduledHint }}
             </p>
           }
 
           @if (card()) {
-            <fieldset class="flex flex-col gap-2">
-              <legend class="mb-2 text-sm text-muted">{{ texts.installments }}</legend>
-              <div class="flex flex-wrap gap-2">
-                @for (n of installmentOptions; track n) {
-                  <button
-                    plChip
-                    tone="ink"
-                    [selected]="installments() === n"
-                    (click)="installments.set(n)"
-                  >
-                    {{ n === 1 ? texts.onePayment : n }}
-                  </button>
-                }
-              </div>
-            </fieldset>
+            <div role="group" [attr.aria-label]="texts.installments" [class]="row">
+              @for (n of installmentOptions; track n) {
+                <button
+                  plChip
+                  tone="ink"
+                  [selected]="installments() === n"
+                  [attr.aria-label]="n === 1 ? texts.onePayment : texts.installmentsOf(n)"
+                  (click)="installments.set(n)"
+                >
+                  {{ n === 1 ? texts.onePayment : texts.installmentsShort(n) }}
+                </button>
+              }
+            </div>
           }
 
           @if (needsRate()) {
-            <label class="flex flex-col gap-1">
-              <span class="text-sm font-medium">{{ texts.rate(rateUnitText()) }}</span>
-              <input
-                type="text"
-                inputmode="decimal"
-                class="font-amount min-h-12 rounded-2xl border border-line bg-surface px-4"
-                [value]="rateText()"
-                (input)="rateText.set(inputValue($event))"
-              />
-              <span class="text-xs text-muted">{{ rateHint() }}</span>
-            </label>
+            <input
+              type="text"
+              inputmode="decimal"
+              class="font-amount min-h-11 rounded-2xl border border-line bg-surface px-4 text-[15px]"
+              [attr.aria-label]="texts.rate(rateUnitText()) + '. ' + rateHint()"
+              [placeholder]="texts.rate(rateUnitText())"
+              [value]="rateText()"
+              (input)="rateText.set(inputValue($event))"
+            />
           }
         } @else {
           @if (mode() === 'TRANSFER') {
-            <!-- Transfer -->
             <div class="grid grid-cols-2 gap-2">
               <pl-account-select
                 appearance="tile"
@@ -284,84 +287,63 @@ type Direction = 'INVEST' | 'REDEEM';
               }
             </div>
             @if (!hasInvestments()) {
-              <p class="rounded-2xl bg-pending-soft px-4 py-3 text-sm text-pending-ink">
-                {{ texts.noInvestments }}
-              </p>
-            }
-            @if (direction() === 'INVEST') {
-              <button plButton="secondary" type="button" (click)="newInvestment()">
-                {{ texts.newInvestment }}
-              </button>
+              <p class="text-center text-xs text-pending-ink">{{ texts.noInvestments }}</p>
             }
           }
-          @if (crossCurrency()) {
-            <label class="flex flex-col gap-1">
-              <span class="text-sm font-medium">
-                {{ texts.received }} ({{ toPocket()?.currency }})
-              </span>
+          <!-- Date, the amount received between currencies and "+ Nueva inversión", in one row. -->
+          <div [class]="row">
+            <pl-date-field
+              class="shrink-0"
+              appearance="chip"
+              [label]="texts.date"
+              [max]="today.date()"
+              [value]="date()"
+              (valueChange)="setDate($event)"
+            />
+            @if (crossCurrency()) {
               <input
                 type="text"
                 inputmode="decimal"
-                class="font-amount min-h-12 rounded-2xl border border-line bg-surface px-4"
+                class="font-amount min-h-11 min-w-36 flex-1 rounded-full border border-line bg-surface px-4 text-[15px]"
+                [attr.aria-label]="texts.received + ' (' + toPocket()?.currency + ')'"
+                [placeholder]="texts.received + ' (' + toPocket()?.currency + ')'"
                 [value]="receivedText()"
                 (input)="receivedText.set(inputValue($event))"
               />
-              @if (rateLabel()) {
-                <span class="font-amount text-sm text-muted">{{ rateLabel() }}</span>
-              }
-            </label>
+            }
+            @if (mode() === 'INVEST' && direction() === 'INVEST') {
+              <button plChip type="button" (click)="newInvestment()">
+                {{ texts.newInvestment }}
+              </button>
+            }
+          </div>
+          @if (crossCurrency() && rateLabel()) {
+            <p class="font-amount text-center text-xs text-muted">{{ rateLabel() }}</p>
           }
-          <pl-date-field
-            appearance="tile"
-            [label]="texts.date"
-            [max]="today.date()"
-            [value]="date()"
-            (valueChange)="setDate($event)"
-          />
-        }
-
-        @if (showNote()) {
-          <label class="flex flex-col gap-1">
-            <span class="text-sm font-medium">{{ texts.note }}</span>
-            <input
-              type="text"
-              maxlength="120"
-              class="min-h-12 rounded-2xl border border-line bg-surface px-4"
-              [placeholder]="texts.notePlaceholder"
-              [value]="note()"
-              (input)="note.set(inputValue($event))"
-            />
-          </label>
         }
 
         <pl-amount-keypad [(value)]="amount" />
 
         @if (error()) {
-          <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">{{ error() }}</p>
+          <p class="rounded-2xl bg-expense-soft px-4 py-2 text-sm" role="alert">{{ error() }}</p>
         }
 
-        <div class="flex gap-2">
-          <button
-            plButton="secondary"
-            size="icon"
-            type="button"
-            class="size-14! rounded-[18px]!"
-            [attr.aria-label]="texts.noteToggle"
-            [attr.aria-pressed]="showNote()"
-            (click)="showNote.set(!showNote())"
-          >
-            <svg lucidePencil [size]="20"></svg>
-          </button>
-          <button plButton size="lg" type="button" [disabled]="saving()" (click)="save()">
-            {{
-              saving()
-                ? texts.saving
-                : scheduled()
-                  ? texts.schedule
-                  : texts.save[mode() === 'INVEST' ? direction() : mode()]
-            }}
-          </button>
-        </div>
+        <button
+          plButton
+          size="lg"
+          type="button"
+          class="min-h-12! flex-none!"
+          [disabled]="saving()"
+          (click)="save()"
+        >
+          {{
+            saving()
+              ? texts.saving
+              : scheduled()
+                ? texts.schedule
+                : texts.save[mode() === 'INVEST' ? direction() : mode()]
+          }}
+        </button>
       }
     </pl-sheet>
   `,
@@ -412,8 +394,11 @@ export class QuickEntrySheet {
   protected readonly toAccountId = signal<string | null>(null);
   protected readonly categoryId = signal<string | null>(null);
   protected readonly date = signal<LocalDate>(this.today.date());
+  /** MOV-09: "¿En qué?"; empty, the movement takes the category's name. */
   protected readonly note = signal('');
-  protected readonly showNote = signal(false);
+  /** A row of chips that scrolls sideways, edge to edge of the sheet. */
+  protected readonly row =
+    '-mx-5 flex shrink-0 items-center gap-2 overflow-x-auto px-5 [scrollbar-width:none]';
   protected readonly receivedText = signal('');
   protected readonly rateText = signal('');
   protected readonly saving = signal(false);
@@ -422,7 +407,7 @@ export class QuickEntrySheet {
   protected readonly cardId = signal<string | null>(null);
   protected readonly cardCurrency = signal<'ARS' | 'USD'>('ARS');
   protected readonly installments = signal(1);
-  protected readonly installmentOptions = [1, 3, 6, 12];
+  protected readonly installmentOptions = [1, 2, 3, 6, 9, 12, 18, 24];
 
   protected readonly cards = computed(() => this.cardsStore.cards().filter((c) => !c.archived));
   protected readonly card = computed(() =>
@@ -656,7 +641,11 @@ export class QuickEntrySheet {
     this.saving.set(true);
     this.error.set(null);
     const accountId = this.accountId() as string;
-    const description = this.note().trim() || undefined;
+    const categoryName = this.categoriesStore.byId(this.categoryId() ?? '')?.name;
+    // MOV-09: without a reason, incomes and expenses take the category's name.
+    const description =
+      this.note().trim() ||
+      (this.mode() === 'EXPENSE' || this.mode() === 'INCOME' ? categoryName : undefined);
     try {
       if (this.mode() === 'TRANSFER' || this.mode() === 'INVEST') {
         await this.transactions.transfer({
@@ -670,7 +659,7 @@ export class QuickEntrySheet {
       } else if (this.card()) {
         const categoryId = this.categoryId() as string;
         await this.cardsStore.createCharge(this.cardId() as string, {
-          description: description ?? this.categoriesStore.byId(categoryId)?.name ?? '—',
+          description: description ?? '—',
           categoryId,
           totalAmount: this.amount(),
           currency: this.cardCurrency(),

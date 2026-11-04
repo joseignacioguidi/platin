@@ -2,6 +2,7 @@ import { Dialog, DialogRef } from '@angular/cdk/dialog';
 import { createBlockScrollStrategy, createGlobalPositionStrategy } from '@angular/cdk/overlay';
 import { ComponentType } from '@angular/cdk/portal';
 import {
+  booleanAttribute,
   ChangeDetectionStrategy,
   Component,
   inject,
@@ -52,9 +53,15 @@ export class PlBottomSheet {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
+    <!-- compact (MOV-09): tighter spacing and the whole height, so a form fits without scroll. -->
     <div
-      class="flex max-h-[92dvh] flex-col gap-4 overflow-y-auto rounded-t-[28px] bg-surface px-5 pt-3 text-ink"
-      style="padding-bottom: max(1.25rem, env(safe-area-inset-bottom))"
+      class="flex flex-col overflow-y-auto rounded-t-[28px] bg-surface px-5 text-ink"
+      [class]="compact() ? 'max-h-dvh gap-1.5 pt-2' : 'max-h-[92dvh] gap-4 pt-3'"
+      [style.padding-bottom]="
+        compact()
+          ? 'max(1rem, env(safe-area-inset-bottom))'
+          : 'max(1.25rem, env(safe-area-inset-bottom))'
+      "
     >
       <div class="mx-auto h-1 w-10 shrink-0 rounded-full bg-line" aria-hidden="true"></div>
       @if (heading()) {
@@ -66,4 +73,5 @@ export class PlBottomSheet {
 })
 export class PlSheet {
   readonly heading = input<string>();
+  readonly compact = input(false, { transform: booleanAttribute });
 }

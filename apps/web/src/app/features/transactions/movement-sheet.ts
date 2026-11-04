@@ -146,7 +146,8 @@ const INPUT =
         }
         @if (editable) {
           <button plButton size="lg" type="button" [disabled]="busy()" (click)="save()">
-            {{ scheduled() ? texts.schedule : texts.save }}
+            <!-- MOV-04: editing always says "Guardar", also a scheduled one. -->
+            {{ texts.save }}
           </button>
         }
         @if (movement.kind === 'CARD_CHARGE') {

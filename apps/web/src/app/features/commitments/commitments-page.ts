@@ -1,7 +1,7 @@
 import { httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { LucideChevronDown, LucideDynamicIcon } from '@lucide/angular';
-import type { CommitmentsResponse, MonthCommitments } from '@platin/contracts';
+import { LucideChevronDown } from '@lucide/angular';
+import type { CommitmentsResponse, MonthCommitments, PayFrom } from '@platin/contracts';
 import { parseLocalDate, parsePeriod } from '@platin/domain';
 import {
   dateBadge,
@@ -10,17 +10,22 @@ import {
   PlMoney,
   PlErrorState,
   PlSkeleton,
-  PL_TONE_CLASSES,
-  PlTone,
+  PlBottomSheet,
 } from '@platin/web-ui';
 import { API } from '../../core/api';
 import { RefreshBus, reloadOn } from '../../core/data/refresh-bus';
+import { CardFormData, CardFormSheet } from '../cards/card-form-sheet';
+import { CardsStore } from '../cards/cards.store';
+import { CARDS_TEXTS } from '../cards/cards.texts';
 import { COMMITMENTS_TEXTS } from './commitments.texts';
 
-/** COM-01/02: what is already committed in each of the next 12 months, by currency. */
+/**
+ * COM-01/02/04: what is already committed in each of the next 12 months, by currency, and
+ * where each line is paid from.
+ */
 @Component({
   selector: 'pl-commitments-page',
-  imports: [PlSkeleton, PlErrorState, PlMoney, PlEmptyState, LucideChevronDown, LucideDynamicIcon],
+  imports: [PlSkeleton, PlErrorState, PlMoney, PlEmptyState, LucideChevronDown],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
   template: `
@@ -90,40 +95,49 @@ import { COMMITMENTS_TEXTS } from './commitments.texts';
                   <pl-money [amount]="month.expectedIncome.base" [currency]="currency()" />
                 </div>
                 @for (item of month.items; track $index) {
-                  <div class="flex items-center justify-between gap-3 py-1.5">
-                    <span class="font-amount w-12 shrink-0 text-xs text-muted">{{
+                  <!-- COM-04: no icon; where it is paid from, under the description. -->
+                  <div class="flex items-start justify-between gap-3 py-1.5">
+                    <span class="font-amount w-12 shrink-0 pt-1 text-xs text-muted">{{
                       day(item.date)
                     }}</span>
-                    @if (item.type === 'SCHEDULED') {
-                      <span
-                        class="flex size-7 shrink-0 items-center justify-center rounded-lg"
-                        [class]="toneClass(item.category?.color)"
-                        aria-hidden="true"
-                      >
-                        <svg [lucideIcon]="item.category?.icon ?? 'calendar'" [size]="15"></svg>
-                      </span>
-                    }
-                    <span class="min-w-0 flex-1 truncate text-[15px]">
-                      @switch (item.type) {
-                        @case ('STATEMENT') {
-                          {{ texts.statement(item.cardName) }}
-                          @if (item.partiallyPaid) {
-                            <span class="text-muted">· {{ texts.partiallyPaid }}</span>
+                    <div class="flex min-w-0 flex-1 flex-col">
+                      <span class="truncate text-[15px]">
+                        @switch (item.type) {
+                          @case ('STATEMENT') {
+                            {{ texts.statement(item.cardName) }}
+                            @if (item.partiallyPaid) {
+                              <span class="text-muted">· {{ texts.partiallyPaid }}</span>
+                            }
+                          }
+                          @case ('FIXED') {
+                            {{ item.name }}
+                            <span class="text-muted"
+                              >·
+                              {{ item.cardName ? texts.fixedOn(item.cardName) : texts.fixed }}</span
+                            >
+                          }
+                          @case ('SCHEDULED') {
+                            {{ item.description }}
+                            <span class="text-muted">· {{ texts.scheduled }}</span>
                           }
                         }
-                        @case ('FIXED') {
-                          {{ item.name }}
-                          <span class="text-muted"
-                            >·
-                            {{ item.cardName ? texts.fixedOn(item.cardName) : texts.fixed }}</span
-                          >
-                        }
-                        @case ('SCHEDULED') {
-                          {{ item.description }}
-                          <span class="text-muted">· {{ texts.scheduled }}</span>
-                        }
+                      </span>
+                      @if (item.payFrom; as from) {
+                        <span class="truncate text-[13px] text-muted">{{
+                          texts.payFrom(place(from))
+                        }}</span>
+                      } @else if (item.type !== 'SCHEDULED' && item.cardId) {
+                        <button
+                          type="button"
+                          class="-my-2.5 flex min-h-11 items-center gap-1 self-start text-[13px]"
+                          [attr.aria-label]="texts.assignLabel(item.cardName ?? '')"
+                          (click)="assignAccount(item.cardId)"
+                        >
+                          <span class="text-muted">{{ texts.noAccount }}</span>
+                          <span class="font-medium text-brand-strong">· {{ texts.assign }}</span>
+                        </button>
                       }
-                    </span>
+                    </div>
                     <pl-money
                       class="text-[15px]"
                       [amount]="item.amount"
@@ -131,7 +145,7 @@ import { COMMITMENTS_TEXTS } from './commitments.texts';
                     />
                   </div>
                   @if (item.type === 'STATEMENT') {
-                    <ul class="mb-1 ml-14 flex flex-col gap-0.5 text-[13px] text-muted">
+                    <ul class="mb-1 ml-15 flex flex-col gap-0.5 text-[13px] text-muted">
                       @for (installment of item.installments; track $index) {
                         <li class="flex justify-between gap-3">
                           <span class="truncate">
@@ -159,6 +173,8 @@ import { COMMITMENTS_TEXTS } from './commitments.texts';
 export class CommitmentsPage {
   protected readonly texts = COMMITMENTS_TEXTS;
   private readonly bus = inject(RefreshBus);
+  private readonly cards = inject(CardsStore);
+  private readonly sheet = inject(PlBottomSheet);
 
   protected readonly resource = httpResource<CommitmentsResponse>(
     () => `${API}/commitments?months=12`,
@@ -173,9 +189,22 @@ export class CommitmentsPage {
   protected readonly empty = computed(() => this.months().every((m) => m.items.length === 0));
   protected readonly open = signal<string | null>(null);
 
-  /** Category tint of a scheduled movement (COM-01 with MOV-08). */
-  protected toneClass(color: string | undefined): string {
-    return PL_TONE_CLASSES[(color as PlTone | undefined) ?? 'pending'] ?? PL_TONE_CLASSES.pending;
+  /** "Mercado Pago" for its balance, "Mercado Pago · Cuotas" for a spending reserve. */
+  protected place(from: PayFrom): string {
+    return from.pocketName === 'Disponible'
+      ? from.accountName
+      : `${from.accountName} · ${from.pocketName}`;
+  }
+
+  /** "Sin cuenta asignada": the card opens on its payment account field. */
+  protected assignAccount(cardId: string): void {
+    const card = this.cards.byId(cardId);
+    if (card) {
+      this.sheet.open(CardFormSheet, {
+        data: { card, focus: 'payment' } satisfies CardFormData,
+        ariaLabel: CARDS_TEXTS.edit,
+      });
+    }
   }
 
   constructor() {

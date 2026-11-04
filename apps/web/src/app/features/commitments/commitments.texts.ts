@@ -10,6 +10,11 @@ export const COMMITMENTS_TEXTS = {
   statement: (card: string) => `Resumen ${card}`,
   partiallyPaid: 'falta pagar',
   scheduled: 'programado',
+  /** COM-04 */
+  payFrom: (account: string) => `Desde ${account}`,
+  noAccount: 'Sin cuenta asignada',
+  assign: 'Elegir',
+  assignLabel: (card: string) => `Elegir la cuenta con la que pagás ${card}`,
   nothing: 'Nada comprometido este mes.',
   emptyTitle: 'No tenés compromisos',
   emptyBody: 'Cargá tus fijos y tus compras en cuotas para ver lo que viene.',
