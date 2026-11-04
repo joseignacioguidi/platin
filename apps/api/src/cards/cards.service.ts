@@ -48,7 +48,7 @@ export class CardsService {
 
   async create(userId: string, request: CreateCardRequest): Promise<Card> {
     if (request.defaultPaymentPocketId) {
-      await this.pockets.getActive(userId, request.defaultPaymentPocketId);
+      await this.pockets.getCardPayer(userId, request.defaultPaymentPocketId);
     }
     const card = await this.entitlements.withinLimits(userId, { cards: 1 }, (tx) =>
       tx.creditCard.create({
@@ -74,7 +74,7 @@ export class CardsService {
   async update(userId: string, id: string, changes: UpdateCardRequest): Promise<Card> {
     const current = await this.getOwned(userId, id);
     if (changes.defaultPaymentPocketId) {
-      await this.pockets.getActive(userId, changes.defaultPaymentPocketId);
+      await this.pockets.getCardPayer(userId, changes.defaultPaymentPocketId);
     }
     const { archived, ...rest } = changes;
     // Restoring an archived card makes it count for the plan again (SEC-F05).

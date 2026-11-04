@@ -71,6 +71,57 @@ describe('commitments', () => {
     }
   });
 
+  it('COM-04: each line says where it is paid from, and Compromisos has a margin', async () => {
+    const card = await visa();
+    const other = await category(ctx.app, user, 'Otros gastos');
+    const rent = await category(ctx.app, user, 'Alquiler');
+    await api()
+      .post(`/api/v1/cards/${card.id}/charges`)
+      .send({
+        description: 'Notebook',
+        categoryId: other.id,
+        totalAmount: '300000',
+        currency: 'ARS',
+        date: '2026-11-01',
+      })
+      .expect(201);
+    await api()
+      .post('/api/v1/fixed')
+      .send({
+        kind: 'EXPENSE',
+        name: 'Alquiler',
+        categoryId: rent.id,
+        pocketId: galicia.id,
+        amount: '380000',
+        dayOfMonth: 28,
+        startPeriod: '2026-12',
+      })
+      .expect(201);
+
+    const line = async () =>
+      (await months())[1].items.find((i) => i.type === 'STATEMENT') as unknown as {
+        cardId: string;
+        payFrom: unknown;
+      };
+    // A card without a payment account: "Sin cuenta asignada".
+    expect(await line()).toMatchObject({ cardId: card.id, payFrom: null });
+
+    await api()
+      .patch(`/api/v1/cards/${card.id}`)
+      .send({ defaultPaymentPocketId: galicia.id })
+      .expect(200);
+    expect((await line()).payFrom).toEqual({
+      pocketId: galicia.id,
+      accountName: 'Galicia',
+      pocketName: 'Disponible',
+    });
+    const december = (await months())[1];
+    expect(december.items.find((i) => i.type === 'FIXED')).toMatchObject({
+      payFrom: { pocketId: galicia.id, accountName: 'Galicia' },
+    });
+    expect(december).toMatchObject({ margin: '-680000.00' });
+  });
+
   it('a statement of $ 300.000 with $ 100.000 paid commits $ 200.000 in both screens', async () => {
     const card = await visa();
     const tech = await category(ctx.app, user, 'Otros gastos');
@@ -96,7 +147,7 @@ describe('commitments', () => {
 
     const [november] = await months();
     expect(november.committed.base).toBe('200000.00');
-    expect((await dashboard('2026-11')).committed).toBe('200000.00');
+    expect((await dashboard('2026-11')).toPay).toBe('200000.00');
   });
 
   it('the committed of a month is the same in Compromisos and in the home screen', async () => {
@@ -130,7 +181,7 @@ describe('commitments', () => {
 
     const [november] = await months();
     expect(november.committed.base).toBe('420000.00');
-    expect((await dashboard('2026-11')).committed).toBe(november.committed.base);
+    expect((await dashboard('2026-11')).toPay).toBe(november.committed.base);
   });
 
   describe('scheduled movements (MOV-08)', () => {
@@ -170,12 +221,14 @@ describe('commitments', () => {
           type: 'SCHEDULED',
           description: 'Turno médico',
           category: expect.objectContaining({ name: 'Salud' }),
+          payFrom: expect.objectContaining({ pocketId: galicia.id, accountName: 'Galicia' }),
         }),
       ]);
       const home = await dashboard('2026-11');
       expect(home).toMatchObject({
-        committed: '45000.00',
-        free: '-45000.00',
+        inAccounts: '1000000.00',
+        toPay: '45000.00',
+        free: '955000.00',
         pending: { count: 0 },
       });
       expect(home.upcoming).toEqual([
@@ -244,7 +297,7 @@ describe('commitments', () => {
           .send({ items: [{ id: body.id, amount: '47000', date: '2026-11-19' }] })
           .expect(200);
         const home = (await there.get('/api/v1/dashboard').expect(200)).body;
-        expect(home).toMatchObject({ spent: '47000.00', committed: '0.00', pending: { count: 0 } });
+        expect(home).toMatchObject({ spent: '47000.00', toPay: '0.00', pending: { count: 0 } });
         expect((await there.get(`/api/v1/pockets/${galicia.id}`).expect(200)).body.balance).toBe(
           '953000.00',
         );

@@ -36,6 +36,8 @@ export type AccountKind = (typeof AccountKind)[keyof typeof AccountKind];
 /** What a pocket is for; it decides where it shows up, not how its balance is calculated. */
 export const PocketKind = {
   AVAILABLE: 'AVAILABLE',
+  /** A reserve to spend from: the month's expenses, the card... */
+  SPENDING: 'SPENDING',
   SAVINGS: 'SAVINGS',
   INVESTMENT: 'INVESTMENT',
 } as const;

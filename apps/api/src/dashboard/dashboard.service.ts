@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { ColorToken, Dashboard, UpcomingItem } from '@platin/contracts';
 import {
   addDays,
+  cardLater,
   compareDates,
   Currency,
   duePeriods,
@@ -12,11 +13,10 @@ import {
   Money,
   Period,
   periodOf,
-  PocketKind,
   RateTable,
   RateType,
-  SeparatedTransfer,
-  separatedThisMonth,
+  SavedTransfer,
+  savedThisMonth,
   transferBaseValue,
   utcToLocalDate,
   utcToPeriod,
@@ -24,6 +24,7 @@ import {
   canConvert,
   commitmentsByMonth,
 } from '@platin/domain';
+import { PocketBalancesService } from '../accounts/pocket-balances.service';
 import { STATEMENT_PARTS, statementTotals } from '../cards/statement-math';
 import { ClockService } from '../common/clock.service';
 import { CommitmentsInputBuilder } from '../commitments/commitments-input';
@@ -41,16 +42,16 @@ const STATEMENT_WITH_CARD = { ...STATEMENT_PARTS, card: { select: { name: true }
 type StatementRow = Prisma.CardStatementGetPayload<{ include: typeof STATEMENT_WITH_CARD }>;
 
 /**
- * DAS-01. All amounts in base currency:
- * - expected income = fixed incomes of the month (the confirmed amount once confirmed) + other
- *   confirmed incomes;
- * - spent = confirmed expenses + card purchases of the month;
- * - expected income also adds the scheduled incomes of the month (MOV-08);
- * - committed = what is still to pay this month, with the rule and input of Compromisos
- *   (commitmentsByMonth): pending part of unpaid statements due, unconfirmed fixed expenses on a
- *   pocket or a card, and scheduled expenses;
- * - separated = transfers of the month to savings or investments, minus the ones coming back;
- * - free = expected − committed − spent − separated.
+ * DAS-01 / DAS-05 (iteration 6). All amounts in base currency, with today's rate:
+ * - in your accounts = balance of the account balances and spending reserves (today, or on the
+ *   last day of a previous month);
+ * - to collect = unconfirmed fixed incomes of the month + scheduled incomes (MOV-08);
+ * - to pay = what is still to pay this month, with the rule and input of Compromisos
+ *   (commitmentsByMonth);
+ * - card later = installments of this month's card purchases due after the month;
+ * - free = in your accounts + to collect − to pay − card later. A previous month only has the
+ *   first part;
+ * - spent and saved are shown as data apart.
  */
 @Injectable()
 export class DashboardService {
@@ -61,6 +62,7 @@ export class DashboardService {
     private readonly userRates: UserRates,
     private readonly investments: InvestmentsService,
     private readonly commitments: CommitmentsInputBuilder,
+    private readonly balances: PocketBalancesService,
   ) {}
 
   async get(userId: string, requested?: Period): Promise<Dashboard> {
@@ -78,23 +80,20 @@ export class DashboardService {
         ? valueIn(money, base, todayRates)
         : Money.zero(base);
 
-    const [otherIncome, expenses, charges, fixedItems, monthFixedTx, statements, pending, built] =
+    const past = compareDates(period, periodOf(today)) < 0;
+    const [spendable, expenses, charges, fixedItems, monthFixedTx, statements, pending, built] =
       await Promise.all([
-        this.prisma.transaction.aggregate({
-          where: {
-            userId,
-            date: range,
-            status: 'CONFIRMED',
-            type: 'INCOME',
-            origin: { not: 'FIXED' },
-          },
-          _sum: { baseAmount: true },
+        this.prisma.pocket.findMany({
+          where: { userId, kind: { in: ['AVAILABLE', 'SPENDING'] }, archivedAt: null },
         }),
         this.prisma.transaction.aggregate({
           where: { userId, date: range, status: 'CONFIRMED', type: 'EXPENSE' },
           _sum: { baseAmount: true },
         }),
-        this.prisma.cardCharge.findMany({ where: { userId, date: range } }),
+        this.prisma.cardCharge.findMany({
+          where: { userId, date: range },
+          include: { installments: { include: { statement: { select: { dueDate: true } } } } },
+        }),
         this.prisma.fixedItem.findMany({
           where: { userId, pocketId: { not: null } },
           include: FIXED_INCLUDE,
@@ -123,15 +122,22 @@ export class DashboardService {
     const money = (value: { toFixed(d: number): string } | null) =>
       Money.of((value ?? 0).toFixed(2), base);
 
-    // Fixed incomes of the month: confirmed ones by their real amount, the rest by the expected one.
+    const balances = await this.balances.balances(
+      userId,
+      spendable,
+      past ? lastDayOf(period) : undefined,
+    );
+    const inAccounts = Money.sum([...balances.values()].map(toBase), base);
+
+    // Fixed incomes of the month not confirmed yet: the pending movement's amount, else the
+    // expected one.
     let fixedIncome = Money.zero(base);
     for (const fixed of fixedItems.filter((f) => f.kind === 'INCOME')) {
       for (const due of duePeriods(toSchedule(fixed), period, period)) {
         const tx = monthFixedTx.find((t) => t.fixedId === fixed.id);
+        if (tx?.status === 'CONFIRMED') continue;
         fixedIncome = fixedIncome.add(
-          tx?.status === 'CONFIRMED'
-            ? money(tx.baseAmount)
-            : toBase(tx ? Money.of(tx.amount.toFixed(2), tx.currency) : due.amount),
+          toBase(tx ? Money.of(tx.amount.toFixed(2), tx.currency) : due.amount),
         );
       }
     }
@@ -154,19 +160,35 @@ export class DashboardService {
 
     // The same rule and input as Compromisos (COM-02), for this month.
     const [month] = commitmentsByMonth(built.input, period, 1);
-    const expectedIncome = money(otherIncome._sum.baseAmount).add(fixedIncome).add(scheduledIncome);
+    const zero = Money.zero(base);
+    const toCollect = past ? zero : fixedIncome.add(scheduledIncome);
+    const toPay = past ? zero : month.committed.base;
+    const later = past
+      ? zero
+      : cardLater(
+          charges.flatMap((charge) =>
+            charge.installments.map((installment) => ({
+              chargeDate: utcToLocalDate(charge.date),
+              dueDate: utcToLocalDate(installment.statement.dueDate),
+              value: toBase(Money.of(installment.amount.toFixed(2), installment.currency)),
+            })),
+          ),
+          period,
+          base,
+        );
     const spent = money(expenses._sum.baseAmount).add(cardSpent);
-    const committed = month.committed.base;
-    const separated = await this.separated(userId, base, user.valuationRate, range);
+    const saved = await this.saved(userId, base, user.valuationRate, range);
 
     return {
       period,
       currency: base,
-      expectedIncome: expectedIncome.toString(),
+      inAccounts: inAccounts.toString(),
+      toCollect: toCollect.toString(),
+      toPay: toPay.toString(),
+      cardLater: later.toString(),
+      free: freeThisMonth({ inAccounts, toCollect, toPay, cardLater: later }).toString(),
       spent: spent.toString(),
-      committed: committed.toString(),
-      separated: separated.toString(),
-      free: freeThisMonth(expectedIncome, committed, spent, separated).toString(),
+      saved: saved.toString(),
       pending: {
         count: pending.length,
         names: pending.slice(0, 3).map((p) => p.description ?? ''),
@@ -191,10 +213,10 @@ export class DashboardService {
   }
 
   /**
-   * DAS-05: transfers of the month between available and savings/investment pockets, valued in
+   * DAS-05: transfers of the month between spendable and savings/investment pockets, valued in
    * base currency (the base side if any, else the rate of the transfer's date; ADR 0021).
    */
-  private async separated(
+  private async saved(
     userId: string,
     base: Currency,
     valuationRate: RateType,
@@ -207,13 +229,10 @@ export class DashboardService {
         toPocket: { select: { kind: true, currency: true } },
       },
     });
-    const kinds = new Map<string, PocketKind>();
     const tables = new Map<LocalDate, RateTable>();
-    const items: SeparatedTransfer[] = [];
+    const items: SavedTransfer[] = [];
     for (const transfer of transfers) {
-      if (!transfer.toPocket || !transfer.toPocketId) continue;
-      kinds.set(transfer.fromPocketId, transfer.fromPocket.kind);
-      kinds.set(transfer.toPocketId, transfer.toPocket.kind);
+      if (!transfer.toPocket) continue;
       const out = Money.of(transfer.amountOut.toFixed(2), transfer.fromPocket.currency);
       const into = Money.of(transfer.amountIn.toFixed(2), transfer.toPocket.currency);
       let table: RateTable | undefined;
@@ -223,12 +242,12 @@ export class DashboardService {
         tables.set(day, table);
       }
       items.push({
-        fromPocketId: transfer.fromPocketId,
-        toPocketId: transfer.toPocketId,
+        fromKind: transfer.fromPocket.kind,
+        toKind: transfer.toPocket.kind,
         value: transferBaseValue(out, into, base, table),
       });
     }
-    return separatedThisMonth(items, kinds, base);
+    return savedThisMonth(items, base);
   }
 
   /** Statements due and fixed occurrences in the next 30 days, by date. */

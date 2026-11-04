@@ -47,7 +47,7 @@ export class TransactionsService {
    * frozen again when it is confirmed.
    */
   async create(userId: string, request: CreateTransactionRequest): Promise<Transaction> {
-    const pocket = await this.pockets.getActive(userId, request.pocketId);
+    const pocket = await this.pockets.getAccountBalance(userId, request.pocketId);
     await this.categories.getOwned(userId, request.categoryId, request.type);
     await this.currencies.assertEnabled(userId, pocket.currency);
     const baseCurrency = await this.baseCurrency(userId);
@@ -96,7 +96,7 @@ export class TransactionsService {
     }
     this.assertNotYield(current);
     const pocket = changes.pocketId
-      ? await this.pockets.getActive(userId, changes.pocketId)
+      ? await this.pockets.getAccountBalance(userId, changes.pocketId)
       : await this.pockets.getOwned(userId, current.pocketId);
     // MOV-04: another pocket (and account), only in the same currency: changing the currency
     // means deleting the movement and loading it again.

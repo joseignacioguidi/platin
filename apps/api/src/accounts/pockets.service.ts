@@ -6,7 +6,7 @@ import type {
   Transaction,
   UpdatePocketRequest,
 } from '@platin/contracts';
-import { balanceAdjustment, Money } from '@platin/domain';
+import { balanceAdjustment, canChangeKind, canPayCards, Money } from '@platin/domain';
 import { AppException } from '../common/app-exception';
 import { ClockService } from '../common/clock.service';
 import { CurrenciesService } from '../common/currencies.service';
@@ -18,6 +18,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UserRates } from '../rates/user-rates.service';
 import { toTransactionDto } from '../transactions/transaction.mapper';
 import { PocketBalancesService } from './pocket-balances.service';
+
+/** Name of the account balance (AVAILABLE pocket); the interface shows it as the account. */
+export const AVAILABLE_POCKET_NAME = 'Disponible';
 
 /** A pocket with the name of its account, as most queries load it. */
 export type PocketWithAccount = PocketRow & { account: { name: string; archivedAt: Date | null } };
@@ -62,16 +65,18 @@ export class PocketsService {
     if (!account) throw AppException.notFound('Account not found');
     if (account.archivedAt) throw this.archived('ACCOUNT_ARCHIVED', 'The account is archived');
     await this.currencies.assertEnabled(userId, request.currency);
-    // The "Disponible" of each account comes with it; added pockets count for the plan.
+    const isBalance = request.kind === 'AVAILABLE';
+    // The account balance in another currency (one per currency); reserves count for the plan.
+    if (isBalance) await this.assertNoBalance(accountId, request.currency);
     if (request.kind === 'INVESTMENT') await this.entitlements.assertFeature(userId, 'investments');
-    const needs = request.kind === 'AVAILABLE' ? {} : { pockets: 1 };
+    const needs = isBalance ? {} : { pockets: 1 };
     try {
       const row = await this.entitlements.withinLimits(userId, needs, async (tx) =>
         tx.pocket.create({
           data: {
             userId,
             accountId,
-            name: request.name,
+            name: isBalance ? AVAILABLE_POCKET_NAME : request.name,
             kind: request.kind,
             currency: request.currency,
             instrument: request.kind === 'INVESTMENT' ? (request.instrument ?? 'OTHER') : null,
@@ -92,6 +97,24 @@ export class PocketsService {
   async update(userId: string, id: string, changes: UpdatePocketRequest): Promise<Pocket> {
     const current = await this.getOwned(userId, id);
     const { archived, instrument, kind, ...rest } = changes;
+    // The account balance is not renamed and is archived only with its account.
+    if (
+      current.kind === 'AVAILABLE' &&
+      ((rest.name !== undefined && rest.name !== current.name) || archived !== undefined)
+    ) {
+      throw new AppException(
+        'ACCOUNT_BALANCE_LOCKED',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'The account balance is not renamed and is archived with its account',
+      );
+    }
+    if (kind && !canChangeKind(current.kind, kind)) {
+      throw new AppException(
+        'POCKET_KIND_NOT_ALLOWED',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'A reserve changes only between spending, savings and investment',
+      );
+    }
     if (archived) {
       const balance = await this.balances.balance(userId, current);
       if (!balance.isZero()) {
@@ -206,6 +229,41 @@ export class PocketsService {
     if (row.archivedAt) throw this.archived('POCKET_ARCHIVED', 'The pocket is archived');
     if (row.account.archivedAt) throw this.archived('ACCOUNT_ARCHIVED', 'The account is archived');
     return row;
+  }
+
+  /** An account balance (AVAILABLE pocket), where incomes, expenses and fixed items go. */
+  async getAccountBalance(userId: string, id: string): Promise<PocketWithAccount> {
+    const row = await this.getActive(userId, id);
+    if (row.kind !== 'AVAILABLE') throw this.balanceRequired();
+    return row;
+  }
+
+  /** Where a statement is paid from: an account balance or a spending reserve (ADR 0024). */
+  async getCardPayer(userId: string, id: string): Promise<PocketWithAccount> {
+    const row = await this.getActive(userId, id);
+    if (!canPayCards(row.kind)) throw this.balanceRequired();
+    return row;
+  }
+
+  private balanceRequired(): AppException {
+    return new AppException(
+      'ACCOUNT_BALANCE_REQUIRED',
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'Choose an account balance, not a reserve',
+    );
+  }
+
+  private async assertNoBalance(accountId: string, currency: PocketRow['currency']): Promise<void> {
+    const existing = await this.prisma.pocket.count({
+      where: { accountId, kind: 'AVAILABLE', currency },
+    });
+    if (existing) {
+      throw new AppException(
+        'ACCOUNT_BALANCE_EXISTS',
+        HttpStatus.CONFLICT,
+        'The account already has a balance in that currency',
+      );
+    }
   }
 
   private archived(code: string, detail: string): AppException {

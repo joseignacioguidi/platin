@@ -19,10 +19,7 @@ import {
 import { EntitlementsService } from '../plans/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PocketBalancesService } from './pocket-balances.service';
-import { toPocketDto } from './pockets.service';
-
-/** Name of the pocket every account is born with (CTA-02). */
-export const AVAILABLE_POCKET_NAME = 'Disponible';
+import { AVAILABLE_POCKET_NAME, toPocketDto } from './pockets.service';
 
 type AccountWithPockets = AccountRow & { pockets: PocketRow[] };
 

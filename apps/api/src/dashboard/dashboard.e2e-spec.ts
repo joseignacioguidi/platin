@@ -107,24 +107,28 @@ describe('dashboard', () => {
     return { galicia, card };
   }
 
-  it('computes "Libre este mes" = expected income − committed − spent', async () => {
+  it('computes "Libre este mes" from the balances (DAS-05)', async () => {
     await scenario();
     const res = await as(ctx.app, user).get('/api/v1/dashboard').expect(200);
-    // spent = 18.500 + 12.300 + USD 10 × 1.200; committed = rent 380.000 + Sept installment 30.000
+    // in accounts = 0 − Coto 18.500; to collect = salary; to pay = rent 380.000 + Sept
+    // installment 30.000; card later = PedidosYa 12.300 + USD 10 × 1.200 (due Nov 5).
     expect(res.body).toMatchObject({
       period: '2026-10',
       currency: 'ARS',
-      expectedIncome: '1850000.00',
-      spent: '42800.00',
-      committed: '410000.00',
+      inAccounts: '-18500.00',
+      toCollect: '1850000.00',
+      toPay: '410000.00',
+      cardLater: '24300.00',
       free: '1397200.00',
+      spent: '42800.00',
+      saved: '0.00',
       // The rent (Oct 28) is not to confirm until its date.
       pending: { count: 1, names: ['Sueldo'] },
       rate: { type: 'MEP', sell: '1200.000000', date: '2026-10-23', stale: false },
     });
   });
 
-  it('DAS-05: "Libre este mes" subtracts what was set apart to save or invest', async () => {
+  it('DAS-05: saving or investing lowers the free amount; a spending reserve does not', async () => {
     const { galicia } = await scenario();
     const api = as(ctx.app, user);
     const cedears = await addPocket(ctx.app, user, galicia.accountId, {
@@ -132,6 +136,10 @@ describe('dashboard', () => {
       kind: 'INVESTMENT',
     });
     const reserva = await addPocket(ctx.app, user, galicia.accountId, { name: 'Reserva' });
+    const previstos = await addPocket(ctx.app, user, galicia.accountId, {
+      name: 'Gastos Previstos',
+      kind: 'SPENDING',
+    });
     const mp = await createPocket(ctx.app, user, { name: 'Mercado Pago' });
     const transfer = (from: string, to: string, amount: string) =>
       api
@@ -140,15 +148,99 @@ describe('dashboard', () => {
         .expect(201);
     await transfer(galicia.id, cedears.id, '150000');
     await transfer(galicia.id, reserva.id, '50000');
-    // Neither counts: between available pockets, and between savings and investment.
+    // Neither changes the free amount: between accounts, and to a spending reserve.
     await transfer(galicia.id, mp.id, '1000');
-    await transfer(reserva.id, cedears.id, '5000');
+    await transfer(galicia.id, previstos.id, '20000');
     let res = await api.get('/api/v1/dashboard').expect(200);
-    expect(res.body).toMatchObject({ separated: '200000.00', free: '1197200.00' });
+    expect(res.body).toMatchObject({
+      inAccounts: '-218500.00',
+      saved: '200000.00',
+      free: '1197200.00',
+    });
 
     await transfer(reserva.id, galicia.id, '30000');
     res = await api.get('/api/v1/dashboard').expect(200);
-    expect(res.body).toMatchObject({ separated: '170000.00', free: '1227200.00' });
+    expect(res.body).toMatchObject({ saved: '170000.00', free: '1227200.00' });
+  });
+
+  it('DAS-05: the example of the specification', async () => {
+    const api = as(ctx.app, user);
+    const mp = await createPocket(ctx.app, user, {
+      name: 'Mercado Pago',
+      initialBalance: '726150',
+    });
+    for (const [name, initialBalance] of [
+      ['Gastos Previstos', '220000'],
+      ['Cuotas', '120000'],
+      ['Extras', '110000'],
+    ]) {
+      await addPocket(ctx.app, user, mp.accountId, { name, kind: 'SPENDING', initialBalance });
+    }
+    const auto = await addPocket(ctx.app, user, mp.accountId, { name: 'Auto' });
+    const rent = await category(ctx.app, user, 'Alquiler');
+    const other = await category(ctx.app, user, 'Otros gastos');
+    // To pay this month: $ 379.418,27.
+    await api
+      .post('/api/v1/fixed')
+      .send({
+        pocketId: mp.id,
+        startPeriod: '2026-10',
+        kind: 'EXPENSE',
+        name: 'Alquiler',
+        categoryId: rent.id,
+        amount: '379418.27',
+        dayOfMonth: 28,
+      })
+      .expect(201);
+    let res = await api.get('/api/v1/dashboard').expect(200);
+    expect(res.body).toMatchObject({
+      inAccounts: '1176150.00',
+      toCollect: '0.00',
+      toPay: '379418.27',
+      cardLater: '0.00',
+      free: '796731.73',
+    });
+
+    // On the 20th, $ 90.000 in 3 installments due in December, January and February.
+    const card = (
+      await api.post('/api/v1/cards').send({ name: 'Visa', closingDay: 15, dueDay: 5 }).expect(201)
+    ).body;
+    await api
+      .post(`/api/v1/cards/${card.id}/charges`)
+      .send({
+        description: 'Heladera',
+        categoryId: other.id,
+        totalAmount: '90000',
+        currency: 'ARS',
+        date: '2026-10-20',
+        installmentsCount: 3,
+      })
+      .expect(201);
+    res = await api.get('/api/v1/dashboard').expect(200);
+    expect(res.body).toMatchObject({ cardLater: '90000.00', free: '706731.73' });
+
+    await api
+      .post('/api/v1/transfers')
+      .send({ fromPocketId: mp.id, toPocketId: auto.id, amountOut: '200000', date: '2026-10-23' })
+      .expect(201);
+    res = await api.get('/api/v1/dashboard').expect(200);
+    expect(res.body).toMatchObject({ free: '506731.73', saved: '200000.00' });
+  });
+
+  it('a previous month is what was left in the accounts on its last day', async () => {
+    await scenario();
+    const res = await as(ctx.app, user).get('/api/v1/dashboard?period=2026-09').expect(200);
+    // Coto is from October: on September 30 the balance was 0.
+    expect(res.body).toMatchObject({
+      period: '2026-09',
+      inAccounts: '0.00',
+      toCollect: '0.00',
+      toPay: '0.00',
+      cardLater: '0.00',
+      free: '0.00',
+      // The September purchase still counts as spent in its month.
+      spent: '90000.00',
+    });
   });
 
   it('confirming a fixed expense moves it from committed to spent', async () => {
@@ -163,7 +255,7 @@ describe('dashboard', () => {
     const res = await api.get('/api/v1/dashboard').expect(200);
     expect(res.body).toMatchObject({
       spent: '442800.00',
-      committed: '30000.00',
+      toPay: '30000.00',
       free: '1377200.00',
       pending: { count: 1, names: ['Sueldo'] },
     });
@@ -212,10 +304,13 @@ describe('dashboard', () => {
     const other = await registerUser(ctx.app);
     const res = await as(ctx.app, other).get('/api/v1/dashboard').expect(200);
     expect(res.body).toMatchObject({
-      expectedIncome: '0.00',
-      spent: '0.00',
-      committed: '0.00',
+      inAccounts: '0.00',
+      toCollect: '0.00',
+      toPay: '0.00',
+      cardLater: '0.00',
       free: '0.00',
+      spent: '0.00',
+      saved: '0.00',
       pending: { count: 0 },
       upcoming: [],
     });

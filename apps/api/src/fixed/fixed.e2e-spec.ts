@@ -222,7 +222,7 @@ describe('fixed items, sync and commitments', () => {
       committed: { byCurrency: [{ currency: 'ARS', amount: '380000.00' }] },
     });
     expect(oct.expectedIncome.byCurrency).toEqual([{ currency: 'ARS', amount: '1850000.00' }]);
-    expect(oct.free).toBe('1470000.00');
+    expect(oct.margin).toBe('1470000.00');
     // November: rent + installment 1 + Spotify (24.99 × 1200 in base).
     expect(nov.committed).toEqual({
       byCurrency: [

@@ -141,8 +141,8 @@ describe('transfers', () => {
       .expect(201);
     expect(moved.body.intent).toBe('MOVE');
 
-    // "Apartar" into an investment doesn't fit: the destination must be a savings pocket.
-    const mismatch = await api
+    // Iteration 6: the intent of the request is ignored; it comes from the pockets.
+    const ignored = await api
       .post('/api/v1/transfers')
       .send(
         transfer({
@@ -152,8 +152,9 @@ describe('transfers', () => {
           intent: 'SAVE',
         }),
       )
-      .expect(422);
-    expect(mismatch.body.code).toBe('TRANSFER_INTENT_MISMATCH');
+      .expect(201);
+    expect(ignored.body.intent).toBe('INVEST');
+    await api.delete(`/api/v1/transfers/${ignored.body.id}`).expect(204);
 
     expect(await balanceOf(ctx.app, user, cedears.id)).toBe('400000.00');
     const feed = await api.get(`/api/v1/movements?pocketId=${cedears.id}`).expect(200);

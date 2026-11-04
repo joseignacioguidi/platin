@@ -1,18 +1,52 @@
+import { compareDates, lastDayOf, LocalDate, Period } from './dates';
 import { Currency, PocketKind } from './enums';
 import { canConvert, RatesInput, valueIn } from './exchange';
 import { Money } from './money';
 
+export interface FreeInput {
+  /** Today's balance of account balances and spending reserves, in base currency. */
+  inAccounts: Money;
+  /** Unconfirmed fixed and scheduled incomes of the month. */
+  toCollect: Money;
+  /** What is still to pay this month (commitmentsByMonth). */
+  toPay: Money;
+  /** Installments of this month's card purchases that fall in statements due after the month. */
+  cardLater: Money;
+}
+
 /**
- * "Libre este mes" of the home screen (DAS-05): expected income − committed − spent − separated,
- * in base currency. Can be negative.
+ * "Libre este mes" (DAS-05, iteration 6): in your accounts + to collect − to pay this month −
+ * card in the following months, in base currency. Can be negative.
  */
-export function freeThisMonth(
-  expectedIncome: Money,
-  committed: Money,
-  spent: Money,
-  separated: Money = Money.zero(expectedIncome.currency),
+export function freeThisMonth(input: FreeInput): Money {
+  return input.inAccounts.add(input.toCollect).subtract(input.toPay).subtract(input.cardLater);
+}
+
+export interface CardInstallment {
+  /** Date of the purchase. */
+  chargeDate: LocalDate;
+  /** Due date of the statement the installment falls in. */
+  dueDate: LocalDate;
+  /** Value in base currency. */
+  value: Money;
+}
+
+/**
+ * DAS-05: installments of the card purchases made in `period` that fall in statements due after
+ * it. What is due within the month is already in "to pay", so nothing counts twice.
+ */
+export function cardLater(
+  installments: readonly CardInstallment[],
+  period: Period,
+  base: Currency,
 ): Money {
-  return expectedIncome.subtract(committed).subtract(spent).subtract(separated);
+  const end = lastDayOf(period);
+  return Money.sum(
+    installments
+      .filter((i) => i.chargeDate.startsWith(period) && compareDates(i.dueDate, end) > 0)
+      .map((i) => i.value),
+    base,
+  );
 }
 
 /**
@@ -34,35 +68,29 @@ export function transferBaseValue(
     : Money.zero(base);
 }
 
-export interface SeparatedTransfer {
-  fromPocketId: string;
-  toPocketId: string | null;
+export interface SavedTransfer {
+  fromKind: PocketKind;
+  /** Null for a statement payment. */
+  toKind: PocketKind | null;
   /** Value in base currency (see transferBaseValue). */
   value: Money;
 }
 
-const isSeparated = (kind: PocketKind | undefined) =>
+const isSpendable = (kind: PocketKind | null) =>
+  kind === PocketKind.AVAILABLE || kind === PocketKind.SPENDING;
+const isStored = (kind: PocketKind | null) =>
   kind === PocketKind.SAVINGS || kind === PocketKind.INVESTMENT;
 
 /**
- * DAS-05: what the user set apart this month to save or invest. Transfers from an available
- * pocket to a savings or investment one add; the ones coming back subtract. Transfers between two
- * available pockets, or between savings and investment pockets, don't count: the money keeps its
- * purpose. Statement payments (no destination pocket) don't count either.
+ * DAS-05: saved or invested this month, shown apart from the free amount. Transfers from an
+ * account balance or a spending reserve to savings or investments add; the ones coming back
+ * subtract. The rest (between accounts, statement payments...) don't count.
  */
-export function separatedThisMonth(
-  transfers: readonly SeparatedTransfer[],
-  pocketKinds: ReadonlyMap<string, PocketKind>,
-  base: Currency,
-): Money {
+export function savedThisMonth(transfers: readonly SavedTransfer[], base: Currency): Money {
   let total = Money.zero(base);
-  for (const transfer of transfers) {
-    if (!transfer.toPocketId) continue;
-    const from = pocketKinds.get(transfer.fromPocketId);
-    const to = pocketKinds.get(transfer.toPocketId);
-    if (from === PocketKind.AVAILABLE && isSeparated(to)) total = total.add(transfer.value);
-    else if (isSeparated(from) && to === PocketKind.AVAILABLE)
-      total = total.subtract(transfer.value);
+  for (const { fromKind, toKind, value } of transfers) {
+    if (isSpendable(fromKind) && isStored(toKind)) total = total.add(value);
+    else if (isStored(fromKind) && isSpendable(toKind)) total = total.subtract(value);
   }
   return total;
 }

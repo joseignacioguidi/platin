@@ -106,8 +106,8 @@ export interface MonthCommitments {
   committed: CurrencyTotals;
   /** Fixed incomes + scheduled incomes of the month. */
   expectedIncome: CurrencyTotals;
-  /** Expected income − committed, in base currency. */
-  free: Money;
+  /** COM-02: expected income − committed, in base currency ("margen", not to confuse with the free amount). */
+  margin: Money;
   items: CommitmentItem[];
 }
 
@@ -234,7 +234,7 @@ export function commitmentsByMonth(
       period,
       committed,
       expectedIncome,
-      free: expectedIncome.base.subtract(committed.base),
+      margin: expectedIncome.base.subtract(committed.base),
       items,
     };
   });

@@ -12,6 +12,11 @@ import {
 /** One line per currency that appears (MON-03) and everything valued in the base currency. */
 const totalsSchema = z.object({ byCurrency: z.array(currencyAmountSchema), base: z.string() });
 
+/** COM-04: where a commitment is paid from; null when a card has no payment account yet. */
+export const payFromSchema = z
+  .object({ pocketId: uuidSchema, accountName: z.string(), pocketName: z.string() })
+  .nullable();
+
 /** A category as the lists show it (icon and color). */
 export const commitmentCategorySchema = z.object({
   id: uuidSchema,
@@ -28,8 +33,11 @@ export const commitmentItemSchema = z.discriminatedUnion('type', [
     amount: z.string(),
     currency: cardCurrencySchema,
     statementId: uuidSchema,
+    cardId: uuidSchema,
     cardName: z.string(),
     partiallyPaid: z.boolean(),
+    /** The card's payment account (or spending reserve). */
+    payFrom: payFromSchema,
     installments: z.array(
       z.object({
         description: z.string(),
@@ -46,7 +54,10 @@ export const commitmentItemSchema = z.discriminatedUnion('type', [
     amount: z.string(),
     currency: currencySchema,
     name: z.string(),
+    cardId: uuidSchema.nullable(),
     cardName: z.string().nullable(),
+    /** Its account; on a card, the card's payment account. */
+    payFrom: payFromSchema,
   }),
   /** MOV-08: a scheduled expense. */
   z.object({
@@ -57,6 +68,7 @@ export const commitmentItemSchema = z.discriminatedUnion('type', [
     id: uuidSchema,
     description: z.string(),
     category: commitmentCategorySchema.nullable(),
+    payFrom: payFromSchema,
   }),
 ]);
 
@@ -64,8 +76,8 @@ export const monthCommitmentsSchema = z.object({
   period: z.string(),
   committed: totalsSchema,
   expectedIncome: totalsSchema,
-  /** expectedIncome.base − committed.base. */
-  free: z.string(),
+  /** COM-02: expectedIncome.base − committed.base ("margen"). */
+  margin: z.string(),
   items: z.array(commitmentItemSchema),
 });
 
