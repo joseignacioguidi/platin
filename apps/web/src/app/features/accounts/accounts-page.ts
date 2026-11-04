@@ -10,8 +10,7 @@ import {
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { LucideChevronRight, LucideDynamicIcon, LucidePlus } from '@lucide/angular';
-import type { Account } from '@platin/contracts';
-import type { Currency } from '@platin/domain';
+import type { Account, Pocket } from '@platin/contracts';
 import {
   PL_CURRENCY_NAMES,
   PL_POCKET_ICONS,
@@ -31,7 +30,10 @@ import { ACCOUNT_KIND_ICONS, AccountFormSheet } from './account-form-sheet';
 import { AccountsStore } from './accounts.store';
 import { ACCOUNTS_TEXTS } from './accounts.texts';
 
-/** CTA-03: each account with its pockets grouped, their balances and the totals per currency. */
+/**
+ * CTA-03: each account with its balance per currency and, below, its reserves with their use and
+ * balance; on top, the totals per currency.
+ */
 @Component({
   selector: 'pl-accounts-page',
   imports: [
@@ -156,16 +158,16 @@ import { ACCOUNTS_TEXTS } from './accounts.texts';
             ></svg>
           </a>
           <ul class="border-t border-line-soft">
-            @for (pocket of account.pockets; track pocket.id) {
+            @for (pocket of ordered(account); track pocket.id) {
               <li class="border-b border-line-soft last:border-b-0">
                 <a
-                  [routerLink]="['/app/apartados', pocket.id]"
+                  [routerLink]="['/app/reservas', pocket.id]"
                   class="block rounded-xl"
-                  [attr.aria-label]="texts.detail.openPocket(pocket.name)"
+                  [attr.aria-label]="texts.detail.openPocket(heading(pocket))"
                 >
                   <pl-list-item
-                    [heading]="pocket.name"
-                    [subtitle]="pocketSubtitle(pocket.kind, pocket.instrument, pocket.currency)"
+                    [heading]="heading(pocket)"
+                    [subtitle]="pocketSubtitle(pocket)"
                     [icon]="pocketIcons[pocket.kind].icon"
                     [tone]="pocketIcons[pocket.kind].tone"
                   >
@@ -204,7 +206,7 @@ export class AccountsPage implements OnInit {
   private readonly router = inject(Router);
   private readonly plan = inject(PlanStore);
   private readonly injector = inject(Injector);
-  /** A new account also creates its "Disponible" pocket. */
+  /** A new account also creates its balance in pesos. */
   protected readonly accountGate = ['accounts', 'pockets'] as const;
 
   protected readonly showArchived = signal(false);
@@ -226,13 +228,24 @@ export class AccountsPage implements OnInit {
     return PL_TONE_CLASSES[tone];
   }
 
-  protected pocketSubtitle(
-    kind: keyof typeof ACCOUNTS_TEXTS.pocketKinds,
-    instrument: keyof typeof ACCOUNTS_TEXTS.instruments | null,
-    currency: Currency,
-  ): string {
-    const what = instrument ? this.texts.instruments[instrument] : this.texts.pocketKinds[kind];
-    return `${what} · ${currency}`;
+  /** The account balances first, then its reserves. */
+  protected ordered(account: Account): Pocket[] {
+    return [
+      ...account.pockets.filter((p) => p.kind === 'AVAILABLE'),
+      ...account.pockets.filter((p) => p.kind !== 'AVAILABLE'),
+    ];
+  }
+
+  protected heading(pocket: Pocket): string {
+    return pocket.kind === 'AVAILABLE' ? this.texts.balanceName(pocket.currency) : pocket.name;
+  }
+
+  protected pocketSubtitle(pocket: Pocket): string {
+    if (pocket.kind === 'AVAILABLE') return this.currencyNames[pocket.currency];
+    const what = pocket.instrument
+      ? this.texts.instruments[pocket.instrument]
+      : this.texts.pocketKinds[pocket.kind];
+    return `${what} · ${pocket.currency}`;
   }
 
   protected create(): void {

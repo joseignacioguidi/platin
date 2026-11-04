@@ -13,11 +13,19 @@ import {
 } from '@platin/web-ui';
 import { TRANSACTIONS_TEXTS } from './transactions.texts';
 
-/** "Mercado Pago" for its Disponible, "Mercado Pago · Ahorro" for any other pocket. */
-export function pocketPlace(pocket: { name: string; accountName: string; kind?: string }): string {
-  return pocket.name === 'Disponible'
+/**
+ * "Mercado Pago" (or "Mercado Pago · USD") for its balance, "Mercado Pago · Auto" for a reserve.
+ * The API always names an account balance "Disponible" (iteration 6).
+ */
+export function pocketPlace(pocket: {
+  name: string;
+  accountName: string;
+  currency: string;
+}): string {
+  if (pocket.name !== 'Disponible') return `${pocket.accountName} · ${pocket.name}`;
+  return pocket.currency === 'ARS'
     ? pocket.accountName
-    : `${pocket.accountName} · ${pocket.name}`;
+    : `${pocket.accountName} · ${pocket.currency}`;
 }
 
 const INTENT_ICONS: Record<'SAVE' | 'INVEST' | 'REDEEM', { icon: string; tone: PlTone }> = {
@@ -108,10 +116,10 @@ export class MovementRow {
     }
     if (m.kind === 'TRANSFER') {
       const to = m.toPocket;
-      // Inside one account the account name is said once: "Mercado Pago · Disponible → Ahorro".
+      // Inside one account the account name is said once: "Mercado Pago → Auto".
       const route =
         to && to.accountId === m.fromPocket.accountId
-          ? `${m.fromPocket.accountName} · ${m.fromPocket.name} → ${to.name}`
+          ? `${pocketPlace(m.fromPocket)} → ${to.name === 'Disponible' ? pocketPlace(to) : to.name}`
           : `${pocketPlace(m.fromPocket)} → ${to ? pocketPlace(to) : ''}`;
       // Seen from the pocket that receives it, a transfer is money in.
       const incoming = !!to && to.id === this.pocketId();

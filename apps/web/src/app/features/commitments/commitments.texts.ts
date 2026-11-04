@@ -2,7 +2,8 @@ export const COMMITMENTS_TEXTS = {
   title: 'Compromisos',
   intro:
     'Lo que ya tenés comprometido los próximos 12 meses: resúmenes de tarjeta, gastos fijos y programados.',
-  free: 'Libre',
+  /** COM-02: expected income − committed; not the free amount of the home screen. */
+  margin: 'Margen',
   expectedIncome: 'Ingresos esperados',
   fixed: 'fijo',
   fixedOn: (card: string) => `fijo en ${card}`,

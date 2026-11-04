@@ -3,7 +3,7 @@ export const ONBOARDING_TEXTS = {
   accountTitle: (name: string) =>
     name ? `¡Hola, ${name}! Cargá tu primera cuenta` : 'Cargá tu primera cuenta',
   accountBody:
-    'Ya tenés "Efectivo". Sumá tu banco o tu billetera virtual con el saldo en pesos que tiene hoy; después separás ahorros e inversiones en apartados.',
+    'Ya tenés "Efectivo". Sumá tu banco o tu billetera virtual con el saldo en pesos que tiene hoy; después separás plata para gastar, ahorrar o invertir en reservas.',
   accountName: 'Nombre de la cuenta',
   accountPlaceholder: 'Ej.: Banco Galicia',
   type: 'Tipo',

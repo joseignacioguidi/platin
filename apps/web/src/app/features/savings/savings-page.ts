@@ -197,7 +197,7 @@ const PACE_CLASS = {
         @for (pocket of savings()?.pockets ?? []; track pocket.id) {
           <li class="border-b border-line-soft last:border-b-0">
             <a
-              [routerLink]="['/app/apartados', pocket.id]"
+              [routerLink]="['/app/reservas', pocket.id]"
               class="flex min-h-14 items-center gap-3 rounded-xl"
             >
               <span

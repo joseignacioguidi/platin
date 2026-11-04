@@ -10,7 +10,7 @@ import {
   PlButton,
   PlCategorySelect,
   PlDateField,
-  PlPocketSelect,
+  PlAccountSelect,
   PlSheet,
   formatRate,
 } from '@platin/web-ui';
@@ -36,7 +36,7 @@ const INPUT =
     PlButton,
     PlCategorySelect,
     PlDateField,
-    PlPocketSelect,
+    PlAccountSelect,
     FormField,
     MovementRow,
   ],
@@ -72,11 +72,10 @@ const INPUT =
             </pl-form-field>
           }
           @if (movement.kind === 'TRANSACTION' && categoryKind()) {
-            <!-- MOV-04: another pocket (and account) of the same currency. -->
+            <!-- MOV-04: another account with a balance in the same currency. -->
             <pl-form-field [label]="texts.account" controlId="movement-pocket">
-              <pl-pocket-select
+              <pl-account-select
                 inputId="movement-pocket"
-                display="account"
                 [label]="texts.account"
                 [pockets]="accountsStore.pockets()"
                 [currency]="movement.currency"

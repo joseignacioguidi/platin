@@ -29,7 +29,7 @@ const MESSAGES: Record<string, string> = {
   FORBIDDEN: 'No tenés permiso para hacer eso.',
   CURRENCY_NOT_ENABLED: 'Esa moneda no está activada. Activala desde tu perfil, en "Monedas".',
   CURRENCY_IN_USE:
-    'No podés desactivar esa moneda: la usa un apartado, un fijo o una meta activa. Tu historial se conserva.',
+    'No podés desactivar esa moneda: la usa una cuenta, una reserva, un fijo o una meta activa. Tu historial se conserva.',
   EXCHANGE_RATE_REQUIRED: 'Todavía no tenemos la cotización de esa moneda: cargala a mano.',
   FIXED_HAS_HISTORY: 'Ese fijo ya generó movimientos o consumos: finalizalo en lugar de borrarlo.',
   // Sign-in with providers (AUTH-06 to 08); they arrive as /ingresar?error=CODE.

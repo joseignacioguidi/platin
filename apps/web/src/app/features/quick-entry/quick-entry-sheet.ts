@@ -42,7 +42,8 @@ import {
   PlSelectOption,
   PlPocketSelect,
   PlCategorySelect,
-  pocketSelectOptions,
+  accountSelectOptions,
+  PlAccountSelect,
   HideAmounts,
   PlBottomSheet,
   PlSheet,
@@ -80,6 +81,7 @@ type Direction = 'INVEST' | 'REDEEM';
     PlEmptyState,
     PlSelect,
     PlPocketSelect,
+    PlAccountSelect,
     PlCategorySelect,
     PlDateField,
     LucidePencil,
@@ -219,17 +221,15 @@ type Direction = 'INVEST' | 'REDEEM';
           @if (mode() === 'TRANSFER') {
             <!-- Transfer -->
             <div class="grid grid-cols-2 gap-2">
-              <pl-pocket-select
+              <pl-account-select
                 appearance="tile"
-                display="account"
                 [label]="texts.from"
                 [pockets]="pockets()"
                 [value]="accountId()"
                 (valueChange)="accountId.set($event)"
               />
-              <pl-pocket-select
+              <pl-account-select
                 appearance="tile"
-                display="account"
                 [label]="texts.to"
                 placeholder="—"
                 [pockets]="pockets()"
@@ -248,12 +248,10 @@ type Direction = 'INVEST' | 'REDEEM';
             />
             <div class="grid grid-cols-2 gap-2">
               @if (direction() === 'INVEST') {
-                <pl-pocket-select
+                <pl-account-select
                   appearance="tile"
-                  display="account"
                   [label]="texts.from"
                   [pockets]="pockets()"
-                  [kinds]="investOrigins"
                   [value]="accountId()"
                   (valueChange)="accountId.set($event)"
                 />
@@ -276,12 +274,10 @@ type Direction = 'INVEST' | 'REDEEM';
                   [value]="investmentId()"
                   (valueChange)="investmentId.set($event)"
                 />
-                <pl-pocket-select
+                <pl-account-select
                   appearance="tile"
-                  display="account"
                   [label]="texts.to"
                   [pockets]="pockets()"
-                  [kinds]="redeemDestinations"
                   [value]="accountId()"
                   (valueChange)="accountId.set($event)"
                 />
@@ -405,9 +401,7 @@ export class QuickEntrySheet {
   protected readonly directionOptions: PlSegmentOption<Direction>[] = (
     ['INVEST', 'REDEEM'] as const
   ).map((value) => ({ value, label: QUICK_ENTRY_TEXTS.directions[value] }));
-  protected readonly investOrigins: PocketKind[] = ['AVAILABLE', 'SAVINGS'];
   protected readonly investmentKinds: PocketKind[] = ['INVESTMENT'];
-  protected readonly redeemDestinations: PocketKind[] = ['AVAILABLE'];
 
   protected readonly mode = signal<Mode>('EXPENSE');
   protected readonly direction = signal<Direction>('INVEST');
@@ -437,9 +431,9 @@ export class QuickEntrySheet {
   protected readonly paymentValue = computed(() =>
     this.card() ? `card:${this.cardId()}` : this.accountId(),
   );
-  /** Pockets grouped by account and, for an expense, the cards (value "card:<id>"). */
+  /** The accounts (never a reserve) and, for an expense, the cards (value "card:<id>"). */
   protected readonly paymentOptions = computed<PlSelectOption[]>(() => [
-    ...pocketSelectOptions(this.pockets(), this.hideAmounts.hidden(), 'account'),
+    ...accountSelectOptions(this.pockets(), this.hideAmounts.hidden()),
     ...(this.mode() === 'EXPENSE'
       ? this.cards().map((card) => ({
           value: `card:${card.id}`,
@@ -535,13 +529,12 @@ export class QuickEntrySheet {
   });
 
   constructor() {
-    // Preselect the last used pocket (or the first "Disponible") once accounts load.
+    // Preselect the last used account (or the first one) once accounts load.
     effect(() => {
-      const pockets = this.pockets();
-      if (this.accountId() || pockets.length === 0) return;
+      const balances = this.pockets().filter((p) => p.kind === 'AVAILABLE');
+      if (this.accountId() || balances.length === 0) return;
       const last = this.accountsStore.lastUsedId();
-      const fallback = pockets.find((p) => p.kind === 'AVAILABLE') ?? pockets[0];
-      this.accountId.set(pockets.find((p) => p.id === last)?.id ?? fallback.id);
+      this.accountId.set(balances.find((p) => p.id === last)?.id ?? balances[0].id);
     });
     // Changing the type resets the category (income and expense categories differ).
     effect(() => {
@@ -563,13 +556,13 @@ export class QuickEntrySheet {
         this.date.set(today);
       }
     });
-    // Investing starts from a "Disponible" (of the account used last) and redeems back to one.
+    // Investing starts from an account balance (the one used last) and redeems back to one.
     effect(() => {
       if (this.mode() !== 'INVEST') return;
-      const allowed = this.direction() === 'INVEST' ? this.investOrigins : this.redeemDestinations;
+      this.direction();
       const pockets = this.pockets();
       const current = untracked(() => this.account());
-      if (current && allowed.includes(current.kind)) return;
+      if (current?.kind === 'AVAILABLE') return;
       const available = pockets.filter((p) => p.kind === 'AVAILABLE');
       const choice =
         available.find((p) => p.accountId === current?.accountId) ??
@@ -673,7 +666,6 @@ export class QuickEntrySheet {
           amountIn: this.crossCurrency() ? parseTypedAmount(this.receivedText()) : undefined,
           date: this.date(),
           description,
-          ...(this.mode() === 'INVEST' ? { intent: this.direction() } : {}),
         });
       } else if (this.card()) {
         const categoryId = this.categoryId() as string;

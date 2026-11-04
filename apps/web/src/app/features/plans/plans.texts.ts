@@ -5,7 +5,7 @@ const RESOURCE_NAMES: Record<
   [singular: string, plural: string, unlimited: string]
 > = {
   accounts: ['cuenta', 'cuentas', 'Cuentas ilimitadas'],
-  pockets: ['apartado', 'apartados', 'Apartados ilimitados'],
+  pockets: ['reserva', 'reservas', 'Reservas ilimitadas'],
   cards: ['tarjeta', 'tarjetas', 'Tarjetas ilimitadas'],
   goals: ['meta', 'metas', 'Metas ilimitadas'],
   fixed: ['fijo', 'fijos', 'Fijos ilimitados'],

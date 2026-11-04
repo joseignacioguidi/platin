@@ -44,11 +44,11 @@ export const LANDING_TEXTS = {
   questionsTitle: 'Preguntale a tu plata. platin te contesta con números.',
   free: {
     title: '¿Cuánto me queda libre este mes?',
-    body: 'Lo que entra, menos lo que ya gastaste y lo que ya está comprometido en cuotas y fijos. Un solo número, sin planillas.',
+    body: 'Lo que hay en tus cuentas y lo que vas a cobrar, menos lo que ya está comprometido en tarjetas, cuotas y fijos. Un solo número, sin planillas.',
     amount: '$ 412.300',
-    barAria: 'Gastado 41 %, comprometido 36 %, libre 23 %',
-    spent: 'Gastado',
-    committed: 'Comprometido',
+    barAria: 'A pagar este mes 41 %, tarjeta de los meses siguientes 36 %, libre 23 %',
+    spent: 'A pagar',
+    committed: 'Tarjeta',
     left: 'Libre',
   },
   installments: {
@@ -60,7 +60,7 @@ export const LANDING_TEXTS = {
     title: '¿Cuánto tengo separado para cada cosa?',
     body: 'Cada cuenta con sus reservas, en pesos o en dólares: para los fijos, para el auto o para invertir. Siempre sabés de dónde sacar.',
     rows: [
-      { label: 'Disponible', amount: '$ 744.500', highlight: false },
+      { label: 'Saldo', amount: '$ 744.500', highlight: false },
       { label: 'Reserva fijos', amount: '$ 4.000.000', highlight: false },
       { label: 'Reserva auto', amount: 'USD 670', highlight: true },
     ],

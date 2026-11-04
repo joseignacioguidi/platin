@@ -11,7 +11,7 @@ import {
 import { RouterLink } from '@angular/router';
 import { LucideChevronLeft } from '@lucide/angular';
 import type { Movement, Pocket } from '@platin/contracts';
-import { Money, TransferIntent } from '@platin/domain';
+import { Money } from '@platin/domain';
 import {
   formatPeriod,
   formatPeriodShort,
@@ -26,6 +26,7 @@ import {
   PlErrorState,
   PlMoney,
   PlSkeleton,
+  pocketLabel,
 } from '@platin/web-ui';
 import { LucideDynamicIcon } from '@lucide/angular';
 import { API } from '../../core/api';
@@ -42,18 +43,16 @@ import { MovementsList } from '../transactions/movements-list';
 import { AccountsStore } from './accounts.store';
 import { ACCOUNTS_TEXTS } from './accounts.texts';
 import { AdjustBalanceSheet } from './adjust-balance-sheet';
+import { AdjustChoiceSheet } from './adjust-choice-sheet';
 import { MoveSheet, MoveSheetData } from './move-sheet';
 import { monthEndBalances } from './pocket-balance-history';
 import { PocketFormData, PocketFormSheet } from './pocket-form-sheet';
 
-/** Quick actions offered from each kind of pocket. */
-const ACTIONS: Record<Pocket['kind'], TransferIntent[]> = {
-  AVAILABLE: ['SAVE', 'INVEST'],
-  SAVINGS: ['REDEEM', 'INVEST'],
-  INVESTMENT: ['REDEEM'],
-};
-
-/** CTA-04/06/07: a pocket with its balance, its evolution and its movements. */
+/**
+ * CTA-04/05/06/07: an account balance or a reserve, with its balance, evolution and movements.
+ * A reserve has "Ajustar saldo" (money in from an account, or an adjustment) and "Retirar"; no
+ * Apartar, Invertir or Rescatar (iteration 6). An account balance only adjusts.
+ */
 @Component({
   selector: 'pl-pocket-detail-page',
   imports: [
@@ -93,15 +92,19 @@ const ACTIONS: Record<Pocket['kind'], TransferIntent[]> = {
             <svg [lucideIcon]="icons[pocket.kind].icon" [size]="22"></svg>
           </span>
           <div class="flex min-w-0 flex-col">
-            <h1 class="truncate text-2xl font-bold">{{ pocket.name }}</h1>
+            <h1 class="truncate text-2xl font-bold">{{ title() }}</h1>
             <span class="text-sm text-muted">
-              {{ pocket.accountName }} ·
-              {{
-                pocket.instrument
-                  ? texts.instruments[pocket.instrument]
-                  : texts.pocketKinds[pocket.kind]
-              }}
-              · {{ pocket.currency }}
+              @if (isBalance()) {
+                {{ texts.balanceName(pocket.currency) }}
+              } @else {
+                {{ pocket.accountName }} ·
+                {{
+                  pocket.instrument
+                    ? texts.instruments[pocket.instrument]
+                    : texts.pocketKinds[pocket.kind]
+                }}
+                · {{ pocket.currency }}
+              }
             </span>
           </div>
         </div>
@@ -115,19 +118,12 @@ const ACTIONS: Record<Pocket['kind'], TransferIntent[]> = {
         </div>
         @if (!pocket.archived) {
           <div class="flex flex-wrap gap-2">
-            @for (intent of actions(); track intent) {
-              <button
-                plButton
-                type="button"
-                [plPlanGate]="intent === 'INVEST' ? 'investments' : []"
-                (click)="move(intent)"
-              >
-                {{ texts.move.titles[intent] }}
+            <button plButton type="button" (click)="adjust()">{{ t.adjust }}</button>
+            @if (!isBalance()) {
+              <button plButton="secondary" type="button" (click)="withdraw()">
+                {{ t.withdraw }}
               </button>
             }
-            <button plButton="secondary" type="button" (click)="adjust()">
-              {{ texts.adjust.kinds[pocket.kind].title }}
-            </button>
             <button plButton="secondary" type="button" (click)="edit()">{{ t.edit }}</button>
           </div>
         }
@@ -177,26 +173,28 @@ const ACTIONS: Record<Pocket['kind'], TransferIntent[]> = {
         }
       }
 
-      <section class="flex flex-col gap-2">
-        @if (archiveError()) {
-          <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">
-            {{ archiveError() }}
-          </p>
-        }
-        <button
-          plButton="ghost"
-          type="button"
-          class="self-center"
-          [disabled]="archiving()"
-          [plPlanGate]="restoreGate(pocket)"
-          (click)="toggleArchive(pocket)"
-        >
-          {{ pocket.archived ? t.unarchive : t.archive }}
-        </button>
-        @if (!pocket.archived) {
-          <p class="text-center text-xs text-muted">{{ t.archiveHint }}</p>
-        }
-      </section>
+      @if (!isBalance()) {
+        <section class="flex flex-col gap-2">
+          @if (archiveError()) {
+            <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">
+              {{ archiveError() }}
+            </p>
+          }
+          <button
+            plButton="ghost"
+            type="button"
+            class="self-center"
+            [disabled]="archiving()"
+            [plPlanGate]="restoreGate(pocket)"
+            (click)="toggleArchive(pocket)"
+          >
+            {{ pocket.archived ? t.unarchive : t.archive }}
+          </button>
+          @if (!pocket.archived) {
+            <p class="text-center text-xs text-muted">{{ t.archiveHint }}</p>
+          }
+        </section>
+      }
     } @else {
       <pl-skeleton [heights]="[180, 140, 72, 72]" />
     }
@@ -220,9 +218,11 @@ export class PocketDetailPage {
   protected readonly resource = httpResource<Pocket>(() => `${API}/pockets/${this.id()}`);
   protected readonly pocket = computed(() => this.resource.value());
   protected readonly base = computed(() => this.auth.user()?.baseCurrency ?? 'ARS');
-  protected readonly actions = computed(() => {
+  /** The account balance is archived only with its account (ACCOUNT_BALANCE_LOCKED). */
+  protected readonly isBalance = computed(() => this.pocket()?.kind === 'AVAILABLE');
+  protected readonly title = computed(() => {
     const pocket = this.pocket();
-    return pocket ? ACTIONS[pocket.kind] : [];
+    return pocket ? pocketLabel(pocket, 'pocket') : '';
   });
   protected readonly toneClass = computed(() => {
     const pocket = this.pocket();
@@ -275,23 +275,30 @@ export class PocketDetailPage {
     return pocket.kind === 'INVESTMENT' ? ['pockets', 'investments'] : ['pockets'];
   }
 
-  protected move(intent: TransferIntent): void {
+  /** CTA-05: back to the balance of an account (its own by default). */
+  protected withdraw(): void {
     const pocket = this.pocket();
-    const account = this.store.byId(pocket?.accountId);
-    if (pocket && account) {
+    if (pocket) {
       this.sheet.open(MoveSheet, {
-        data: { account, intent, fromPocketId: pocket.id } satisfies MoveSheetData,
-        ariaLabel: this.texts.move.titles[intent],
+        data: { reserve: pocket, direction: 'OUT' } satisfies MoveSheetData,
+        ariaLabel: this.texts.move.titles.OUT(pocket.name),
       });
     }
   }
 
+  /** CTA-06: a reserve chooses between money in and an adjustment; a balance only adjusts. */
   protected adjust(): void {
     const pocket = this.pocket();
-    if (pocket) {
+    if (!pocket) return;
+    if (pocket.kind === 'AVAILABLE') {
       this.sheet.open(AdjustBalanceSheet, {
         data: pocket,
-        ariaLabel: this.texts.adjust.kinds[pocket.kind].title,
+        ariaLabel: this.texts.adjust.kinds.AVAILABLE.title,
+      });
+    } else {
+      this.sheet.open(AdjustChoiceSheet, {
+        data: pocket,
+        ariaLabel: this.texts.adjustChoice.title,
       });
     }
   }
@@ -301,7 +308,9 @@ export class PocketDetailPage {
     if (pocket) {
       this.sheet.open(PocketFormSheet, {
         data: { accountId: pocket.accountId, pocket } satisfies PocketFormData,
-        ariaLabel: this.texts.pocketForm.editTitle,
+        ariaLabel: this.isBalance()
+          ? this.texts.pocketForm.editBalanceTitle
+          : this.texts.pocketForm.editTitle,
       });
     }
   }

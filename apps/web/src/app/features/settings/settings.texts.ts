@@ -35,7 +35,7 @@ export const SETTINGS_TEXTS = {
     deletesLabel: 'Lo que se borra',
     rows: [
       'Cuentas',
-      'Apartados',
+      'Reservas',
       'Movimientos (con pendientes y programados)',
       'Transferencias',
       'Tarjetas',
@@ -86,7 +86,7 @@ export const SETTINGS_TEXTS = {
       'Elegí con qué monedas trabajás. Solo las activadas aparecen al cargar. Las tarjetas siguen en pesos y dólares.',
     alwaysPesos: 'Siempre activada: es la moneda de la app.',
     isBase: 'Es tu moneda base.',
-    usedByPocket: 'La usa un apartado activo. Archivalo para poder desactivarla.',
+    usedByPocket: 'La usa una cuenta o una reserva activa. Archivala para poder desactivarla.',
     usedByFixed: 'La usa un fijo activo. Finalizalo o pausalo para poder desactivarla.',
     usedByGoal: 'La usa una meta activa. Cumplila o cancelala para poder desactivarla.',
     turnedOn: (name: string) => `Listo, activaste ${name.toLowerCase()}.`,

@@ -145,7 +145,7 @@ import { INVESTMENTS_TEXTS } from './investments.texts';
             @for (pocket of account.pockets; track pocket.id) {
               <li class="border-b border-line-soft last:border-b-0">
                 <a
-                  [routerLink]="['/app/apartados', pocket.id]"
+                  [routerLink]="['/app/reservas', pocket.id]"
                   class="flex min-h-[72px] items-center gap-3 rounded-xl py-3"
                   [attr.aria-label]="t.openPocket(pocket.name)"
                 >

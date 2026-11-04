@@ -1,16 +1,10 @@
 import { httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { LucideChevronLeft, LucidePlus } from '@lucide/angular';
+import type { Account, Movement, Pocket } from '@platin/contracts';
 import {
-  LucideArrowDownToLine,
-  LucideChevronLeft,
-  LucidePiggyBank,
-  LucidePlus,
-  LucideTrendingUp,
-} from '@lucide/angular';
-import type { Account, Movement } from '@platin/contracts';
-import type { TransferIntent } from '@platin/domain';
-import {
+  PL_CURRENCY_NAMES,
   PL_POCKET_ICONS,
   PlBottomSheet,
   PlButton,
@@ -29,10 +23,9 @@ import { MovementsList } from '../transactions/movements-list';
 import { PlanGate, PlUsage } from '../plans/plan-gate';
 import { AccountFormSheet } from './account-form-sheet';
 import { ACCOUNTS_TEXTS } from './accounts.texts';
-import { MoveSheet, MoveSheetData } from './move-sheet';
 import { PocketFormData, PocketFormSheet } from './pocket-form-sheet';
 
-/** CTA-02/03/05: one account, its pockets, the quick actions and its movements. */
+/** CTA-02/03/04: one account, its balance per currency, its reserves and its movements. */
 @Component({
   selector: 'pl-account-detail-page',
   imports: [
@@ -46,9 +39,6 @@ import { PocketFormData, PocketFormSheet } from './pocket-form-sheet';
     MovementGroups,
     LucideChevronLeft,
     LucidePlus,
-    LucidePiggyBank,
-    LucideTrendingUp,
-    LucideArrowDownToLine,
     PlanGate,
     PlUsage,
   ],
@@ -91,59 +81,29 @@ import { PocketFormData, PocketFormSheet } from './pocket-form-sheet';
             }
           </div>
         </div>
-        <div class="grid grid-cols-3 gap-2" role="group" [attr.aria-label]="texts.detail.actions">
-          <button plButton="secondary" type="button" (click)="move('SAVE')">
-            <svg lucidePiggyBank [size]="18"></svg>{{ texts.move.titles.SAVE }}
-          </button>
-          <button
-            plButton="secondary"
-            type="button"
-            plPlanGate="investments"
-            (click)="move('INVEST')"
-          >
-            <svg lucideTrendingUp [size]="18"></svg>{{ texts.move.titles.INVEST }}
-          </button>
-          <button plButton="secondary" type="button" (click)="move('REDEEM')">
-            <svg lucideArrowDownToLine [size]="18"></svg>{{ texts.move.titles.REDEEM }}
-          </button>
-        </div>
       </section>
 
-      <div class="flex items-center justify-between">
-        <h2 class="text-lg font-bold">{{ texts.detail.pockets }}</h2>
-        <div class="flex items-center gap-1">
-          <pl-usage resource="pockets" />
-          <button
-            plButton="ghost"
-            size="sm"
-            type="button"
-            plPlanGate="pockets"
-            [attr.aria-label]="texts.detail.addPocketLabel"
-            (click)="addPocket()"
-          >
-            <svg lucidePlus [size]="18"></svg>{{ texts.detail.addPocket }}
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="text-lg font-bold">{{ texts.detail.balances }}</h2>
+        @if (!account.archived) {
+          <button plButton="ghost" size="sm" type="button" (click)="addBalance()">
+            <svg lucidePlus [size]="18"></svg>{{ texts.detail.addBalance }}
           </button>
-        </div>
+        }
       </div>
       <ul class="rounded-tile bg-surface px-4">
-        @for (pocket of pockets(); track pocket.id) {
+        @for (pocket of balances(); track pocket.id) {
           <li class="border-b border-line-soft last:border-b-0">
             <a
-              [routerLink]="['/app/apartados', pocket.id]"
+              [routerLink]="['/app/reservas', pocket.id]"
               class="block rounded-xl"
-              [attr.aria-label]="texts.detail.openPocket(pocket.name)"
+              [attr.aria-label]="texts.detail.openPocket(texts.balanceName(pocket.currency))"
             >
               <pl-list-item
-                [heading]="pocket.name"
-                [subtitle]="
-                  (pocket.instrument
-                    ? texts.instruments[pocket.instrument]
-                    : texts.pocketKinds[pocket.kind]) +
-                  ' · ' +
-                  pocket.currency
-                "
-                [icon]="icons[pocket.kind].icon"
-                [tone]="icons[pocket.kind].tone"
+                [heading]="texts.balanceName(pocket.currency)"
+                [subtitle]="currencyNames[pocket.currency]"
+                [icon]="icons.AVAILABLE.icon"
+                [tone]="icons.AVAILABLE.tone"
               >
                 <pl-money
                   class="text-[17px]"
@@ -155,6 +115,55 @@ import { PocketFormData, PocketFormSheet } from './pocket-form-sheet';
           </li>
         }
       </ul>
+
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="text-lg font-bold">{{ texts.detail.reserves }}</h2>
+        <div class="flex items-center gap-1">
+          <pl-usage resource="pockets" />
+          @if (!account.archived) {
+            <button
+              plButton="ghost"
+              size="sm"
+              type="button"
+              plPlanGate="pockets"
+              [attr.aria-label]="texts.detail.addReserveLabel"
+              (click)="addReserve()"
+            >
+              <svg lucidePlus [size]="18"></svg>{{ texts.detail.addReserve }}
+            </button>
+          }
+        </div>
+      </div>
+      @if (reserves().length === 0) {
+        <p class="rounded-tile bg-surface px-4 py-3 text-[15px] text-muted">
+          {{ texts.detail.reservesEmpty }}
+        </p>
+      } @else {
+        <ul class="rounded-tile bg-surface px-4">
+          @for (pocket of reserves(); track pocket.id) {
+            <li class="border-b border-line-soft last:border-b-0">
+              <a
+                [routerLink]="['/app/reservas', pocket.id]"
+                class="block rounded-xl"
+                [attr.aria-label]="texts.detail.openPocket(pocket.name)"
+              >
+                <pl-list-item
+                  [heading]="pocket.name"
+                  [subtitle]="reserveSubtitle(pocket)"
+                  [icon]="icons[pocket.kind].icon"
+                  [tone]="icons[pocket.kind].tone"
+                >
+                  <pl-money
+                    class="text-[17px]"
+                    [amount]="pocket.balance"
+                    [currency]="pocket.currency"
+                  />
+                </pl-list-item>
+              </a>
+            </li>
+          }
+        </ul>
+      }
 
       <h2 class="text-lg font-bold">{{ texts.pocket.movements }}</h2>
       @if (list.loaded() && list.items().length === 0) {
@@ -179,6 +188,7 @@ export class AccountDetailPage {
 
   protected readonly texts = ACCOUNTS_TEXTS;
   protected readonly icons = PL_POCKET_ICONS;
+  protected readonly currencyNames = PL_CURRENCY_NAMES;
   protected readonly list = inject(MovementsList);
   private readonly auth = inject(AuthService);
   private readonly sheet = inject(PlBottomSheet);
@@ -193,6 +203,12 @@ export class AccountDetailPage {
     if (!account) return [];
     return account.archived ? account.pockets : account.pockets.filter((p) => !p.archived);
   });
+  protected readonly balances = computed(() =>
+    this.pockets().filter((p) => p.kind === 'AVAILABLE'),
+  );
+  protected readonly reserves = computed(() =>
+    this.pockets().filter((p) => p.kind !== 'AVAILABLE'),
+  );
   protected readonly base = computed(() => this.auth.user()?.baseCurrency ?? 'ARS');
 
   constructor() {
@@ -200,20 +216,24 @@ export class AccountDetailPage {
     reloadOn(this.bus, ['accounts'], () => this.resource.reload());
   }
 
-  protected move(intent: TransferIntent): void {
-    const account = this.account();
-    if (account) {
-      this.sheet.open(MoveSheet, {
-        data: { account, intent } satisfies MoveSheetData,
-        ariaLabel: this.texts.move.titles[intent],
-      });
-    }
+  protected reserveSubtitle(pocket: Pocket): string {
+    const use = pocket.instrument
+      ? this.texts.instruments[pocket.instrument]
+      : this.texts.pocketKinds[pocket.kind];
+    return `${use} · ${pocket.currency}`;
   }
 
-  protected addPocket(): void {
+  protected addReserve(): void {
     this.sheet.open(PocketFormSheet, {
-      data: { accountId: this.id() } satisfies PocketFormData,
-      ariaLabel: this.texts.detail.addPocketLabel,
+      data: { accountId: this.id(), kind: 'SPENDING' } satisfies PocketFormData,
+      ariaLabel: this.texts.detail.addReserveLabel,
+    });
+  }
+
+  protected addBalance(): void {
+    this.sheet.open(PocketFormSheet, {
+      data: { accountId: this.id(), balance: true } satisfies PocketFormData,
+      ariaLabel: this.texts.detail.addBalance,
     });
   }
 

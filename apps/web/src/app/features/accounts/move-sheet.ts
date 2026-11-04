@@ -1,80 +1,51 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  effect,
-  inject,
-  signal,
-} from '@angular/core';
-import type { Account } from '@platin/contracts';
-import { impliedRate, LocalDate, Money, PocketKind, TransferIntent } from '@platin/domain';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import type { Pocket } from '@platin/contracts';
+import { impliedRate, LocalDate, Money } from '@platin/domain';
 import {
   formatRate,
   parseTypedAmount,
+  PlAccountSelect,
   PlButton,
   PlDateField,
-  PlPocketSelect,
   PlSheet,
 } from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
 import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { Today } from '../../core/today';
 import { TransactionsStore } from '../transactions/transactions.store';
+import { AccountsStore } from './accounts.store';
 import { ACCOUNTS_TEXTS } from './accounts.texts';
 
 export interface MoveSheetData {
-  account: Account;
-  intent: TransferIntent;
-  /** Preselected origin (the pocket the action was opened from). */
-  fromPocketId?: string;
-  /** Preselected destination ("Invertir" from an investment pocket). */
-  toPocketId?: string;
+  reserve: Pocket;
+  /** IN: "Ingresar desde una cuenta"; OUT: "Retirar" to an account. */
+  direction: 'IN' | 'OUT';
 }
 
-/** Which pockets each quick action moves money from and to (CTA-05, INV-02). */
-const ROUTES: Record<TransferIntent, { from: PocketKind[]; to: PocketKind[] }> = {
-  SAVE: { from: ['AVAILABLE'], to: ['SAVINGS'] },
-  INVEST: { from: ['AVAILABLE', 'SAVINGS'], to: ['INVESTMENT'] },
-  REDEEM: { from: ['SAVINGS', 'INVESTMENT'], to: ['AVAILABLE'] },
-  MOVE: { from: [], to: [] },
-};
-
 /**
- * CTA-05: "Apartar", "Invertir" and "Rescatar" inside one account in two taps: the origin and
- * destination come preselected, only the amount is missing. Between currencies it asks for
- * both amounts and shows the resulting rate (buying dollars inside Mercado Pago).
+ * CTA-05, 06: money gets into a reserve from the balance of an account, and back out to the
+ * balance of an account (its own by default). Between currencies it asks for both amounts and
+ * shows the resulting rate. The intent (set apart, invest, redeem) comes from the reserve's use.
  */
 @Component({
   selector: 'pl-move-sheet',
-  imports: [PlSheet, PlButton, PlPocketSelect, PlDateField, FormField],
+  imports: [PlSheet, PlButton, PlAccountSelect, PlDateField, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <pl-sheet [heading]="t.titles[data.intent] + ' · ' + data.account.name">
-      @if (destinations().length === 0) {
+    <pl-sheet [heading]="t.titles[data.direction](data.reserve.name)">
+      @if (store.pockets().length === 0) {
         <p class="rounded-2xl bg-pending-soft px-4 py-3 text-[15px] text-pending-ink">
-          {{ t.noDestination[data.intent] }}
+          {{ t.noAccount }}
         </p>
       } @else {
-        <div class="grid grid-cols-2 gap-2">
-          <pl-pocket-select
-            appearance="tile"
-            [label]="t.from"
-            [pockets]="pockets()"
-            [kinds]="route.from"
-            [value]="fromId()"
-            (valueChange)="fromId.set($event)"
-          />
-          <pl-pocket-select
-            appearance="tile"
-            [label]="t.to"
-            [pockets]="pockets()"
-            [kinds]="route.to"
-            [exclude]="fromId() ? [fromId()!] : []"
-            [value]="toId()"
-            (valueChange)="toId.set($event)"
-          />
-        </div>
+        <pl-account-select
+          appearance="tile"
+          [label]="data.direction === 'IN' ? t.from : t.to"
+          [pockets]="store.pockets()"
+          [value]="accountId()"
+          (valueChange)="accountId.set($event)"
+        />
         <pl-form-field
           [label]="t.amount + ' (' + (from()?.currency ?? 'ARS') + ')'"
           controlId="move-amount"
@@ -122,7 +93,7 @@ const ROUTES: Record<TransferIntent, { from: PocketKind[]; to: PocketKind[] }> =
           <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">{{ error() }}</p>
         }
         <button plButton size="lg" type="button" [disabled]="saving()" (click)="save()">
-          {{ t.save[data.intent] }}
+          {{ t.save[data.direction] }}
         </button>
       }
     </pl-sheet>
@@ -132,29 +103,26 @@ export class MoveSheet {
   protected readonly t = ACCOUNTS_TEXTS.move;
   protected readonly input = INPUT_CLASS;
   protected readonly data = inject<MoveSheetData>(DIALOG_DATA);
-  protected readonly route = ROUTES[this.data.intent];
   protected readonly today = inject(Today);
+  protected readonly store = inject(AccountsStore);
   private readonly transactions = inject(TransactionsStore);
   private readonly ref = inject(DialogRef);
 
-  /** Only the pockets of this account: these actions move money inside it. */
-  protected readonly pockets = computed(() =>
-    this.data.account.pockets.filter((pocket) => !pocket.archived),
-  );
-  protected readonly destinations = computed(() =>
-    this.pockets().filter((p) => this.route.to.length === 0 || this.route.to.includes(p.kind)),
-  );
-
-  protected readonly fromId = signal<string | null>(this.firstOrigin());
-  protected readonly toId = signal<string | null>(this.data.toPocketId ?? null);
+  /** The reserve's own account balance in its currency, else in any currency, else any. */
+  protected readonly accountId = signal<string | null>(this.ownAccount());
   protected readonly amount = signal('');
   protected readonly received = signal('');
   protected readonly date = signal<LocalDate>(this.today.date());
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  protected readonly from = computed(() => this.pockets().find((p) => p.id === this.fromId()));
-  protected readonly to = computed(() => this.pockets().find((p) => p.id === this.toId()));
+  private readonly account = computed(() => this.store.pocketById(this.accountId()));
+  protected readonly from = computed(() =>
+    this.data.direction === 'IN' ? this.account() : this.data.reserve,
+  );
+  protected readonly to = computed(() =>
+    this.data.direction === 'IN' ? this.data.reserve : this.account(),
+  );
   protected readonly crossCurrency = computed(
     () => !!this.from() && !!this.to() && this.from()?.currency !== this.to()?.currency,
   );
@@ -167,17 +135,6 @@ export class MoveSheet {
     const rate = impliedRate(Money.of(out, from.currency), Money.of(into, to.currency));
     return rate ? this.t.rate(formatRate(from.currency, to.currency, rate)) : null;
   });
-
-  constructor() {
-    // The destination defaults to the first one in the origin's currency (or any).
-    effect(() => {
-      const from = this.from();
-      if (this.toId() && this.toId() !== this.fromId()) return;
-      const options = this.destinations().filter((p) => p.id !== from?.id);
-      const same = options.find((p) => p.currency === from?.currency);
-      this.toId.set((same ?? options[0])?.id ?? null);
-    });
-  }
 
   protected value(event: Event): string {
     return (event.target as HTMLInputElement).value;
@@ -194,7 +151,7 @@ export class MoveSheet {
     if (!amount) return this.error.set(errors.amount);
     const from = this.from();
     const to = this.to();
-    if (!from || !to) return this.error.set(errors.pockets);
+    if (!from || !to) return this.error.set(errors.account);
     const amountIn = this.crossCurrency() ? parseTypedAmount(this.received()) : undefined;
     if (this.crossCurrency() && !amountIn) return this.error.set(errors.received);
     this.saving.set(true);
@@ -206,7 +163,6 @@ export class MoveSheet {
         amountOut: amount,
         amountIn,
         date: this.date(),
-        intent: this.data.intent,
       });
       this.ref.close(true);
     } catch (error) {
@@ -216,12 +172,17 @@ export class MoveSheet {
     }
   }
 
-  /** The pocket it was opened from, or the first one that fits the action (Disponible). */
-  private firstOrigin(): string | null {
-    const candidates = this.data.account.pockets.filter(
-      (p) => !p.archived && (this.route.from.length === 0 || this.route.from.includes(p.kind)),
+  private ownAccount(): string | null {
+    const balances = this.store.pockets().filter((p) => p.kind === 'AVAILABLE');
+    const reserve = this.data.reserve;
+    const own = balances.filter((p) => p.accountId === reserve.accountId);
+    return (
+      (
+        own.find((p) => p.currency === reserve.currency) ??
+        own[0] ??
+        balances.find((p) => p.currency === reserve.currency) ??
+        balances[0]
+      )?.id ?? null
     );
-    const preferred = candidates.find((p) => p.id === this.data.fromPocketId);
-    return (preferred ?? candidates.find((p) => p.currency === 'ARS') ?? candidates[0])?.id ?? null;
   }
 }

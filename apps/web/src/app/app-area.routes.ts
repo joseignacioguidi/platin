@@ -26,11 +26,13 @@ export const appAreaRoutes: Route[] = [
       import('./features/accounts/account-detail-page').then((m) => m.AccountDetailPage),
   },
   {
-    path: 'apartados/:id',
-    title: 'Apartado · platin',
+    path: 'reservas/:id',
+    title: 'Reserva · platin',
     loadComponent: () =>
       import('./features/accounts/pocket-detail-page').then((m) => m.PocketDetailPage),
   },
+  // Before iteration 6 the detail lived under /app/apartados.
+  { path: 'apartados/:id', redirectTo: 'reservas/:id' },
   {
     path: 'tarjetas',
     title: 'Tarjetas · platin',
