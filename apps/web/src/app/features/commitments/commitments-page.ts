@@ -57,11 +57,11 @@ import { COMMITMENTS_TEXTS } from './commitments.texts';
               <div class="flex flex-1 flex-col gap-0.5">
                 <span class="font-semibold">{{ periodLabel(month.period) }}</span>
                 <span class="text-sm text-muted">
-                  {{ texts.free }}
+                  {{ texts.margin }}
                   <pl-money
-                    [amount]="month.free"
+                    [amount]="month.margin"
                     [currency]="currency()"
-                    [tone]="isNegative(month.free) ? 'none' : 'income'"
+                    [tone]="isNegative(month.margin) ? 'none' : 'income'"
                   />
                 </span>
               </div>

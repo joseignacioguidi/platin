@@ -8,7 +8,7 @@ import {
   PlDateField,
   PlSegmented,
   PlSegmentOption,
-  PlPocketSelect,
+  PlAccountSelect,
   PlSheet,
 } from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
@@ -26,7 +26,7 @@ export interface PayStatementData {
 /** TAR-08: pay the pesos or the dollars part (total or partial) from an account. */
 @Component({
   selector: 'pl-pay-statement-sheet',
-  imports: [PlSheet, PlButton, PlSegmented, PlPocketSelect, PlDateField, FormField],
+  imports: [PlSheet, PlButton, PlSegmented, PlAccountSelect, PlDateField, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="t.title">
@@ -40,11 +40,12 @@ export interface PayStatementData {
         />
       </div>
       <pl-form-field [label]="t.account" controlId="pay-account">
-        <pl-pocket-select
+        <!-- An account balance or a spending reserve (ADR 0024). -->
+        <pl-account-select
+          spending
           inputId="pay-account"
           [label]="t.account"
           [pockets]="accounts.pockets()"
-          display="account"
           [value]="accountId()"
           (valueChange)="accountId.set($event ?? '')"
         />
@@ -146,7 +147,7 @@ export class PayStatementSheet {
     if (!amount) return this.error.set('Ingresá el monto a pagar.');
     const amountOut = this.crossCurrency() ? parseTypedAmount(this.amountOut()) : undefined;
     if (this.crossCurrency() && !amountOut)
-      return this.error.set('Ingresá cuánto sale del apartado.');
+      return this.error.set('Ingresá cuánto sale de la cuenta.');
     this.saving.set(true);
     this.error.set(null);
     try {

@@ -31,11 +31,18 @@ import { ACCOUNTS_TEXTS } from './accounts.texts';
 export interface PocketFormData {
   /** Without it (from Ahorros or Inversiones), the form asks for the account. */
   accountId?: string;
-  /** Initial kind of a new pocket. */
+  /** Initial kind of a new reserve. */
   kind?: PocketKind;
-  /** Editing; without it, a new pocket of the account. */
+  /** The account's balance in another currency instead of a reserve. */
+  balance?: boolean;
+  /** Editing; without it, a new reserve of the account. */
   pocket?: Pocket;
 }
+
+/** The uses of a reserve, as "¿Para qué es?" offers them. */
+const RESERVE_KINDS = ['SPENDING', 'SAVINGS', 'INVESTMENT'] as const;
+
+const AVAILABLE_NAME = 'Disponible';
 
 const INSTRUMENTS: Instrument[] = [
   'CEDEAR',
@@ -46,13 +53,16 @@ const INSTRUMENTS: Instrument[] = [
   'OTHER',
 ];
 
-/** CTA-02: a pocket inside an account, with its currency and purpose. */
+/**
+ * CTA-02: a reserve inside an account, with its currency, its use and today's balance; or the
+ * account's balance in another currency.
+ */
 @Component({
   selector: 'pl-pocket-form-sheet',
   imports: [PlSheet, PlButton, PlSegmented, PlSelect, PlCurrencySelect, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <pl-sheet [heading]="pocket ? f.editTitle : f.newTitle">
+    <pl-sheet [heading]="heading">
       @if (askAccount) {
         <pl-form-field [label]="f.account" controlId="pocket-account">
           <pl-select
@@ -65,27 +75,29 @@ const INSTRUMENTS: Instrument[] = [
           />
         </pl-form-field>
       }
-      <pl-form-field [label]="f.name" controlId="pocket-name">
-        <input
-          id="pocket-name"
-          type="text"
-          maxlength="60"
-          [class]="input"
-          [placeholder]="f.namePlaceholder"
-          [value]="name()"
-          (input)="name.set(value($event))"
-        />
-      </pl-form-field>
-      <div class="flex flex-col gap-1.5">
-        <span class="text-sm font-medium">{{ f.kind }}</span>
-        <pl-segmented
-          [label]="f.kind"
-          [options]="kinds()"
-          [(value)]="kind"
-          (lockedChoose)="showInvestmentsBlock()"
-        />
-        <p class="text-sm text-muted">{{ f.kindHints[kind()] }}</p>
-      </div>
+      @if (!isBalance) {
+        <pl-form-field [label]="f.name" controlId="pocket-name">
+          <input
+            id="pocket-name"
+            type="text"
+            maxlength="60"
+            [class]="input"
+            [placeholder]="f.namePlaceholder"
+            [value]="name()"
+            (input)="name.set(value($event))"
+          />
+        </pl-form-field>
+        <div class="flex flex-col gap-1.5">
+          <span class="text-sm font-medium">{{ f.kind }}</span>
+          <pl-segmented
+            [label]="f.kind"
+            [options]="kinds()"
+            [(value)]="kind"
+            (lockedChoose)="showInvestmentsBlock()"
+          />
+          <p class="text-sm text-muted">{{ f.kindHints[kind()] }}</p>
+        </div>
+      }
       @if (kind() === 'INVESTMENT') {
         <pl-form-field [label]="f.instrument" controlId="pocket-instrument">
           <pl-select
@@ -115,6 +127,9 @@ const INSTRUMENTS: Instrument[] = [
             (input)="balance.set(value($event))"
           />
         </pl-form-field>
+        @if (!isBalance) {
+          <p class="-mt-2 text-sm text-muted">{{ f.initialBalanceHint }}</p>
+        }
       }
       <label class="flex min-h-11 items-center gap-3">
         <input
@@ -129,7 +144,7 @@ const INSTRUMENTS: Instrument[] = [
         <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">{{ error() }}</p>
       }
       <button plButton size="lg" type="button" [disabled]="saving()" (click)="save()">
-        {{ pocket ? f.save : f.create }}
+        {{ pocket ? f.save : isBalance ? f.createBalance : f.create }}
       </button>
     </pl-sheet>
   `,
@@ -144,11 +159,20 @@ export class PocketFormSheet {
   private readonly plan = inject(PlanStore);
   private readonly injector = inject(Injector);
   protected readonly askAccount = !this.pocket && !this.data.accountId;
+  /** The account balance: no name nor use; only its currency (new) or net worth (edit). */
+  protected readonly isBalance = !!this.data.balance || this.pocket?.kind === 'AVAILABLE';
+  protected readonly heading = this.isBalance
+    ? this.pocket
+      ? this.f.editBalanceTitle
+      : this.f.balanceTitle
+    : this.pocket
+      ? this.f.editTitle
+      : this.f.newTitle;
 
   /** PLN-07: "Inversión" carries the plan mark when the plan doesn't include it. */
   protected readonly kinds = computed<PlSegmentOption<PocketKind>[]>(() => {
     const block = this.investmentsBlock();
-    return (['AVAILABLE', 'SAVINGS', 'INVESTMENT'] as const).map((value) => ({
+    return RESERVE_KINDS.map((value) => ({
       value,
       label: ACCOUNTS_TEXTS.pocketKinds[value],
       ...(value === 'INVESTMENT' && block
@@ -180,7 +204,9 @@ export class PocketFormSheet {
   }));
 
   protected readonly name = signal(this.pocket?.name ?? '');
-  protected readonly kind = signal<PocketKind>(this.pocket?.kind ?? this.initialKind());
+  protected readonly kind = signal<PocketKind>(
+    this.pocket?.kind ?? (this.isBalance ? 'AVAILABLE' : this.initialKind()),
+  );
   protected readonly currency = signal<Currency>(this.pocket?.currency ?? 'ARS');
   protected readonly instrument = signal<Instrument>(this.pocket?.instrument ?? 'MUTUAL_FUND');
   protected readonly balance = signal('0');
@@ -203,10 +229,19 @@ export class PocketFormSheet {
   }
 
   protected async save(): Promise<void> {
-    const name = createPocketRequestSchema.shape.name.safeParse(this.name());
+    // The API names an account balance itself ("Disponible").
+    const name = createPocketRequestSchema.shape.name.safeParse(
+      this.isBalance ? AVAILABLE_NAME : this.name(),
+    );
     if (!name.success) return this.error.set(this.f.errors.name);
     const instrument = this.kind() === 'INVESTMENT' ? this.instrument() : null;
     const pocket = this.pocket;
+    if (pocket && this.isBalance) {
+      await this.run(() =>
+        this.store.updatePocket(pocket.id, { includeInNetWorth: this.includeInNetWorth() }),
+      );
+      return;
+    }
     if (pocket) {
       await this.run(() =>
         this.store.updatePocket(pocket.id, {

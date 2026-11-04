@@ -20,6 +20,7 @@ export const accountKindSchema = z.enum([
 
 export const pocketKindSchema = z.enum([
   PocketKind.AVAILABLE,
+  PocketKind.SPENDING,
   PocketKind.SAVINGS,
   PocketKind.INVESTMENT,
 ]);

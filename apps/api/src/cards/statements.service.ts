@@ -293,7 +293,7 @@ export class StatementsService {
         { pending: pending.toString(), currency: request.currency },
       );
     }
-    const pocket = await this.pockets.getActive(userId, request.pocketId);
+    const pocket = await this.pockets.getCardPayer(userId, request.pocketId);
     let amountOut = request.amount;
     if (pocket.currency !== request.currency) {
       if (!request.amountOut) {

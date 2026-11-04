@@ -1,92 +1,139 @@
-import { PocketKind } from './enums';
-import { freeThisMonth, separatedThisMonth, SeparatedTransfer, transferBaseValue } from './free';
+import { cardLater, freeThisMonth, savedThisMonth, SavedTransfer, transferBaseValue } from './free';
 import { Money } from './money';
-import { ars, usd } from './test-helpers';
+import { splitInstallments } from './installments';
+import { ars, d, p, usd } from './test-helpers';
 
-const kinds = new Map<string, PocketKind>([
-  ['galicia', PocketKind.AVAILABLE],
-  ['mp', PocketKind.AVAILABLE],
-  ['usd', PocketKind.AVAILABLE],
-  ['cedears', PocketKind.INVESTMENT],
-  ['fci', PocketKind.INVESTMENT],
-  ['reserva', PocketKind.SAVINGS],
-]);
+const zero = ars('0');
 
-const t = (from: string, to: string | null, value: Money): SeparatedTransfer => ({
-  fromPocketId: from,
-  toPocketId: to,
-  value,
+describe('Libre este mes (spec example)', () => {
+  // Saldo $ 726.150 + reservas para gastar $ 220.000 + $ 120.000 + $ 110.000.
+  const inAccounts = ars('726150').add(ars('220000')).add(ars('120000')).add(ars('110000'));
+  const toPay = ars('379418.27');
+
+  it('free = $ 796.731,73', () => {
+    expect(inAccounts.toString()).toBe('1176150.00');
+    expect(freeThisMonth({ inAccounts, toCollect: zero, toPay, cardLater: zero }).toString()).toBe(
+      '796731.73',
+    );
+  });
+
+  // On the 20th, $ 90.000 in 3 installments due in December, January and February.
+  const purchase = splitInstallments(ars('90000'), 3).map(({ amount: value }, i) => ({
+    chargeDate: d('2026-11-20'),
+    dueDate: [d('2026-12-10'), d('2027-01-10'), d('2027-02-10')][i],
+    value,
+  }));
+
+  it('after a card purchase in 3 installments: free = $ 706.731,73', () => {
+    const later = cardLater(purchase, p('2026-11'), 'ARS');
+    expect(later.toString()).toBe('90000.00');
+    expect(freeThisMonth({ inAccounts, toCollect: zero, toPay, cardLater: later }).toString()).toBe(
+      '706731.73',
+    );
+  });
+
+  it('then $ 200.000 from the balance to Auto (savings): free = $ 506.731,73', () => {
+    const later = cardLater(purchase, p('2026-11'), 'ARS');
+    expect(
+      freeThisMonth({
+        inAccounts: inAccounts.subtract(ars('200000')),
+        toCollect: zero,
+        toPay,
+        cardLater: later,
+      }).toString(),
+    ).toBe('506731.73');
+  });
 });
 
 describe('freeThisMonth', () => {
-  it('matches the home mockup: 1.850.000 − 674.000 − 763.700 = 412.300', () => {
-    expect(freeThisMonth(ars('1850000'), ars('674000'), ars('763700')).toString()).toBe(
-      '412300.00',
-    );
-  });
-
-  it('can be negative', () => {
-    expect(freeThisMonth(ars('100'), ars('80'), ars('50')).toString()).toBe('-30.00');
-  });
-});
-
-describe('Libre este mes (spec example)', () => {
-  const transfers = [t('galicia', 'cedears', ars('150000')), t('galicia', 'reserva', ars('50000'))];
-
-  it('invest 150.000 and set apart 50.000: free = $ 370.000', () => {
-    const separated = separatedThisMonth(transfers, kinds, 'ARS');
-    expect(separated.toString()).toBe('200000.00');
-    expect(freeThisMonth(ars('1200000'), ars('380000'), ars('250000'), separated).toString()).toBe(
-      '370000.00',
-    );
-  });
-
-  it('then redeem 30.000 from the reserve: free = $ 400.000', () => {
-    const separated = separatedThisMonth(
-      [...transfers, t('reserva', 'galicia', ars('30000'))],
-      kinds,
-      'ARS',
-    );
-    expect(freeThisMonth(ars('1200000'), ars('380000'), ars('250000'), separated).toString()).toBe(
-      '400000.00',
-    );
-  });
-});
-
-describe('separatedThisMonth', () => {
-  it('ignores transfers between available pockets', () => {
-    expect(separatedThisMonth([t('galicia', 'mp', ars('1000'))], kinds, 'ARS').isZero()).toBe(true);
-  });
-
-  it('ignores transfers between savings and investment pockets', () => {
+  it('adds what is to collect and can be negative', () => {
     expect(
-      separatedThisMonth(
-        [t('reserva', 'cedears', ars('1000')), t('cedears', 'fci', ars('500'))],
-        kinds,
+      freeThisMonth({
+        inAccounts: ars('100'),
+        toCollect: ars('50'),
+        toPay: ars('120'),
+        cardLater: ars('60'),
+      }).toString(),
+    ).toBe('-30.00');
+  });
+
+  it('a purchase due partly this month and partly later counts once', () => {
+    // $ 30.000 in 3: the first installment is in the statement due on Nov 28 (in "to pay").
+    const [first, ...rest] = splitInstallments(ars('30000'), 3).map((i) => i.amount);
+    const installments = [
+      { chargeDate: d('2026-11-03'), dueDate: d('2026-11-28'), value: first },
+      { chargeDate: d('2026-11-03'), dueDate: d('2026-12-28'), value: rest[0] },
+      { chargeDate: d('2026-11-03'), dueDate: d('2027-01-28'), value: rest[1] },
+    ];
+    const later = cardLater(installments, p('2026-11'), 'ARS');
+    expect(later.toString()).toBe('20000.00');
+    expect(
+      freeThisMonth({
+        inAccounts: ars('100000'),
+        toCollect: zero,
+        toPay: first,
+        cardLater: later,
+      }).toString(),
+    ).toBe('70000.00');
+  });
+
+  it('a previous month is what was left in the accounts on its last day', () => {
+    expect(
+      freeThisMonth({
+        inAccounts: ars('412300'),
+        toCollect: zero,
+        toPay: zero,
+        cardLater: zero,
+      }).toString(),
+    ).toBe('412300.00');
+  });
+});
+
+describe('cardLater', () => {
+  it('ignores purchases of other months', () => {
+    const installments = [
+      { chargeDate: d('2026-10-31'), dueDate: d('2027-01-10'), value: ars('1000') },
+    ];
+    expect(cardLater(installments, p('2026-11'), 'ARS').isZero()).toBe(true);
+  });
+});
+
+const t = (
+  fromKind: SavedTransfer['fromKind'],
+  toKind: SavedTransfer['toKind'],
+  value: Money,
+): SavedTransfer => ({ fromKind, toKind, value });
+
+describe('savedThisMonth', () => {
+  it('adds what goes to savings or investments and subtracts what comes back', () => {
+    expect(
+      savedThisMonth(
+        [
+          t('AVAILABLE', 'INVESTMENT', ars('150000')),
+          t('SPENDING', 'SAVINGS', ars('50000')),
+          t('SAVINGS', 'AVAILABLE', ars('30000')),
+        ],
+        'ARS',
+      ).toString(),
+    ).toBe('170000.00');
+  });
+
+  it('ignores moves between accounts, spending reserves and statement payments', () => {
+    expect(
+      savedThisMonth(
+        [
+          t('AVAILABLE', 'AVAILABLE', ars('1000')),
+          t('AVAILABLE', 'SPENDING', ars('1000')),
+          t('AVAILABLE', null, ars('1000')),
+        ],
         'ARS',
       ).isZero(),
     ).toBe(true);
   });
 
-  it('ignores statement payments (no destination)', () => {
-    expect(separatedThisMonth([t('galicia', null, ars('1000'))], kinds, 'ARS').isZero()).toBe(true);
-  });
-
-  it('can be negative when more was redeemed than set apart', () => {
-    expect(
-      separatedThisMonth(
-        [t('galicia', 'reserva', ars('100')), t('cedears', 'galicia', ars('300'))],
-        kinds,
-        'ARS',
-      ).toString(),
-    ).toBe('-200.00');
-  });
-
-  it('adds transfers between currencies by their base value', () => {
-    // USD 100 bought with $ 120.000 into a dollar investment: counts the pesos paid.
-    const value = transferBaseValue(ars('120000'), usd('100'), 'ARS', null);
-    expect(separatedThisMonth([t('galicia', 'cedears', value)], kinds, 'ARS').toString()).toBe(
-      '120000.00',
+  it('can be negative when more was redeemed than saved', () => {
+    expect(savedThisMonth([t('INVESTMENT', 'AVAILABLE', ars('300'))], 'ARS').toString()).toBe(
+      '-300.00',
     );
   });
 });

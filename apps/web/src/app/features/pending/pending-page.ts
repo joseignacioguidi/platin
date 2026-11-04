@@ -17,6 +17,7 @@ import {
 } from '@platin/web-ui';
 import { AuthService } from '../../core/auth/auth.service';
 import { errorMessage } from '../../core/errors';
+import { pocketPlace } from '../transactions/movement-row';
 import { MovementsList } from '../transactions/movements-list';
 import { TransactionsStore } from '../transactions/transactions.store';
 import { Today } from '../../core/today';
@@ -75,7 +76,7 @@ interface Draft {
                 <span class="truncate text-[17px] font-semibold">{{ item.description }}</span>
                 <span class="text-sm text-muted">
                   {{ item.type === 'INCOME' ? texts.income : texts.expense }} ·
-                  {{ item.pocket.accountName }} · {{ item.pocket.name }} ·
+                  {{ place(item.pocket) }} ·
                   {{ dateText(item.date) }}
                 </span>
               </div>
@@ -186,6 +187,10 @@ export class PendingPage {
 
   protected value(event: Event): string {
     return (event.target as HTMLInputElement).value;
+  }
+
+  protected place(pocket: TransactionMovement['pocket']): string {
+    return pocketPlace(pocket);
   }
 
   protected dateText(date: string): string {

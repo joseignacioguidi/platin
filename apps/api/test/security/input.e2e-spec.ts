@@ -63,8 +63,13 @@ describe('security: input validation', () => {
   // Was finding SEC-F10 (a): a valid USD amount times a valid rate does not fit Decimal(18,2) in
   // base currency; the database rejects it and the API answers 500.
   it('SEC-INPUT-01 an amount whose base conversion overflows Decimal(18,2) is a 4xx, not a 500 [SEC-F10]', async () => {
+    // Expenses go to an account balance: the account's balance in dollars.
+    const dollars = await api()
+      .post(`/api/v1/accounts/${s.a.account.id}/pockets`)
+      .send({ name: 'Disponible', kind: 'AVAILABLE', currency: 'USD' })
+      .expect(201);
     const res = await expense({
-      pocketId: s.a.usd.id,
+      pocketId: dollars.body.id,
       amount: '9999999999999999.99',
       exchangeRate: '1500',
     });

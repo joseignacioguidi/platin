@@ -106,7 +106,7 @@ describe('movements', () => {
       currencyIn: 'USD',
       impliedRate: '1200.000000',
       fromPocket: { name: 'Disponible', accountName: 'Galicia' },
-      toPocket: { name: 'Caja USD', accountName: 'Caja USD' },
+      toPocket: { name: 'Disponible', accountName: 'Caja USD' },
     });
     expect(res.body.items[1]).toMatchObject({
       kind: 'TRANSACTION',

@@ -25,7 +25,7 @@ import {
   PlSegmentOption,
   HideAmounts,
   PlCurrencySelect,
-  pocketSelectOptions,
+  accountSelectOptions,
   PlSelect,
   PlSelectOption,
   PlSheet,
@@ -220,7 +220,7 @@ export class FixedFormSheet {
   protected readonly name = signal(this.fixed?.name ?? '');
   protected readonly amount = signal('');
   protected readonly categoryId = signal(this.fixed?.category.id ?? '');
-  /** A pocket id, or "card:<id>" for a fixed item on a card. */
+  /** An account balance id, or "card:<id>" for a fixed item on a card. */
   protected readonly accountId = signal(
     this.fixed?.card
       ? `${CARD_PREFIX}${this.fixed.card.id}`
@@ -230,13 +230,13 @@ export class FixedFormSheet {
   );
   protected readonly isCard = computed(() => this.accountId().startsWith(CARD_PREFIX));
   protected readonly cardCurrency = signal<Currency>('ARS');
-  /** Pockets and, for an expense, active cards. A fixed item keeps the kind of target it has. */
+  /** Accounts and, for an expense, active cards. A fixed item keeps the kind of target it has. */
   protected readonly targetOptions = computed<PlSelectOption[]>(() => {
     const onCard = this.fixed ? this.fixed.card !== null : null;
     const pockets =
       onCard === true
         ? []
-        : pocketSelectOptions(this.accounts.pockets(), this.hideAmounts.hidden(), 'account');
+        : accountSelectOptions(this.accounts.pockets(), this.hideAmounts.hidden());
     const cards =
       onCard === false || this.kind() !== 'EXPENSE'
         ? []

@@ -952,6 +952,91 @@ Forma de trabajo:
 - Rama feat/fase-28-resumen-anterior. Todo en verde antes del PR, con capturas del formulario con la pregunta y de Compromisos de noviembre.
 ```
 
+## Iteración 6: cuentas como en el banco
+
+Dos fases que salieron de usar platin con Mercado Pago y sus reservas. La 29 cambia el modelo de cuentas y la regla de "Libre este mes"; la 30 son arreglos de pantalla y no depende de la 29.
+
+**Antes de empezar (vos):** la 29 cambia el esquema. Vas a recrear la base de producción después de mergearla; la migración igual tiene que funcionar con datos.
+
+| Fase | Qué se construye | Casos de uso | Terminado cuando |
+| --- | --- | --- | --- |
+| 29 | Cuentas con saldo y reservas, y libre desde los saldos | CTA-02 a 06, MOV-01, 02, DAS-05, COM-02 | Cargo gastos solo en cuentas, ingreso y retiro plata de una reserva desde la reserva, y el libre del inicio da el ejemplo de la especificación |
+| 30 | Carga sin scroll, "Guardar" en programados y Compromisos con cuenta de pago | MOV-04, 09, COM-04 | Cargo un gasto con cuotas en el celular sin scrollear, edito un programado con "Guardar" y veo desde qué cuenta se paga cada compromiso |
+
+## Fase 29 — Cuentas y reservas
+
+Como en Mercado Pago: cada cuenta tiene su saldo y sus reservas. Los ingresos y gastos van al saldo; a una reserva la plata entra y sale por transferencias. Y "Libre este mes" pasa a salir de lo que hay en tus cuentas, sin contar nada dos veces.
+
+**Terminado cuando:**
+- la interfaz no dice "apartado" en ningún lado;
+- Mercado Pago muestra su saldo y debajo sus reservas Gastos Previstos (para gastar), Vacaciones y Auto (ahorro) e Inversiones (FCI);
+- al cargar un gasto solo puedo elegir cuentas;
+- en Auto, "Ajustar saldo" ofrece "Ingresar desde una cuenta" y "Ajustar saldo", y "Retirar" devuelve plata al saldo de Mercado Pago;
+- en Inversiones, la segunda opción es "Actualizar valor";
+- no hay botones Apartar, Invertir ni Rescatar dentro de una reserva, y el modo "Invertir" de la carga rápida sigue;
+- los tres valores del ejemplo de "Libre este mes" ($ 796.731,73, $ 706.731,73 y $ 506.731,73) son tests literales y el inicio muestra el primero con su desglose;
+- Compromisos dice "margen" y no "libre".
+
+```
+Leé CLAUDE.md; en docs/especificacion.md el recuadro "Nombres desde la iteración 6", CTA-02 a 06, MOV-01, 02 y 07, DAS-05, COM-02 y las reglas "Cuentas y reservas", "Compromisos de un mes" y "Libre este mes" (con su ejemplo); y en docs/arquitectura.md "Iteración 6: cuentas y reservas" y "Componentes y patrones de la iteración 6".
+
+Vamos a hacer la Fase 29 de docs/plan.md. Antes de tocar código, buscá todos los lugares que eligen o muestran un apartado (formularios, selectores, textos, contratos, servicios, tests) y mostrame la lista con lo que vas a hacer en cada uno.
+
+Dominio:
+1. PocketKind con SPENDING. freeThisMonth({ inAccounts, toCollect, toPay, cardLater }) con el ejemplo de la especificación como tests literales (los tres valores), más un caso con una compra en cuotas que vence en parte este mes y en parte después (nada se cuenta dos veces) y uno de un mes anterior. Borrá separatedThisMonth y sus tests.
+2. Una función que deduzca la intención de una transferencia a partir de los tipos de sus puntas, con tests.
+
+Backend:
+3. Migración: SPENDING en el enum; convertir en SPENDING los AVAILABLE que sobran por cuenta y moneda (queda el más antiguo); índice único parcial de un AVAILABLE por (accountId, currency). Probala con datos antes de recrear la base.
+4. Validaciones: ACCOUNT_BALANCE_REQUIRED en ingresos, gastos, programados, fijos, cuenta de pago de tarjeta y pagos de resumen; TRANSFER_NEEDS_ACCOUNT en transferencias, con la intención calculada en el servicio; ACCOUNT_BALANCE_EXISTS al agregar un saldo en una moneda que ya tiene; cambios de tipo solo entre SPENDING, SAVINGS e INVESTMENT. Tests e2e de cada una, con aislamiento entre usuarios.
+5. GET /dashboard con inAccounts, toCollect, toPay, cardLater, free, spent y saved; toPay sale de commitmentsByMonth con la misma entrada que GET /commitments. Test e2e con el ejemplo de la especificación.
+6. GET /commitments: payFrom en cada ítem y margin en lugar de free.
+
+Web:
+7. Todos los textos: "apartado" pasa a "reserva" o a "saldo de la cuenta". El tipo de reserva se elige como "¿Para qué es?": Para gastar, Ahorro o Inversión, con su explicación.
+8. Cuentas: cada cuenta con su saldo por moneda y, debajo, sus reservas con uso y saldo. "+ Reserva" y "+ Saldo en otra moneda".
+9. pl-account-select en la carga rápida (gasto, ingreso y transferencia), en la edición de movimientos, en fijos, en la tarjeta y en el pago del resumen. pl-pocket-select queda para reservas.
+10. Detalle de reserva: "Ajustar saldo" abre la hoja con "Ingresar desde una cuenta" y "Ajustar saldo" (en inversión, "Actualizar valor"); "Retirar" abre la transferencia hacia el saldo de su cuenta. Se quitan Apartar, Invertir y Rescatar del detalle. El modo "Invertir" de la carga rápida se queda, con el origen limitado a cuentas.
+11. Inicio: el libre con su desglose (en tus cuentas, + por cobrar, − a pagar este mes, − tarjeta de los meses siguientes) y la barra nueva; gastado y ahorrado del mes como datos aparte.
+12. Compromisos: "Margen" en lugar de "Libre".
+
+Forma de trabajo:
+- Plan primero, esperame. Conviene dividirla en 29a (dominio, migración y backend) y 29b (web); si cambia la forma de una respuesta, el front se actualiza en el mismo PR.
+- Rama feat/fase-29-cuentas-reservas. Todo en verde antes del PR, con capturas de Cuentas, del detalle de una reserva con la hoja abierta, de la carga rápida y del inicio.
+```
+
+## Fase 30 — Carga sin scroll y Compromisos con cuenta de pago
+
+Tres arreglos de pantalla: que la carga rápida entre entera en el celular con el motivo a la vista, que editar un programado diga "Guardar" y que Compromisos diga desde dónde se paga cada cosa.
+
+**Terminado cuando:**
+- en un celular de 360 × 640, la carga rápida de un gasto con tarjeta en 3 cuotas se completa sin scrollear;
+- el motivo está siempre visible debajo del monto y, si lo dejo vacío, el movimiento toma el nombre de la categoría;
+- al editar un gasto programado el botón dice "Guardar";
+- en Compromisos, el resumen de la Visa dice "Mercado Pago" (su cuenta de pago), un fijo dice su cuenta y una tarjeta sin cuenta de pago dice "Sin cuenta asignada" con el atajo para elegirla;
+- las líneas no tienen ícono.
+
+```
+Leé CLAUDE.md, MOV-04, MOV-09 y COM-04 de docs/especificacion.md y la tabla "Componentes y patrones de la iteración 6" de docs/arquitectura.md.
+
+Vamos a hacer la Fase 30 de docs/plan.md.
+
+Carga rápida (MOV-09):
+1. Rehacé el layout de quick-entry-sheet: monto, debajo el motivo en una línea ("¿En qué?"), una fila de categorías recientes deslizable con "Más" al final (abre pl-category-select con allowCreate), cuenta y fecha como chips en una fila, cuotas como chips en una fila deslizable, teclado más bajo y el botón. Sacá el botón del lápiz.
+2. Medilo: captura con Playwright a 360 × 640 y 390 × 844 para gasto, gasto con tarjeta y cuotas, ingreso, transferencia e invertir; ninguno con scroll. Respetá las áreas táctiles de 44 px.
+
+Programados (MOV-04):
+3. En movement-sheet, al editar el botón dice "Guardar" aunque la fecha sea futura; "Programar" queda solo al crear.
+
+Compromisos (COM-04):
+4. Si la fase 29 ya está, usá payFrom de GET /commitments; si no, sumalo en esta fase (resumen: cuenta de pago de la tarjeta; fijo y programado: su cuenta), con test e2e.
+5. Cada línea sin ícono, con la cuenta debajo de la descripción. "Sin cuenta asignada" abre la edición de la tarjeta en el campo de cuenta de pago.
+
+Forma de trabajo:
+- Plan primero, esperame.
+- Rama feat/fase-30-carga-compromisos. Todo en verde antes del PR, con las capturas del punto 2 y de Compromisos.
+```
+
 ## Después del MVP
 
 La segunda tanda de la especificación, en fases chicas que se pueden hacer en cualquier orden. Los prompts siguen el mismo molde que las fases anteriores: leer `CLAUDE.md` y la sección de la especificación, plan primero, rama propia, PR con todo en verde.

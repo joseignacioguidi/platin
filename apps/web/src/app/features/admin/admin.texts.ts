@@ -28,7 +28,7 @@ export const ADMIN_TEXTS = {
       goals: 'Metas',
       fixed: 'Fijos',
       investments: 'Inversiones',
-      savingsPockets: 'Apartados de ahorro',
+      savingsPockets: 'Reservas de ahorro',
     },
     plans: 'Usuarios por plan',
   },
@@ -68,7 +68,7 @@ export const ADMIN_TEXTS = {
     recordsHint: 'Solo conteos: el contenido de cada usuario es privado.',
     counts: {
       accounts: 'Cuentas',
-      pockets: 'Apartados',
+      pockets: 'Reservas',
       categories: 'Categorías',
       transactions: 'Movimientos',
       transfers: 'Transferencias',
@@ -182,7 +182,7 @@ export const ADMIN_TEXTS = {
     unlimited: 'Ilimitado',
     limitNames: {
       maxAccounts: 'Cuentas',
-      maxPockets: 'Apartados (sin contar el Disponible)',
+      maxPockets: 'Reservas (sin contar el saldo de cada cuenta)',
       maxCards: 'Tarjetas',
       maxGoals: 'Metas activas',
       maxFixed: 'Fijos activos',

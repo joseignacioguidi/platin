@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AVAILABLE_POCKET_NAME } from '../accounts/accounts.service';
+import { AVAILABLE_POCKET_NAME } from '../accounts/pockets.service';
 import { seedSuggestedCategories } from '../categories/suggested-categories';
 import type { Prisma } from '../generated/prisma/client';
 import { PlansService } from '../plans/plans.service';

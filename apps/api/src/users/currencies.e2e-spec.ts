@@ -155,8 +155,9 @@ describe('currencies', () => {
 
   it('a transfer EUR → USD records the rate as dollars per euro', async () => {
     await enable(['ARS', 'USD', 'EUR']).expect(200);
+    // The account's balance in euros, to a dollar reserve.
     const euros = await addPocket(ctx.app, user, mercadoPago.id, {
-      name: 'Euros',
+      kind: 'AVAILABLE',
       currency: 'EUR',
       initialBalance: '200',
     });

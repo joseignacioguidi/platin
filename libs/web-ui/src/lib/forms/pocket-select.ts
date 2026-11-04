@@ -31,13 +31,30 @@ export interface PlPocketOption {
 /** Icon and tone of each kind of pocket, shared by every screen that lists pockets. */
 export const PL_POCKET_ICONS: Record<PocketKind, { icon: string; tone: PlTone }> = {
   AVAILABLE: { icon: 'wallet', tone: 'transfer' },
+  SPENDING: { icon: 'shopping-bag', tone: 'pending' },
   SAVINGS: { icon: 'piggy-bank', tone: 'savings' },
   INVESTMENT: { icon: 'trending-up', tone: 'card' },
 };
 
+type Labeled = Pick<PlPocketOption, 'name' | 'accountName' | 'kind' | 'currency'>;
+
+/**
+ * How the interface names a pocket (iteration 6): an account balance is its account ("Galicia",
+ * "Galicia · USD" for another currency); a reserve, its name or "Galicia · Auto".
+ */
+export function pocketLabel(pocket: Labeled, display: 'pocket' | 'account' = 'account'): string {
+  if (pocket.kind === 'AVAILABLE') {
+    return pocket.currency === 'ARS'
+      ? pocket.accountName
+      : `${pocket.accountName} · ${pocket.currency}`;
+  }
+  return display === 'account' ? `${pocket.accountName} · ${pocket.name}` : pocket.name;
+}
+
 /**
  * Pockets as select options grouped by account, with their balance as secondary text (shared
- * by pl-pocket-select and pickers that mix pockets with other things, like cards).
+ * by pl-pocket-select, pl-account-select and pickers that mix pockets with other things, like
+ * cards).
  */
 export function pocketSelectOptions(
   pockets: readonly PlPocketOption[],
@@ -46,7 +63,7 @@ export function pocketSelectOptions(
 ): PlSelectOption[] {
   return pockets.map((pocket) => ({
     value: pocket.id,
-    label: display === 'account' ? `${pocket.accountName} · ${pocket.name}` : pocket.name,
+    label: pocketLabel(pocket, display),
     hint: moneyText(pocket.balance, pocket.currency, hidden),
     icon: PL_POCKET_ICONS[pocket.kind].icon,
     tone: PL_POCKET_ICONS[pocket.kind].tone,
@@ -56,8 +73,9 @@ export function pocketSelectOptions(
 }
 
 /**
- * pl-select with the pockets grouped by account, with currency and balance; it can be limited
- * to some kinds or a currency, and leave some pockets out (the origin of a transfer).
+ * pl-select with the reserves grouped by account, with currency and balance; it can be limited
+ * to some kinds or a currency, and leave some out (the origin of a transfer). To choose where an
+ * income, an expense or a payment goes, use pl-account-select.
  */
 @Component({
   selector: 'pl-pocket-select',
@@ -91,13 +109,13 @@ export class PlPocketSelect extends PlFormControl<string | null> {
   readonly currency = input<Currency | null>(null);
   /** Pockets left out (the origin of a transfer). */
   readonly exclude = input<readonly string[]>([]);
-  readonly label = input('Apartado');
+  readonly label = input('Reserva');
   readonly inputId = input<string>();
-  readonly placeholder = input('Elegí un apartado');
+  readonly placeholder = input('Elegí una reserva');
   readonly emptyLabel = input<string | null>(null);
   readonly appearance = input<'field' | 'tile'>('field');
   readonly invalid = input(false);
-  /** `pocket`: "Disponible" under its account group. `account`: "Mercado Pago · Disponible". */
+  /** `pocket`: "Auto" under its account group. `account`: "Mercado Pago · Auto". */
   readonly display = input<'pocket' | 'account'>('pocket');
 
   private readonly hideAmounts = inject(HideAmounts);

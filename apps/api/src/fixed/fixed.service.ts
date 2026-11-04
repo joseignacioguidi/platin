@@ -52,7 +52,7 @@ export class FixedService {
           currency: request.currency as 'ARS' | 'USD',
         }
       : await this.pockets
-          .getActive(userId, request.pocketId as string)
+          .getAccountBalance(userId, request.pocketId as string)
           .then((pocket) => ({ pocketId: pocket.id, currency: pocket.currency }));
     await this.categories.getOwned(userId, request.categoryId, request.kind);
     await this.currencies.assertEnabled(userId, target.currency);
@@ -90,7 +90,7 @@ export class FixedService {
       await this.cards.getActive(userId, changes.cardId);
     }
     if (changes.pocketId) {
-      const pocket = await this.pockets.getActive(userId, changes.pocketId);
+      const pocket = await this.pockets.getAccountBalance(userId, changes.pocketId);
       if (pocket.currency !== row.currency) {
         throw new AppException(
           'FIXED_CURRENCY_MISMATCH',

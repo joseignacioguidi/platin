@@ -379,6 +379,42 @@ Sin cambios de esquema.
 | `POST /cards/:id/charges` y `PATCH /charges/:id` con `startStatement` | TAR-03 |
 | `GET /cards/:id` con `previousStatement` | TAR-03 |
 
+### Iteración 6: cuentas y reservas
+
+En la interfaz, el apartado `AVAILABLE` es **el saldo de la cuenta** y los demás son **reservas**. En el código y en la base se sigue llamando `Pocket`; no se renombran tablas ni tipos.
+
+Cambio de esquema, con una migración normal (el usuario va a recrear la base de producción, pero la migración tiene que funcionar también con datos):
+
+```prisma
+enum PocketKind { AVAILABLE SPENDING SAVINGS INVESTMENT }   // SPENDING = reserva "para gastar"
+```
+
+- Índice único parcial en SQL, dentro de la migración: un solo `AVAILABLE` por `(accountId, currency)`. Antes de crearlo, la migración convierte en `SPENDING` los `AVAILABLE` que sobran en cada cuenta y moneda (se queda como `AVAILABLE` el más antiguo).
+- Crear una cuenta crea su `AVAILABLE` en pesos (ya pasa); `POST /accounts/:id/pockets` con `kind: AVAILABLE` agrega el saldo en otra moneda y responde `ACCOUNT_BALANCE_EXISTS` si esa moneda ya tiene uno. Un `AVAILABLE` no se crea, no se renombra a mano, no cambia de tipo y se archiva solo con la cuenta.
+- Validaciones nuevas en los servicios, con Problem Details:
+  - `POST/PATCH /transactions` (ingresos y gastos, incluidos programados), `POST /fixed`, `defaultPaymentPocketId` de una tarjeta y `POST /statements/:id/payments`: el apartado tiene que ser `AVAILABLE` → `ACCOUNT_BALANCE_REQUIRED`.
+  - `POST /transfers`: al menos una punta `AVAILABLE` → `TRANSFER_NEEDS_ACCOUNT`. El servicio calcula `intent` a partir de los tipos de las puntas (el campo del request pasa a ser opcional e ignorado si no coincide).
+  - `POST /pockets/:id/adjust`: sobre `AVAILABLE`, `SPENDING` y `SAVINGS`; sobre `INVESTMENT` sigue respondiendo `USE_VALUATION`.
+  - `POST /goals` y `PATCH /goals/:id`: solo reservas `SAVINGS` o `INVESTMENT` (ya es así).
+  - `PATCH /pockets/:id` con `kind`: entre `SPENDING`, `SAVINGS` e `INVESTMENT`; nunca hacia ni desde `AVAILABLE`.
+  - El límite de plan de apartados cuenta las reservas (todo lo que no es `AVAILABLE`), como hoy.
+- **Libre este mes (DAS-05).** `libs/domain`: `freeThisMonth({ inAccounts, toCollect, toPay, cardLater })` reemplaza a la versión anterior; se borra `separatedThisMonth`. El backend arma la entrada:
+  - `inAccounts`: saldo de hoy de los apartados `AVAILABLE` y `SPENDING` no archivados, valuados en moneda base con la cotización de hoy;
+  - `toCollect`: ingresos fijos del período sin confirmar y programados de ingreso pendientes;
+  - `toPay`: el comprometido del período de `commitmentsByMonth` (la misma entrada que `GET /commitments`);
+  - `cardLater`: cuotas de los consumos con fecha en el período cuyo resumen vence después del período;
+  - para un período anterior: saldo de `AVAILABLE` y `SPENDING` al último día del período, sin los otros tres.
+- `GET /dashboard` cambia su respuesta (contrato y web en el mismo PR): `inAccounts`, `toCollect`, `toPay`, `cardLater`, `free`, y como datos `spent` (gastos confirmados del período + consumos con tarjeta del período por su total) y `saved` (transferencias del período desde `AVAILABLE`/`SPENDING` hacia `SAVINGS`/`INVESTMENT`, menos las inversas). Se quitan `separated` y `committed` sueltos.
+- `GET /commitments`: cada ítem suma `payFrom: { pocketId, accountName, pocketName } | null` (resumen: el `defaultPaymentPocketId` de la tarjeta; fijo y programado: su apartado). `free` de cada mes pasa a llamarse `margin`.
+
+| Método y ruta | Caso de uso |
+| --- | --- |
+| `POST /accounts/:id/pockets` con `kind: AVAILABLE` (saldo en otra moneda) | CTA-02 |
+| `POST /transactions`, `POST /fixed`, pagos y tarjeta con `ACCOUNT_BALANCE_REQUIRED` | MOV-01, CTA-02 |
+| `POST /transfers` con `TRANSFER_NEEDS_ACCOUNT` e intención calculada | MOV-02, CTA-05, 06 |
+| `GET /dashboard` con la forma nueva | DAS-05 |
+| `GET /commitments` con `payFrom` y `margin` | COM-02, 04 |
+
 ## Backend
 
 Un módulo de Nest por dominio; los controladores son finos, los servicios orquestan y las reglas viven en `libs/domain`.
@@ -449,7 +485,7 @@ Todo lo que tiene una regla de la especificación es una función pura en `libs/
 - `splitInstallments(total, count, startAt)`: montos de cada cuota, con el redondeo en la última.
 - `duePeriods(fixed, from, to)`: períodos que un fijo debe generar.
 - `commitmentsByMonth(input, months)`: compromisos por mes y moneda; única fuente del comprometido para Compromisos y el inicio.
-- `freeThisMonth(...)` y `separatedThisMonth(...)`: libre del mes y lo separado para ahorro o inversión.
+- `freeThisMonth({ inAccounts, toCollect, toPay, cardLater })`: libre del mes desde los saldos (iteración 6; reemplaza a la versión con `separatedThisMonth`).
 - `goalProjection(goal, accumulated, today, monthly?)`: faltante, aporte mensual, ritmo y fecha estimada.
 - `pocketBalance(initial, transactions, transfers, at?)` y `accountTotals(pockets)`: saldo de un apartado a una fecha y totales de la cuenta por moneda.
 - `yieldFromValuation(balanceAt, value)`: rendimiento que genera una valuación.
@@ -554,6 +590,17 @@ Cada feature tiene sus rutas (carga diferida), sus componentes de página y un s
 | Hoja de ajuste por tipo | Título, explicación y atajos según el tipo del apartado (CTA-06); los textos viven en el archivo de textos de cuentas |
 | `pl-date-field` sin `max` | Solo en la carga y edición de ingresos y gastos; debajo muestra "Programado" cuando la fecha es posterior a hoy |
 | `pl-chart-tooltip` | Tooltip común a todos los gráficos (DAS-06): sigue al mouse, aparece al enfocar cada barra o punto con teclado (cada uno es enfocable y tiene `aria-label` con etiqueta y monto) y al tocar en celular; muestra el monto con `pl-money`, así respeta "ocultar montos" |
+
+### Componentes y patrones de la iteración 6
+
+| Pieza | Uso |
+| --- | --- |
+| Textos "reserva" | Todo texto de la interfaz que decía "apartado" pasa a "reserva" o a "saldo de la cuenta"; los textos viven en el archivo de textos de cada feature |
+| `pl-account-select` | Reemplaza a `pl-pocket-select` donde se elige dónde cae un ingreso, un gasto, un fijo o un pago: lista cuentas (una opción por moneda: "Galicia", "Galicia · USD") con su saldo |
+| `pl-pocket-select` | Queda solo para elegir reservas (metas, invertir, ingresar, retirar) |
+| Detalle de reserva | Botones "Ajustar saldo" (hoja con "Ingresar desde una cuenta" y "Ajustar saldo" o "Actualizar valor") y "Retirar"; sin Apartar, Invertir ni Rescatar |
+| Carga rápida compacta | Monto, motivo siempre visible, una fila deslizable de categorías con "Más" al final, cuenta y fecha como chips, teclado más bajo; entra en 360 × 640 sin scroll |
+| `HomeFree` | El inicio muestra el libre y debajo la cuenta: en tus cuentas, + por cobrar, − a pagar este mes, − tarjeta de los meses siguientes. La barra reparte "en tus cuentas + por cobrar" entre a pagar, tarjeta y libre. Gastado y ahorrado del mes van como datos aparte |
 
 ## Auth y seguridad
 

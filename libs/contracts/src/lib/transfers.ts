@@ -23,14 +23,11 @@ export const createTransferRequestSchema = z
     amountIn: amountSchema.optional(),
     date: localDateSchema,
     description: z.string().trim().max(120).optional(),
-    /**
-     * Quick actions (Apartar, Invertir, Rescatar) send theirs and the API checks the
-     * destination fits; the intent shown is always derived from the pockets' kinds.
-     */
+    /** Ignored: the API derives the intent from the pockets' kinds (iteration 6). */
     intent: transferIntentSchema.optional(),
   })
   .refine((t) => t.fromPocketId !== t.toPocketId, {
-    message: 'Elegí dos apartados distintos',
+    message: 'Elegí dos cuentas o reservas distintas',
     path: ['toPocketId'],
   });
 

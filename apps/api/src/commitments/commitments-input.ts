@@ -21,10 +21,18 @@ export abstract class CommitmentsRateSource {
   abstract today(userId: string): Promise<RateTable>;
 }
 
+/** COM-04: the pocket a commitment is paid from. */
+export interface PayFrom {
+  pocketId: string;
+  accountName: string;
+  pocketName: string;
+}
+
 /** What a scheduled movement shows besides its amount (category icon in the lists). */
 export interface ScheduledInfo {
   pocketName: string;
   accountName: string;
+  payFrom: PayFrom;
   category: { id: string; name: string; icon: string; color: string } | null;
 }
 
@@ -32,8 +40,23 @@ export interface BuiltCommitments {
   input: CommitmentsInput;
   rates: RateTable;
   cardNames: Map<string, string>;
+  /** Payment account of each card that appears (null when it has none). */
+  cardPayers: Map<string, PayFrom | null>;
+  /** Account of each fixed item on a pocket. */
+  fixedPayers: Map<string, PayFrom>;
   scheduled: Map<string, ScheduledInfo>;
 }
+
+const PAYER = {
+  select: { id: true, name: true, account: { select: { name: true } } },
+} as const;
+
+const toPayFrom = (
+  pocket: { id: string; name: string; account: { name: string } } | null,
+): PayFrom | null =>
+  pocket
+    ? { pocketId: pocket.id, accountName: pocket.account.name, pocketName: pocket.name }
+    : null;
 
 /**
  * Builds the one input of `commitmentsByMonth` for Compromisos and the home screen, so both read
@@ -65,7 +88,7 @@ export class CommitmentsInputBuilder {
             },
             orderBy: { charge: { date: 'asc' } },
           },
-          card: { select: { id: true, name: true } },
+          card: { select: { id: true, name: true, defaultPaymentPocket: PAYER } },
         },
       }),
       this.prisma.fixedItem.findMany({
@@ -78,6 +101,7 @@ export class CommitmentsInputBuilder {
               name: true,
               closingDay: true,
               dueDay: true,
+              defaultPaymentPocket: PAYER,
               statements: {
                 where: { period: { gte: toDbPeriod(chargeFrom), lte: toDbPeriod(to) } },
                 select: { period: true, closingDate: true, dueDate: true },
@@ -105,7 +129,7 @@ export class CommitmentsInputBuilder {
       this.prisma.transaction.findMany({
         where: { userId, origin: 'SCHEDULED', status: 'PENDING', date: range },
         include: {
-          pocket: { select: { name: true, account: { select: { name: true } } } },
+          pocket: PAYER,
           category: { select: { id: true, name: true, icon: true, color: true } },
         },
       }),
@@ -116,6 +140,17 @@ export class CommitmentsInputBuilder {
     for (const item of fixed) if (item.card) cards.set(item.card.id, item.card);
     const cardNames = new Map(statements.map((s) => [s.card.id, s.card.name]));
     for (const card of cards.values()) cardNames.set(card.id, card.name);
+    const cardPayers = new Map(
+      [...statements.map((s) => s.card), ...cards.values()].map((card) => [
+        card.id,
+        toPayFrom(card.defaultPaymentPocket),
+      ]),
+    );
+    const fixedPayers = new Map<string, PayFrom>();
+    for (const item of fixed) {
+      const payer = toPayFrom(item.pocket);
+      if (payer) fixedPayers.set(item.id, payer);
+    }
 
     const input: CommitmentsInput = {
       base: user.baseCurrency,
@@ -173,10 +208,17 @@ export class CommitmentsInputBuilder {
       input,
       rates,
       cardNames,
+      cardPayers,
+      fixedPayers,
       scheduled: new Map(
         scheduled.map((s) => [
           s.id,
-          { pocketName: s.pocket.name, accountName: s.pocket.account.name, category: s.category },
+          {
+            pocketName: s.pocket.name,
+            accountName: s.pocket.account.name,
+            payFrom: toPayFrom(s.pocket) as PayFrom,
+            category: s.category,
+          },
         ]),
       ),
     };

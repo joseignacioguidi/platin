@@ -8,7 +8,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { type Card, createCardRequestSchema } from '@platin/contracts';
-import { parseTypedAmount, PlButton, PlPocketSelect, PlSheet } from '@platin/web-ui';
+import { parseTypedAmount, PlButton, PlAccountSelect, PlSheet } from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
 import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { fieldError, zodValidator } from '../../core/forms/zod-validator';
@@ -25,7 +25,7 @@ function optionalAmount(control: AbstractControl<string>): ValidationErrors | nu
 /** TAR-01: card with its closing and due days. */
 @Component({
   selector: 'pl-card-form-sheet',
-  imports: [PlSheet, PlButton, PlPocketSelect, ReactiveFormsModule, FormField],
+  imports: [PlSheet, PlButton, PlAccountSelect, ReactiveFormsModule, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="card ? texts.edit : texts.new">
@@ -108,11 +108,12 @@ function optionalAmount(control: AbstractControl<string>): ValidationErrors | nu
           </pl-form-field>
         </div>
         <pl-form-field [label]="f.defaultAccount" controlId="card-account">
-          <pl-pocket-select
+          <!-- An account balance or a spending reserve (ADR 0024). -->
+          <pl-account-select
+            spending
             inputId="card-account"
             [label]="f.defaultAccount"
             [pockets]="accounts.pockets()"
-            [kinds]="['AVAILABLE']"
             [emptyLabel]="f.none"
             formControlName="defaultPaymentPocketId"
           />

@@ -117,7 +117,7 @@ describe('commitmentsByMonth', () => {
 
   it('computes free = expected income − committed', () => {
     expect(months[0].expectedIncome.base.toString()).toBe('1850000.00');
-    expect(months[0].free.toString()).toBe('1394178.67');
+    expect(months[0].margin.toString()).toBe('1394178.67');
   });
 
   it('rejects an invalid number of months', () => {

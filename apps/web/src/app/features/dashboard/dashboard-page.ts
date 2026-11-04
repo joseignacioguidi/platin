@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, input, signal } f
 import { RouterLink } from '@angular/router';
 import { LucideChevronRight, LucideDynamicIcon, LucideEye, LucideEyeOff } from '@lucide/angular';
 import type { Dashboard, UpcomingItem } from '@platin/contracts';
-import { parseLocalDate, Period } from '@platin/domain';
+import { compareDates, parseLocalDate, Period } from '@platin/domain';
 import {
   dateBadge,
   formatDate,
@@ -96,20 +96,26 @@ import { SETTINGS_TEXTS } from '../settings/settings.texts';
             [currency]="d.currency"
             [decimals]="false"
           />
-          <span class="text-[13px] text-muted">
-            de <pl-money [amount]="d.expectedIncome" [currency]="d.currency" /> {{ texts.ofIncome }}
-          </span>
+          @if (past()) {
+            <span class="text-[13px] text-muted">{{ texts.pastHint }}</span>
+          }
         </div>
-        <pl-stacked-bar [segments]="segments()" [currency]="d.currency" />
+        @if (!past()) {
+          <pl-stacked-bar [segments]="segments()" [currency]="d.currency" />
+        }
+        <!-- DAS-05: how the free amount is reached, from what there is. -->
         <dl class="flex flex-col gap-2.5 text-sm">
           @for (row of legend(); track row.label) {
-            <div class="flex items-center gap-2.5">
+            <div
+              class="flex items-center gap-2.5"
+              [class.border-t]="row.strong"
+              [class.border-line-soft]="row.strong"
+              [class.pt-2.5]="row.strong"
+            >
               <span class="size-2.5 rounded-full" [class]="row.dot" aria-hidden="true"></span>
-              <dt class="flex-1">
+              <dt class="flex-1" [class.font-semibold]="row.strong">
+                <span class="font-amount text-muted" aria-hidden="true">{{ row.sign }}</span>
                 {{ row.label }}
-                @if (row.hint) {
-                  <span class="text-muted">{{ row.hint }}</span>
-                }
               </dt>
               <dd>
                 <pl-money
@@ -121,6 +127,29 @@ import { SETTINGS_TEXTS } from '../settings/settings.texts';
               </dd>
             </div>
           }
+        </dl>
+        <!-- As data apart: spent and saved in the month. -->
+        <dl class="grid grid-cols-2 gap-2">
+          <div class="flex flex-col gap-0.5 rounded-2xl bg-field px-3 py-2">
+            <dt class="text-xs text-muted">{{ texts.spent }}</dt>
+            <dd>
+              <pl-money
+                class="text-[15px] font-semibold"
+                [amount]="d.spent"
+                [currency]="d.currency"
+              />
+            </dd>
+          </div>
+          <div class="flex flex-col gap-0.5 rounded-2xl bg-field px-3 py-2">
+            <dt class="text-xs text-muted">{{ texts.saved }}</dt>
+            <dd>
+              <pl-money
+                class="text-[15px] font-semibold"
+                [amount]="d.saved"
+                [currency]="d.currency"
+              />
+            </dd>
+          </div>
         </dl>
       </section>
 
@@ -253,13 +282,19 @@ export class DashboardPage {
     return name ? `${this.texts.hello}, ${name}` : this.texts.hello;
   });
 
+  /** A previous month only shows what was left in the accounts on its last day. */
+  protected readonly past = computed(() => {
+    const d = this.data();
+    return !!d && compareDates(d.period as Period, this.today.period()) < 0;
+  });
+
+  /** "En tus cuentas + por cobrar" split into to pay, card later and free. */
   protected readonly segments = computed<PlStackSegment[]>(() => {
     const d = this.data();
     if (!d) return [];
     return [
-      { label: this.texts.spent, amount: d.spent, tone: 'expense' },
-      { label: this.texts.committed, amount: d.committed, tone: 'card' },
-      { label: this.texts.separated, amount: d.separated, tone: 'savings' },
+      { label: this.texts.toPay, amount: d.toPay, tone: 'expense' },
+      { label: this.texts.cardLater, amount: d.cardLater, tone: 'card' },
       { label: this.texts.freeShort, amount: d.free, tone: 'brand' },
     ];
   });
@@ -267,23 +302,32 @@ export class DashboardPage {
   protected readonly legend = computed(() => {
     const d = this.data();
     if (!d) return [];
+    const inAccounts = {
+      sign: '',
+      label: this.texts.inAccounts,
+      amount: d.inAccounts,
+      dot: 'bg-transfer',
+      strong: false,
+    };
+    if (this.past()) return [inAccounts];
     return [
-      { label: this.texts.spent, hint: '', amount: d.spent, dot: 'bg-expense', strong: false },
+      inAccounts,
       {
-        label: this.texts.committed,
-        hint: this.texts.committedHint,
-        amount: d.committed,
-        dot: 'bg-card',
-        strong: false,
-      },
-      {
-        label: this.texts.separated,
-        hint: '',
-        amount: d.separated,
+        sign: '+',
+        label: this.texts.toCollect,
+        amount: d.toCollect,
         dot: 'bg-savings',
         strong: false,
       },
-      { label: this.texts.freeShort, hint: '', amount: d.free, dot: 'bg-brand', strong: true },
+      { sign: '−', label: this.texts.toPay, amount: d.toPay, dot: 'bg-expense', strong: false },
+      {
+        sign: '−',
+        label: this.texts.cardLater,
+        amount: d.cardLater,
+        dot: 'bg-card',
+        strong: false,
+      },
+      { sign: '=', label: this.texts.freeShort, amount: d.free, dot: 'bg-brand', strong: true },
     ];
   });
 

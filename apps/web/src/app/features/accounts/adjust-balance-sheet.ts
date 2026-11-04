@@ -1,15 +1,8 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import type { Pocket } from '@platin/contracts';
-import { LocalDate, TransferIntent } from '@platin/domain';
-import {
-  parseTypedAmount,
-  PlBottomSheet,
-  PlButton,
-  PlDateField,
-  PlMoney,
-  PlSheet,
-} from '@platin/web-ui';
+import { LocalDate } from '@platin/domain';
+import { parseTypedAmount, PlButton, PlDateField, PlMoney, PlSheet } from '@platin/web-ui';
 import { AuthService } from '../../core/auth/auth.service';
 import { errorMessage } from '../../core/errors';
 import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
@@ -17,12 +10,11 @@ import { Today } from '../../core/today';
 import { InvestmentsStore } from '../investments/investments.store';
 import { AccountsStore } from './accounts.store';
 import { ACCOUNTS_TEXTS } from './accounts.texts';
-import { MoveSheet, MoveSheetData } from './move-sheet';
 
 /**
  * CTA-06: type the real balance; the difference is recorded as an adjustment. The sheet says
- * what it is for by pocket kind and offers shortcuts to the right action. An investment pocket
- * has no adjustment: it updates its value (INV-03, 04), and the difference becomes its yield.
+ * what it is for by pocket kind. An investment reserve has no adjustment: it updates its value
+ * (INV-03, 04), and the difference becomes its yield.
  */
 @Component({
   selector: 'pl-adjust-balance-sheet',
@@ -31,13 +23,6 @@ import { MoveSheet, MoveSheetData } from './move-sheet';
   template: `
     <pl-sheet [heading]="kind.title">
       <p class="text-[15px] text-muted">{{ kind.body }}</p>
-      <div class="flex flex-wrap gap-2" role="group" [attr.aria-label]="texts.shortcutsLabel">
-        @for (shortcut of kind.shortcuts; track shortcut) {
-          <button plButton="secondary" type="button" (click)="openShortcut(shortcut)">
-            {{ texts.shortcuts[shortcut] }}
-          </button>
-        }
-      </div>
       <p class="text-sm">
         {{ valuation ? texts.currentValue : texts.current }}:
         <pl-money [amount]="pocket.balance" [currency]="pocket.currency" decimals="auto" />
@@ -98,7 +83,6 @@ export class AdjustBalanceSheet {
   private readonly ref = inject(DialogRef);
   private readonly store = inject(AccountsStore);
   private readonly investments = inject(InvestmentsStore);
-  private readonly sheet = inject(PlBottomSheet);
   private readonly auth = inject(AuthService);
 
   protected readonly real = signal('');
@@ -117,18 +101,6 @@ export class AdjustBalanceSheet {
 
   protected setDate(date: LocalDate | null): void {
     if (date) this.date.set(date);
-  }
-
-  /** "Mover", "Invertir" or "Rescatar" with this pocket already chosen. */
-  protected openShortcut(intent: TransferIntent): void {
-    const account = this.store.byId(this.pocket.accountId);
-    if (!account) return;
-    const data: MoveSheetData =
-      intent === 'INVEST'
-        ? { account, intent, toPocketId: this.pocket.id }
-        : { account, intent, fromPocketId: this.pocket.id };
-    this.ref.close();
-    this.sheet.open(MoveSheet, { data, ariaLabel: ACCOUNTS_TEXTS.move.titles[intent] });
   }
 
   protected async save(): Promise<void> {

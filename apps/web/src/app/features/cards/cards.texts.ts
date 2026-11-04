@@ -41,7 +41,8 @@ export const CARDS_TEXTS = {
     payments: 'Pagos',
     noCharges: 'Sin consumos.',
     noPayments: 'Todavía no tiene pagos.',
-    paymentFrom: (pocket: string, account: string) => `Desde ${pocket} · ${account}`,
+    paymentFrom: (pocket: string, account: string) =>
+      pocket === 'Disponible' ? `Desde ${account}` : `Desde ${account} · ${pocket}`,
   },
   charges: {
     title: 'Compras',
@@ -88,7 +89,7 @@ export const CARDS_TEXTS = {
     limit: 'Límite (opcional)',
     closingDay: 'Día de cierre',
     dueDay: 'Día de vencimiento',
-    defaultAccount: 'Apartado con el que la pagás',
+    defaultAccount: 'Cuenta con la que la pagás',
     none: 'Ninguna',
     create: 'Crear tarjeta',
     save: 'Guardar',
@@ -146,11 +147,11 @@ export const CARDS_TEXTS = {
   },
   pay: {
     title: 'Pagar resumen',
-    account: 'Desde el apartado',
+    account: 'Desde la cuenta',
     part: 'Qué parte pagás',
     amount: 'Monto a pagar',
-    amountOut: 'Sale del apartado',
-    amountOutHint: 'Pagás dólares con pesos: cuánto sale del apartado.',
+    amountOut: 'Sale de la cuenta',
+    amountOutHint: 'Pagás dólares con pesos: cuánto sale de la cuenta.',
     date: 'Fecha',
     save: 'Registrar pago',
   },

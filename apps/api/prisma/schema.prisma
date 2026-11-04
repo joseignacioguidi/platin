@@ -33,8 +33,11 @@ enum AccountKind {
   BROKER
 }
 
+// AVAILABLE is the account balance (one per account and currency, partial unique index in SQL);
+// the rest are reserves. SPENDING = a reserve to spend from.
 enum PocketKind {
   AVAILABLE
+  SPENDING
   SAVINGS
   INVESTMENT
 }

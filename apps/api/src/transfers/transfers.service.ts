@@ -3,8 +3,8 @@ import type { CreateTransferRequest, Transfer } from '@platin/contracts';
 import {
   Currency,
   impliedRate,
-  intentFits,
   Money,
+  transferHasAccount,
   TransferIntent,
   transferIntent,
 } from '@platin/domain';
@@ -40,7 +40,8 @@ export function toTransferDto(
 }
 
 /**
- * MOV-02 / CTA-05 / INV-02: money between pockets of the same account or of another one.
+ * MOV-02 / CTA-05, 06 / INV-02: money between account balances, or between an account balance
+ * and a reserve, of the same account or of another one.
  * Between currencies the rate is the one implied by the two amounts the user typed.
  */
 @Injectable()
@@ -58,11 +59,12 @@ export class TransfersService {
     const from = await this.pockets.getActive(userId, request.fromPocketId);
     const to = await this.pockets.getActive(userId, request.toPocketId);
     await this.currencies.assertEnabled(userId, from.currency, to.currency);
-    if (request.intent && !intentFits(request.intent, from.kind, to.kind)) {
+    // An account balance on one end; the intent comes from the kinds (the request's is ignored).
+    if (!transferHasAccount(from.kind, to.kind)) {
       throw new AppException(
-        'TRANSFER_INTENT_MISMATCH',
+        'TRANSFER_NEEDS_ACCOUNT',
         HttpStatus.UNPROCESSABLE_ENTITY,
-        `The pockets don't fit a ${request.intent} transfer`,
+        'Between two reserves the money goes through an account balance',
       );
     }
     const amountIn = this.amountIn(from, to, request);
