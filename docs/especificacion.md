@@ -28,7 +28,7 @@ Todo dinero vive en un apartado de una **cuenta** o en una **tarjeta**; los movi
 | --- | --- | --- |
 | Usuario | Persona con su espacio de datos | email, contraseña, moneda base, monedas que usa, cotización preferida para valuar dólares (oficial, MEP, blue), accesos del inicio |
 | Cuenta | La institución o el lugar donde está la plata: Mercado Pago, Santander, Ualá, efectivo, un broker | nombre, tipo (banco, billetera, efectivo, broker), color, archivada |
-| Apartado | Plata separada dentro de una cuenta, con su moneda y su propósito: el disponible, una reserva, una inversión | cuenta, nombre, moneda, tipo (disponible, ahorro, inversión), instrumento (solo inversión), saldo inicial, cuenta para patrimonio, archivado |
+| Apartado | Plata dentro de una cuenta, con su moneda y su propósito. El disponible es el **saldo de la cuenta**; los demás se llaman **reservas** en la interfaz (ver "Cuentas y reservas") | cuenta, nombre, moneda, tipo (disponible, para gastar, ahorro, inversión), instrumento (solo inversión), saldo inicial, cuenta para patrimonio, archivado |
 | Categoría | Clasificación de ingresos y gastos, propia de cada usuario | nombre, tipo (ingreso/gasto), ícono, color, categoría padre opcional, de sistema, archivada |
 | Movimiento | Ingreso, gasto, ajuste o rendimiento sobre un apartado | apartado, categoría, monto, moneda, fecha, descripción, estado (pendiente/confirmado), tipo de cambio, monto en moneda base, origen |
 | Transferencia | Plata que pasa de un apartado a otro: apartar, invertir, rescatar, mover entre cuentas o comprar dólares | apartado origen, apartado destino, monto que sale, monto que entra, cotización implícita, fecha |
@@ -36,7 +36,7 @@ Todo dinero vive en un apartado de una **cuenta** o en una **tarjeta**; los movi
 | Resumen | Un ciclo de la tarjeta | tarjeta, período, fecha de cierre, fecha de vencimiento, total ARS, total USD, estado (abierto, cerrado, pagado, pagado parcial) |
 | Consumo | Una compra con tarjeta, en 1 o N cuotas | tarjeta, fecha, descripción, categoría, monto total, moneda, cantidad de cuotas, primer resumen |
 | Cuota | Una parte del consumo que cae en un resumen | consumo, número (3 de 12), monto, resumen al que pertenece |
-| Fijo | Gasto o ingreso que se repite: alquiler, sueldo, suscripciones | tipo, categoría, apartado o tarjeta, monto, moneda, frecuencia, día, desde, hasta opcional |
+| Fijo | Gasto o ingreso que se repite: alquiler, sueldo, suscripciones | tipo, categoría, cuenta o tarjeta, monto, moneda, frecuencia, día, desde, hasta opcional |
 | Presupuesto | Tope de gasto por categoría | categoría, monto mensual, moneda, vigente desde, vigente hasta opcional |
 | Meta | Objetivo de ahorro | nombre, monto objetivo, moneda, fecha objetivo, apartados vinculados |
 | Valuación | El valor de un apartado de inversión en una fecha, cargado a mano | apartado, fecha, valor, rendimiento generado |
@@ -44,7 +44,9 @@ Todo dinero vive en un apartado de una **cuenta** o en una **tarjeta**; los movi
 
 _Diagrama de relaciones: Fijo genera Movimiento; Movimiento clasifica con una Categoría y afecta el saldo de un Apartado; Meta mide el avance de Apartados; Apartado pertenece a una Cuenta; Transferencia mueve plata entre apartados y paga la Tarjeta; Tarjeta tiene un Resumen por mes; Consumo se divide en Cuotas que caen en Resúmenes._
 
-El apartado es el centro: movimientos, transferencias y metas lo afectan o lo miden, y cada apartado pertenece a una cuenta. Del lado de la tarjeta, cada consumo se parte en cuotas que caen en resúmenes mensuales.
+El apartado es el centro: movimientos, transferencias y metas lo afectan o lo miden, y cada apartado pertenece a una cuenta.
+
+> **Nombres desde la iteración 6.** "Apartado" (`Pocket`) sigue siendo el nombre técnico en el código y en estos documentos. En la interfaz no aparece: el apartado Disponible se muestra como **el saldo de la cuenta** y los demás como **reservas**. Ingresos, gastos, fijos y pagos de tarjeta van siempre al saldo de la cuenta; a una reserva la plata solo entra y sale por transferencias, más los ajustes de saldo y las valuaciones. Del lado de la tarjeta, cada consumo se parte en cuotas que caen en resúmenes mensuales.
 
 Pagar un resumen es una transferencia de un apartado a la tarjeta; por eso el gasto se registra una sola vez (en el consumo) y el pago no lo duplica. Lo mismo vale para invertir o apartar: es mover plata entre apartados, no un gasto.
 
@@ -68,27 +70,27 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 ### 2. Cuentas y apartados
 
 - **CTA-01** Crear, editar y archivar cuentas: una por institución o lugar (Mercado Pago, Santander, efectivo, un broker), con su tipo (banco, billetera, efectivo, broker).
-- **CTA-02** Crear apartados dentro de una cuenta con nombre, moneda y tipo: disponible, ahorro o inversión. Toda cuenta nace con un apartado "Disponible" en pesos.
-- **CTA-03** Ver cada cuenta con sus apartados agrupados, el saldo de cada uno y el total de la cuenta por moneda; arriba, el total general por moneda.
-- **CTA-04** Ver el detalle de un apartado con sus movimientos y la evolución del saldo.
-- **CTA-05** Mover plata entre apartados de la misma cuenta en dos toques, con acciones con nombre: Apartar (a un ahorro), Invertir (a una inversión) y Rescatar (de vuelta al disponible).
-- **CTA-06** Ajustar el saldo de un apartado de Disponible o de Ahorro: se crea un movimiento de ajuste por la diferencia. La hoja explica para qué sirve según el tipo y ofrece atajos a la acción correcta cuando lo que pasó fue otra cosa:
-  - **Ahorro** — "Ajustar saldo": "Usalo para sumar intereses o corregir una diferencia. Si pasaste plata desde otro apartado, usá Mover." Atajo: Mover.
-  - **Disponible** — "Ajustar saldo": "Corregí una diferencia con tu banco o billetera." Atajo: Mover.
-  - **Inversión** — no tiene "Ajustar saldo"; solo "Actualizar valor" (INV-03, 04): "Usalo cuando cambia lo que vale tu inversión: ganancias o pérdidas. Si compraste o vendiste, usá Invertir o Rescatar." Atajos: Invertir y Rescatar.
-  - Los atajos abren el formulario correspondiente con el apartado ya elegido.
+- **CTA-02** Crear reservas dentro de una cuenta con nombre, moneda, saldo de hoy y uso: **para gastar** (un sobre para gastos del mes o para pagar la tarjeta), **ahorro** o **inversión**. Toda cuenta nace con su saldo en pesos; agregar una moneda a la cuenta crea su saldo en esa moneda. El saldo inicial de una reserva se pide solo al crearla, para cargar las que ya existen en el banco.
+- **CTA-03** Ver cada cuenta con su saldo y, debajo, sus reservas con el saldo y el uso de cada una, y el total de la cuenta por moneda; arriba, el total general por moneda.
+- **CTA-04** Ver el detalle de una cuenta o de una reserva con sus movimientos y la evolución del saldo.
+- **CTA-05** En el detalle de una reserva, **Retirar** devuelve plata al saldo de una cuenta (la suya, por defecto). No hay botones Apartar, Invertir ni Rescatar: la intención de la transferencia se deduce del uso de la reserva.
+- **CTA-06** En el detalle de una reserva, **Ajustar saldo** abre dos opciones:
+  - **Ingresar desde una cuenta**: transferencia desde el saldo de cualquier cuenta (la suya, por defecto), con dos montos si las monedas son distintas.
+  - **Ajustar saldo** (en una inversión, **Actualizar valor**): "Usalo para sumar intereses o corregir una diferencia con tu banco." Crea un movimiento de ajuste por la diferencia; en una inversión, una valuación (INV-03, 04).
+  - El saldo de una cuenta también se puede ajustar, solo con la segunda opción: "Corregí una diferencia con tu banco o billetera."
 - **CTA-07** Archivar un apartado o una cuenta cuando su saldo es 0; el histórico se conserva.
 
 ### 3. Movimientos
 
-- **MOV-01** Cargar ingreso o gasto con cuenta, categoría, monto, fecha y nota. Carga rápida desde un botón siempre visible.
-- **MOV-02** Cargar una transferencia entre apartados, de la misma cuenta o de otra, incluida la compra o venta de dólares con su cotización.
+- **MOV-01** Cargar ingreso o gasto con cuenta, categoría, monto, fecha y motivo. Carga rápida desde un botón siempre visible. Se elige la cuenta (en la moneda del monto), nunca una reserva.
+- **MOV-02** Cargar una transferencia entre cuentas, incluida la compra o venta de dólares con su cotización. Lo que entra y sale de las reservas se hace desde la reserva (CTA-05, 06).
 - **MOV-03** Listar, filtrar (fecha, cuenta, categoría, tipo, texto) y buscar movimientos.
-- **MOV-04** Editar y eliminar movimientos. Al editar se puede cambiar el apartado (y con él la cuenta), solo por otro de la misma moneda; para cambiar de moneda hay que borrarlo y cargarlo de nuevo.
+- **MOV-04** Editar y eliminar movimientos. Al editar se puede cambiar la cuenta, solo por otra con saldo en la misma moneda; para cambiar de moneda hay que borrarlo y cargarlo de nuevo. Al editar un movimiento programado el botón dice "Guardar".
 - **MOV-05** Confirmar movimientos pendientes generados por fijos, en lote.
 - **MOV-06** Exportar movimientos a CSV.
-- **MOV-07** Invertir o rescatar desde la carga rápida: un cuarto modo "Invertir", con "Invertir" / "Rescatar". Invertir pasa plata de un apartado (por defecto, el Disponible) a un apartado de inversión, existente o nuevo ("+ Nueva inversión"); Rescatar hace lo inverso. Si las monedas son distintas pide los dos montos. Se guarda como transferencia con intención `INVEST` o `REDEEM` y en la lista se lee "Invertiste $ 150.000 en CEDEARs". Requiere el plan que incluye inversiones.
+- **MOV-07** Invertir o rescatar desde la carga rápida: un cuarto modo "Invertir", con "Invertir" / "Rescatar". Invertir pasa plata del saldo de una cuenta a una reserva de inversión, existente o nueva ("+ Nueva inversión"); Rescatar hace lo inverso. Es el único lugar fuera de la reserva donde se invierte. Si las monedas son distintas pide los dos montos. Se guarda como transferencia con intención `INVEST` o `REDEEM` y en la lista se lee "Invertiste $ 150.000 en CEDEARs". Requiere el plan que incluye inversiones.
 - **MOV-08** Cargar un gasto o ingreso con fecha futura (un turno médico el 20 con su costo): queda programado, no toca saldos y aparece en compromisos y en los próximos 30 días. Cuando llega su fecha pasa a "Para confirmar".
+- **MOV-09** La carga rápida entra en la pantalla de un celular sin scroll (360 × 640 como mínimo), también con tarjeta y cuotas. El **motivo** ("¿En qué?") está siempre visible debajo del monto; si queda vacío, el movimiento toma el nombre de la categoría.
 
 ### 4. Tarjetas de crédito
 
@@ -118,8 +120,9 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 ### 6. Compromisos
 
 - **COM-01** Ver una línea de tiempo de los próximos 12 meses: cuotas, resúmenes a pagar y fijos, por mes y por moneda.
-- **COM-02** Ver el total comprometido de un mes y cuánto queda libre según los ingresos esperados. Incluye los fijos en tarjeta y los gastos programados (MOV-08).
+- **COM-02** Ver el total comprometido de un mes y el **margen** del mes (ingresos esperados − comprometido). Incluye los fijos en tarjeta y los gastos programados (MOV-08). Se llama margen y no libre para no confundirlo con "Libre este mes" del inicio, que parte de los saldos.
 - **COM-03** Ver cuándo termina cada plan de cuotas y cuánto se libera ese mes.
+- **COM-04** Cada línea de Compromisos muestra desde qué cuenta se paga: un resumen, desde la cuenta de pago de su tarjeta; un fijo o un programado, desde su cuenta. Si una tarjeta no tiene cuenta de pago, "Sin cuenta asignada" con un atajo para elegirla. Las líneas no llevan ícono.
 
 ### 7. Presupuestos
 
@@ -152,7 +155,7 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 - **LAN-02** Páginas de login y registro con la misma identidad visual.
 
 * **DAS-04** Accesos rápidos en el inicio a las demás funciones (cuentas, tarjetas, fijos, compromisos, ahorros, inversiones, categorías, presupuestos cuando existan). Cada usuario elige cuáles ver y en qué orden; hay un conjunto por defecto.
-* **DAS-05** "Libre este mes" descuenta lo que el usuario separó para ahorrar o invertir en el mes. La barra se reparte en Gastado · Comprometido · Ahorrado/Invertido · Libre.
+* **DAS-05** "Libre este mes" se calcula desde los saldos (regla "Libre este mes"). Debajo del número, cómo se llega a él: en tus cuentas, por cobrar, a pagar este mes y tarjeta de los meses siguientes. Aparte, como dato, lo gastado y lo ahorrado o invertido en el mes.
 * **DAS-06** Todos los gráficos muestran el valor exacto y su etiqueta (mes, categoría, apartado) al pasar el mouse, al enfocar con teclado o al tocar.
 
 ### 11. Categorías
@@ -204,15 +207,17 @@ Además de pesos y dólares, el usuario puede manejar euros, reales, pesos chile
 
 Estas reglas son las que más errores generan si se dejan implícitas; cada una debe tener tests unitarios.
 
-### Cuentas y apartados
+### Cuentas y reservas
 
-- Cada apartado tiene una sola moneda; una cuenta puede tener apartados en pesos y en dólares.
+- Cada cuenta tiene un saldo por moneda (el apartado Disponible) y reservas. Cada reserva tiene una sola moneda y un uso: para gastar, ahorro o inversión.
 - Saldo de un apartado = saldo inicial + ingresos confirmados − gastos confirmados ± ajustes ± rendimientos − transferencias que salen + transferencias que entran. Se calcula, no se guarda.
-- Saldo de una cuenta = suma de sus apartados, separada por moneda.
-- Todo movimiento se carga sobre un apartado. La carga rápida preselecciona el último apartado usado; al elegir una cuenta se usa su Disponible en la moneda del monto.
-- Mover entre apartados de la misma moneda pide un monto; entre monedas distintas pide los dos montos y muestra la cotización resultante (comprar dólares dentro de Mercado Pago).
-- El tipo del apartado define dónde aparece: Disponible en el uso diario, Ahorro en la pantalla de ahorros, Inversión en ahorros e inversiones. No cambia cómo se calcula el saldo.
-- Los fijos y los pagos de tarjeta salen de un apartado; las metas se vinculan a apartados.
+- Saldo total de una cuenta = su saldo más sus reservas, separado por moneda.
+- **Ingresos, gastos, fijos, programados y pagos de tarjeta van siempre al saldo de una cuenta.** Una reserva no recibe ingresos ni gastos: la plata entra por transferencia desde el saldo de una cuenta y vuelve al saldo de una cuenta. También admite ajustes (para gastar y ahorro) o valuaciones (inversión).
+- Toda transferencia tiene el saldo de una cuenta en al menos una punta: cuenta a cuenta, cuenta a reserva o reserva a cuenta. Entre dos reservas se pasa por una cuenta.
+- La intención de una transferencia se deduce de las puntas: a una reserva de ahorro es apartar, a una de inversión es invertir, de ahorro o inversión a una cuenta es rescatar, y lo demás es mover.
+- Mover entre monedas iguales pide un monto; entre monedas distintas pide los dos montos y muestra la cotización resultante (comprar dólares dentro de Mercado Pago).
+- El uso define dónde aparece la reserva: para gastar junto a su cuenta, ahorro en la pantalla de ahorros, inversión en ahorros e inversiones. Las metas se vinculan a reservas de ahorro o inversión.
+- La carga rápida preselecciona la última cuenta usada en la moneda del monto.
 - El patrimonio suma los apartados marcados como "cuenta para patrimonio", valuados en moneda base.
 
 ### Dinero y monedas
@@ -281,15 +286,19 @@ La misma regla vale en Compromisos y en el inicio; lo que una pantalla muestra p
 
 ### Libre este mes
 
-Libre = ingresos esperados − comprometido − gastado − separado, en moneda base, y puede ser negativo.
+Desde la iteración 6, el libre sale de lo que hay, no de lo que se movió en el mes:
 
-- **Ingresos esperados**: ingresos fijos del mes (por su monto real si ya se confirmaron) + otros ingresos confirmados del mes + ingresos programados del mes sin confirmar.
-- **Gastado**: gastos confirmados del mes + consumos con tarjeta hechos en el mes. Los pagos de resumen no son gasto.
-- **Separado**: transferencias del mes de un apartado Disponible a uno de Ahorro o Inversión, menos las que vuelven de Ahorro o Inversión a Disponible. Puede ser negativo si se rescató más de lo que se separó.
-- Las transferencias entre dos Disponibles, o entre dos apartados de Ahorro o Inversión, no cuentan: la plata no cambia de propósito.
-- Los ajustes y los rendimientos no cuentan.
+Libre = en tus cuentas + por cobrar − a pagar este mes − tarjeta de los meses siguientes, en moneda base y con la cotización de hoy. Puede ser negativo.
 
-Ejemplo: ingresos esperados $ 1.200.000; comprometido $ 380.000; gastado $ 250.000; invertí $ 150.000 en CEDEARs y pasé $ 50.000 a una reserva. Libre = 1.200.000 − 380.000 − 250.000 − 200.000 = $ 370.000. Si después rescato $ 30.000 de la reserva al Disponible, Libre = $ 400.000.
+- **En tus cuentas**: saldo de hoy de los saldos de cuenta y de las reservas para gastar. Las reservas de ahorro e inversión no cuentan.
+- **Por cobrar**: ingresos fijos del mes sin confirmar (con su monto vigente) e ingresos programados del mes sin confirmar.
+- **A pagar este mes**: el comprometido del mes (regla "Compromisos de un mes"): la parte pendiente de los resúmenes que vencen en el mes, los fijos de gasto sin confirmar y los gastos programados sin confirmar.
+- **Tarjeta de los meses siguientes**: las cuotas de las compras con tarjeta hechas en el mes que caen en resúmenes que vencen después de este mes. Lo que vence este mes ya está en "a pagar", así que nada se cuenta dos veces.
+- Pasar plata del saldo de una cuenta a una reserva de ahorro o inversión baja el libre (baja "en tus cuentas"); retirarla lo sube. Pasarla a una reserva para gastar no lo cambia.
+- Los rendimientos y los ajustes de reservas de ahorro e inversión no cambian el libre; los ajustes del saldo de una cuenta o de una reserva para gastar sí, porque cambian lo que hay.
+- **Meses anteriores**: el libre es lo que quedó en tus cuentas el último día del mes, sin por cobrar ni a pagar.
+
+Ejemplo: en tus cuentas $ 726.150 de saldo y $ 450.000 en reservas para gastar (Gastos Previstos $ 220.000, Cuotas $ 120.000, Extras $ 110.000); por cobrar $ 0; a pagar este mes $ 379.418,27; ninguna compra con tarjeta del mes cae en meses siguientes. Libre = 1.176.150 − 379.418,27 = $ 796.731,73. Si el 20 compro con tarjeta $ 90.000 en 3 cuotas que vencen en diciembre, enero y febrero, Libre = $ 706.731,73. Si después paso $ 200.000 del saldo a la reserva Auto (ahorro), Libre = $ 506.731,73.
 
 ### Presupuestos
 
@@ -424,6 +433,14 @@ Que todo cierre: cada peso está en un solo lugar y los números de una pantalla
 - Empezar de cero desde el perfil, con la opción de mantener las categorías (AUTH-09).
 - Cargar compras ya empezadas cuando el banco ya cerró el resumen y todavía no venció (TAR-03).
 
+### Iteración 6 (noviembre 2026)
+
+Cuentas más simples y un libre que coincide con lo que hay en el banco.
+
+- Cuentas con su saldo y reservas, como en Mercado Pago. La plata entra y sale de las reservas solo por transferencias, con Ingresar y Retirar (CTA-02 a 06, MOV-01, 02).
+- "Libre este mes" calculado desde los saldos, con las compras con tarjeta de los meses siguientes y sin contar nada dos veces (DAS-05).
+- Carga rápida sin scroll y con el motivo siempre visible (MOV-09); "Guardar" al editar un programado (MOV-04); Compromisos con la cuenta de pago de cada línea (COM-04).
+
 ## Identidad visual y UX
 
 La app usa la paleta y la tipografía de Hecho, con los colores reasignados a significados financieros. La interfaz se diseña de cero, mobile-first, alrededor de una pregunta: cuánto puedo gastar este mes.
@@ -452,8 +469,8 @@ Coral pasa de acento a color funcional porque las finanzas necesitan un "negativ
 
 ### Propuesta de interfaz
 
-1. **Inicio = "Libre este mes"**: un número grande (ingresos esperados − comprometido − gastado − separado para ahorro e inversión) con una barra que muestra cómo se reparte. Debajo, los próximos 30 días como línea de tiempo: vencimientos de tarjeta, cuotas y fijos.
-2. **Carga rápida en 3 toques**: botón + siempre visible que abre una hoja inferior. Primero el teclado numérico con el monto, después las categorías recientes como chips; la cuenta usada la última vez viene preseleccionada. En escritorio, también con Ctrl+K.
+1. **Inicio = "Libre este mes"**: un número grande (lo que hay en tus cuentas + por cobrar − a pagar este mes − tarjeta de los meses siguientes) con una barra que muestra cómo se reparte. Debajo, los próximos 30 días como línea de tiempo: vencimientos de tarjeta, cuotas y fijos.
+2. **Carga rápida en 3 toques**: botón + siempre visible que abre una hoja inferior que entra sin scroll. Primero el teclado numérico con el monto y el motivo debajo, después las categorías recientes como chips en una fila; la cuenta usada la última vez viene preseleccionada. En escritorio, también con Ctrl+K.
 3. **Bandeja "Para confirmar"**: los pendientes de fijos aparecen como una lista tipo inbox; se confirman deslizando o en lote.
 4. **Tarjetas como tarjetas**: cada una se ve como una tarjeta física en violeta con el resumen abierto, días al cierre y total en pesos y dólares. Dentro, las cuotas activas con una barra "4 de 12".
 5. **Metas con anillo de progreso**: acumulado, faltante, aporte mensual necesario en grande y una etiqueta de ritmo (adelantado o atrasado).
@@ -466,7 +483,7 @@ Antes de implementar conviene bajar estas pantallas a mockups: Inicio, Carga rá
 
 ### Formularios
 
-- **Selectores propios** en lugar de las listas nativas del navegador: con búsqueda, ícono y color de cada opción, y un dato secundario (saldo y moneda de un apartado, tipo de una categoría). Agrupan opciones (apartados por cuenta) y se manejan con teclado. En celular se abren como hoja inferior.
+- **Selectores propios** en lugar de las listas nativas del navegador: con búsqueda, ícono y color de cada opción, y un dato secundario (saldo y moneda de una cuenta o reserva, tipo de una categoría). Agrupan opciones (reservas por cuenta) y se manejan con teclado. En celular se abren como hoja inferior.
 - **Campo de fecha propio**: un calendario que funciona igual en escritorio y celular, con atajos Hoy y Ayer, y la fecha escrita en español ("lunes 27 de octubre").
 - Ningún formulario usa `<select>` ni `<input type="date">` nativos.
 
