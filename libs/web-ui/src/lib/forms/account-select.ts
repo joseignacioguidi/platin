@@ -73,7 +73,7 @@ export class PlAccountSelect extends PlFormControl<string | null> {
   readonly inputId = input<string>();
   readonly placeholder = input('Elegí una cuenta');
   readonly emptyLabel = input<string | null>(null);
-  readonly appearance = input<'field' | 'tile'>('field');
+  readonly appearance = input<'field' | 'tile' | 'chip'>('field');
   readonly invalid = input(false);
 
   private readonly hideAmounts = inject(HideAmounts);

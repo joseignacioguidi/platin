@@ -113,7 +113,7 @@ export class PlPocketSelect extends PlFormControl<string | null> {
   readonly inputId = input<string>();
   readonly placeholder = input('Elegí una reserva');
   readonly emptyLabel = input<string | null>(null);
-  readonly appearance = input<'field' | 'tile'>('field');
+  readonly appearance = input<'field' | 'tile' | 'chip'>('field');
   readonly invalid = input(false);
   /** `pocket`: "Auto" under its account group. `account`: "Mercado Pago · Auto". */
   readonly display = input<'pocket' | 'account'>('pocket');

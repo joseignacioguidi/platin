@@ -7,12 +7,12 @@ import { applyKey, KeypadKey } from './amount-input';
   selector: 'pl-amount-keypad',
   imports: [LucideDelete],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'grid grid-cols-3 gap-2' },
+  host: { class: 'grid grid-cols-3 gap-1.5' },
   template: `
     @for (key of keys; track key) {
       <button
         type="button"
-        class="font-amount flex h-[50px] items-center justify-center rounded-[18px] bg-field text-2xl text-ink active:bg-line"
+        class="font-amount flex h-11 items-center justify-center rounded-2xl bg-field text-2xl text-ink active:bg-line"
         [attr.aria-label]="label(key)"
         (click)="press(key)"
       >
