@@ -1,4 +1,11 @@
 export const DASHBOARD_TEXTS = {
+  /** What each part of the free card means (its help tooltip). */
+  help: {
+    toPay: 'Plata que sale de tus cuentas antes de fin de mes.',
+    cardNext: 'Lo que ya gastaste con tarjeta este mes y pagás en los meses que vienen.',
+    free: 'Lo que te queda de verdad.',
+  },
+  helpLabel: (term: string) => `Qué es "${term}"`,
   hello: 'Hola',
   title: 'Inicio',
   free: 'Libre este mes',

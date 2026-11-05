@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { HideAmounts } from '../money/hide-amounts';
-import { PlChartPoint } from './chart-tooltip';
+import { PlChartPoint, PlInfoTip } from './chart-tooltip';
 
 @Component({
   imports: [PlChartPoint],
@@ -88,5 +88,53 @@ describe('pl-chart-tooltip (DAS-06)', () => {
     await settle();
     expect(tooltip()?.textContent).not.toContain('18.500');
     expect(tooltip()?.textContent).toContain('Octubre');
+  });
+});
+
+@Component({
+  imports: [PlInfoTip],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <button id="help" aria-label="Qué es Libre" term="Libre" plInfoTip="Lo que te queda de verdad">
+      i
+    </button>
+    <button id="away">Afuera</button>
+  `,
+})
+class InfoHost {}
+
+describe('plInfoTip', () => {
+  afterEach(() => document.querySelector('.cdk-overlay-container')?.replaceChildren());
+
+  it('explains the term on hover, focus and tap, and is linked to the button', async () => {
+    const fixture = TestBed.createComponent(InfoHost);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    const help = el.querySelector<HTMLButtonElement>('#help') as HTMLButtonElement;
+    const settle = async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+    };
+    expect(help.getAttribute('type')).toBe('button');
+
+    help.dispatchEvent(new MouseEvent('mouseenter'));
+    await settle();
+    expect(tooltip()?.textContent).toContain('Libre');
+    expect(tooltip()?.textContent).toContain('Lo que te queda de verdad');
+    expect(help.getAttribute('aria-describedby')).toBe(tooltip()?.id);
+
+    help.dispatchEvent(new MouseEvent('mouseleave'));
+    await settle();
+    expect(tooltip()).toBeNull();
+
+    help.click();
+    await settle();
+    expect(tooltip()?.textContent).toContain('Lo que te queda de verdad');
+
+    el.querySelector<HTMLButtonElement>('#away')?.dispatchEvent(
+      new Event('pointerdown', { bubbles: true }),
+    );
+    await settle();
+    expect(tooltip()).toBeNull();
   });
 });

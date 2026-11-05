@@ -1,8 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { LucideChevronRight } from '@lucide/angular';
+import { NgTemplateOutlet } from '@angular/common';
+import { LucideChevronRight, LucideInfo } from '@lucide/angular';
 import type { Dashboard } from '@platin/contracts';
 import { dateParts, lastDayOf, Money, Period } from '@platin/domain';
-import { PlBottomSheet, PlMoney, PlStackedBar, PlStackSegment } from '@platin/web-ui';
+import { PlBottomSheet, PlInfoTip, PlMoney, PlStackedBar, PlStackSegment } from '@platin/web-ui';
 import { DASHBOARD_TEXTS } from './dashboard.texts';
 import { HomeToPay, ToPayData } from './home-to-pay';
 
@@ -12,7 +13,7 @@ import { HomeToPay, ToPayData } from './home-to-pay';
  */
 @Component({
   selector: 'pl-home-free-card',
-  imports: [PlMoney, PlStackedBar, LucideChevronRight],
+  imports: [NgTemplateOutlet, PlMoney, PlStackedBar, PlInfoTip, LucideChevronRight, LucideInfo],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
@@ -65,25 +66,47 @@ import { HomeToPay, ToPayData } from './home-to-pay';
             {{ texts.splitSuffix }}
           </p>
           <pl-stacked-bar [segments]="segments()" [currency]="d.currency" />
+          <!-- Each part with a help tooltip; "para pagar" opens its list from anywhere on the row. -->
           <div class="flex flex-col">
-            <button
-              type="button"
-              class="flex min-h-12 items-center gap-2.5 rounded-xl text-left"
-              (click)="openToPay()"
-            >
+            <div class="relative flex min-h-12 items-center gap-2.5">
               <span class="size-2.5 shrink-0 rounded-full bg-pending" aria-hidden="true"></span>
-              <span class="flex-1 text-[15px]">{{ texts.toPayMonth }}</span>
+              <span class="min-w-0 flex-1 text-[15px]">
+                <button
+                  type="button"
+                  class="text-left after:absolute after:inset-0 after:rounded-xl"
+                  (click)="openToPay()"
+                >
+                  {{ texts.toPayMonth }}</button
+                ><ng-container
+                  *ngTemplateOutlet="
+                    help;
+                    context: { term: texts.toPayMonth, text: texts.help.toPay }
+                  "
+                />
+              </span>
               <pl-money
                 class="text-[15px]"
                 [amount]="d.toPay"
                 [currency]="d.currency"
                 [decimals]="false"
               />
-              <svg lucideChevronRight class="shrink-0 text-muted" [size]="18"></svg>
-            </button>
+              <svg
+                lucideChevronRight
+                class="shrink-0 text-muted"
+                [size]="18"
+                aria-hidden="true"
+              ></svg>
+            </div>
             <div class="flex min-h-11 items-center gap-2.5 border-t border-line-soft">
               <span class="size-2.5 shrink-0 rounded-full bg-card" aria-hidden="true"></span>
-              <span class="flex-1 text-[15px]">{{ texts.cardNext }}</span>
+              <span class="min-w-0 flex-1 py-1 text-[15px] leading-snug"
+                >{{ texts.cardNext
+                }}<ng-container
+                  *ngTemplateOutlet="
+                    help;
+                    context: { term: texts.cardNext, text: texts.help.cardNext }
+                  "
+              /></span>
               <pl-money
                 class="mr-7 text-[15px]"
                 [amount]="d.cardLater"
@@ -93,7 +116,14 @@ import { HomeToPay, ToPayData } from './home-to-pay';
             </div>
             <div class="flex min-h-11 items-center gap-2.5 border-t border-line-soft">
               <span class="size-2.5 shrink-0 rounded-full bg-brand" aria-hidden="true"></span>
-              <span class="flex-1 text-[15px] font-bold">{{ texts.freeShort }}</span>
+              <span class="min-w-0 flex-1 text-[15px] font-bold"
+                >{{ texts.freeShort
+                }}<ng-container
+                  *ngTemplateOutlet="
+                    help;
+                    context: { term: texts.freeShort, text: texts.help.free }
+                  "
+              /></span>
               <pl-money
                 class="mr-7 text-[15px] font-bold"
                 [amount]="d.free"
@@ -102,6 +132,20 @@ import { HomeToPay, ToPayData } from './home-to-pay';
               />
             </div>
           </div>
+          <ng-template #help let-term="term" let-text="text">
+            <!--
+              Inline after the last word, so it follows the label when it wraps. 44 px to tap with
+              the icon small (negative margins keep the line height); above the stretched button.
+            -->
+            <button
+              class="relative z-10 -my-3 -mr-3 -ml-1 inline-flex size-11 items-center justify-center rounded-full align-middle text-muted hover:text-ink"
+              [term]="term"
+              [plInfoTip]="text"
+              [attr.aria-label]="texts.helpLabel(term)"
+            >
+              <svg lucideInfo [size]="16" aria-hidden="true"></svg>
+            </button>
+          </ng-template>
         </div>
       }
     </section>
