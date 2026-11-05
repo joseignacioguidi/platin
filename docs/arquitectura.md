@@ -428,6 +428,111 @@ Sin cambios de esquema.
   - `toPayItems`: todos los ítems de "para pagar este mes", para la hoja que se abre desde la tarjeta.
 - Los últimos movimientos salen de `GET /movements?limit=5` (8 en escritorio) y las metas de `GET /goals`: no se duplican en el dashboard.
 
+### Iteración 8: carga por texto y Telegram
+
+Cambios de esquema en una migración normal; las razones están en `docs/adr/0025-carga-por-texto-y-telegram.md`.
+
+```prisma
+enum Channel { APP TELEGRAM }
+
+// En Transaction y en CardCharge:
+//   channel Channel @default(APP)        // por dónde entró; no cambia el origin
+
+model SourceAlias {                       // TXT-02
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  alias     String                        // normalizado: minúsculas, sin tildes, sin espacios
+  accountId String?  @db.Uuid             // una cuenta (se resuelve a su saldo en la moneda del monto)
+  cardId    String?  @db.Uuid             // o una tarjeta; exactamente uno de los dos (check en SQL)
+  @@unique([userId, alias])
+}
+
+model MerchantRule {                      // TXT-03
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  pattern    String                       // normalizado, una o más palabras enteras
+  categoryId String   @db.Uuid
+  createdVia Channel  @default(APP)
+  createdAt  DateTime @default(now())
+  @@unique([userId, pattern])
+}
+
+model TelegramLink {                      // BOT-01
+  userId         String   @id @db.Uuid
+  telegramUserId BigInt   @unique
+  chatId         BigInt
+  firstName      String?
+  linkedAt       DateTime @default(now())
+  lastSeenAt     DateTime?
+}
+
+model TelegramLinkCode {                  // BOT-01: un solo uso, 10 minutos
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  codeHash  String    @unique             // SHA-256 con pepper
+  expiresAt DateTime
+  usedAt    DateTime?
+}
+
+model BotDraft {                          // BOT-02: vence a las 2 horas
+  id         String      @id @default(uuid()) @db.Uuid
+  userId     String      @db.Uuid
+  chatId     BigInt
+  messageId  Int?                         // el mensaje del bot que se edita con cada cambio
+  text       String                       // lo que escribió la persona
+  draft      Json                         // TextEntryDraft, validado con Zod al leerlo
+  options    Json?                        // las dos opciones de AMBIGUOUS_DATE
+  awaiting   String?                      // "CATEGORY_NAME" cuando se pidió escribir una categoría
+  status     DraftStatus @default(OPEN)   // OPEN CONFIRMED CANCELLED
+  resultType String?                      // "TRANSACTION" | "CHARGE"
+  resultId   String?     @db.Uuid
+  expiresAt  DateTime
+  createdAt  DateTime    @default(now())
+  @@index([chatId, status])
+}
+
+model TelegramUpdate {                    // idempotencia del webhook; se limpia a los 3 días
+  updateId   BigInt   @id
+  receivedAt DateTime @default(now())
+}
+
+model UnparsedMessage {                   // BOT-06: 90 días
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  text      String
+  error     String                        // código del parser
+  channel   Channel
+  createdAt DateTime @default(now())
+  @@index([userId, createdAt])
+}
+```
+
+- **Reglas globales (TXT-04)** sin tabla: un valor nuevo de configuración, `merchant-rules`, junto a `suggested-categories`, con `{ pattern, categoryName }[]` validado con Zod y editable por el administrador. La migración siembra estas 35: Coto, Carrefour, Día, Jumbo, Disco, Vea, ChangoMás, La Anónima y Makro → Supermercado; Rappi y PedidosYa → Delivery; YPF, Shell, Axion y Puma → Nafta; Uber, Cabify, DiDi y SUBE → Transporte; Netflix, Spotify, Disney, Max, Prime, YouTube e iCloud → Suscripciones; Edenor, Edesur, Metrogas, AySA, Personal, Movistar, Claro y Telecentro → Servicios; Farmacity → Farmacia.
+- **Parser (`libs/domain/text-entry`)**: `parseTextEntry(text, context)` con `context = { today, aliases, rules, globalRules, categories }` y resultado `{ ok: true, draft } | { ok: false, error } | { ok: false, error: 'AMBIGUOUS_DATE', options }`. Los montos se arman con `Money`. Las validaciones que dependen de datos (moneda activada, saldo en esa moneda) van en `TextEntryService` del backend y en un helper equivalente de la web.
+- **Web (TXT-01)**: el parser corre en el navegador con los datos que la app ya tiene (alias, reglas, categorías, última cuenta usada); no hay endpoint para interpretar.
+- **Seguridad del bot**:
+  - `POST /api/v1/telegram/webhook` se configura **directo contra Render**, no por Vercel. Esa ruta queda fuera de `ORIGIN_SECRET` y valida `X-Telegram-Bot-Api-Secret-Token` contra `TELEGRAM_WEBHOOK_SECRET` en tiempo constante; si no coincide, 401 sin más.
+  - Solo `message` y `callback_query` de chats privados (`allowed_updates` al configurar el webhook).
+  - **Idempotencia**: el `update_id` se inserta en `TelegramUpdate` dentro de la misma transacción que lo que el update cambia. Si ya existía, responde 200 sin hacer nada. Si algo falla antes de confirmar la transacción, responde 500 y Telegram reintenta.
+  - Las respuestas a Telegram (`sendMessage`, `editMessageText`, `answerCallbackQuery`) se mandan después de confirmar la transacción; si fallan, se registra el error y el webhook igual responde 200.
+  - `callback_data` (64 bytes como máximo): `<acción>:<draftId>`; el servicio busca el borrador por id **y** `chatId`, y si no coincide responde como vencido.
+  - Límite de 30 updates por minuto por chat, en memoria (hay una sola instancia); si se escala, pasa a la base.
+  - Limpieza sin cron: al procesar cualquier update y en `POST /sync` se borran los borradores vencidos, los `TelegramUpdate` de más de 3 días y los `UnparsedMessage` de más de 90.
+- **Servidor dormido**: Render apaga el servicio gratuito después de 15 minutos sin tráfico y tarda alrededor de un minuto en despertar. Telegram reintenta los updates que no reciben 2xx y los guarda hasta 24 horas, y la idempotencia evita duplicados, así que el primer mensaje llega tarde pero llega una vez. Si la demora molesta: un ping externo a `/health` cada 14 minutos (configuración fuera del código, entra en las 750 horas del mes), la instancia paga de Render o la fase 16 (VPS).
+- **Configurar el bot**: `nx run api:telegram-setup` llama a `setWebhook` (con `secret_token`, `allowed_updates` y `drop_pending_updates: false`) y a `setMyCommands` con los comandos de BOT-05.
+- **Borrados**: eliminar la cuenta borra todo lo nuevo; "Empezar de cero" borra alias (con sus cuentas), borradores y mensajes no entendidos, y las reglas solo si no se mantienen las categorías.
+
+| Método y ruta | Caso de uso |
+| --- | --- |
+| `PUT /accounts/:id/aliases`, `PUT /cards/:id/aliases` con `{ aliases: string[] }` | TXT-02 (`ALIAS_TAKEN` si otro recurso del usuario ya lo usa) |
+| `GET /text-entry/context` | TXT-01: alias, reglas del usuario, reglas globales y última cuenta o tarjeta usada |
+| `GET/POST /merchant-rules`, `PATCH/DELETE /merchant-rules/:id` | TXT-03 (`RULE_EXISTS`) |
+| `GET/PUT /admin/settings/merchant-rules` | TXT-04 |
+| `POST /telegram/link-code` | BOT-01: devuelve el enlace y el código |
+| `GET /telegram/link`, `DELETE /telegram/link` | BOT-01 |
+| `GET /telegram/unparsed`, `DELETE /telegram/unparsed/:id`, `DELETE /telegram/unparsed` | BOT-06 |
+| `POST /telegram/webhook` | BOT-02 a 05 (sin JWT; secret de Telegram) |
+
 ## Backend
 
 Un módulo de Nest por dominio; los controladores son finos, los servicios orquestan y las reglas viven en `libs/domain`.
@@ -628,6 +733,16 @@ Cada feature tiene sus rutas (carga diferida), sus componentes de página y un s
 | Layout del inicio | Celular: una columna en el orden de DAS-07. Escritorio (`lg`): grilla de 3 columnas; la tarjeta del libre ocupa 2 y avisos más accesos 1; abajo movimientos, cuentas, y metas con el mes. Se apila por debajo de `lg` |
 | `pl-category-select` en la carga rápida | Reemplaza la fila de chips y el chip "Más": mismo componente y apariencia que en fijos y consumos, con `allowCreate` y recientes primero |
 
+### Componentes y patrones de la iteración 8
+
+| Pieza | Uso |
+| --- | --- |
+| Modo "Escribir" en la carga rápida | Botón junto al teclado que cambia a un campo de texto; Enter o "Listo" interpreta con `parseTextEntry` y completa el formulario; los errores usan los mismos textos que el bot (un archivo de textos compartido en `libs/contracts`) |
+| `pl-alias-input` | Campo de chips para los "Nombres para escribir" de cuentas y tarjetas |
+| Pestaña "Reglas" en Categorías | Lista de reglas con búsqueda, alta, edición y borrado; en el detalle de una categoría, sus reglas |
+| Perfil › Telegram | Estado del vínculo, "Vincular" (enlace y código con su vencimiento), "Desvincular" y los mensajes no entendidos con borrar uno o todos |
+| Módulo `telegram` de Nest | `TelegramController` (webhook), `TelegramUpdatesService` (idempotencia y ruteo), `BotDraftsService`, `BotCommandsService`, `TelegramClient` (llamadas a la API de Telegram, reemplazable en tests) y los textos del bot en un archivo propio |
+
 ## Auth y seguridad
 
 Auth propio con dos tokens: un JWT de acceso corto que vive en memoria y un refresh token largo en una cookie httpOnly, rotado en cada uso. Como Vercel reenvía `/api/*` a Render, la cookie es del mismo dominio que la app y no depende de cookies de terceros.
@@ -792,6 +907,9 @@ Vercel y Render despliegan solos al hacer push a `main` (integración con GitHub
 | `OAUTH_COOKIE_SECRET` | Render, local | Firma de la cookie `oauth_tx` (32 caracteres o más) |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Render, local | Credenciales OAuth de Google. Sin ellas, el ingreso con Google está apagado y el botón no aparece. Si están, `PUBLIC_APP_URL` y `OAUTH_COOKIE_SECRET` son obligatorias |
 | `API_DIRECT_URL` | Vercel (build) | URL de Render para el pedido de `/health` |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` | Render, local | Token y usuario del bot (de @BotFather). Sin ellos, el bot está apagado y Perfil › Telegram no aparece |
+| `TELEGRAM_WEBHOOK_SECRET` | Render, local | El `secret_token` del webhook (A-Z, a-z, 0-9, `_` y `-`; 32 caracteres o más). Obligatoria si está el token |
+| `TELEGRAM_CODE_PEPPER` | Render, local | Pepper del hash de los códigos de vinculación |
 
 En local: `docker compose` con Postgres, `.env` a partir de `.env.example`, y `nx serve api` + `nx serve web` con proxy de `/api` al puerto de la API.
 

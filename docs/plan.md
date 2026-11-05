@@ -1081,6 +1081,99 @@ Forma de trabajo:
 - Rama feat/fase-31-inicio. Todo en verde antes del PR, con capturas del inicio en celular y escritorio (claro y oscuro) y de la carga rápida.
 ```
 
+## Iteración 8: cargar escribiendo
+
+Cargar un gasto escribiendo una línea, primero en la app y después desde Telegram, con un parser con reglas y sin IA. La 32 va primero porque el bot usa el parser, los alias y las reglas; la 34 se diseña después, con los datos de los mensajes no entendidos.
+
+**Antes de la 33 (vos):** crear el bot con @BotFather, elegir su usuario y cargar en Render `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET` y `TELEGRAM_CODE_PEPPER`. Los archivos `text-entry.ts` y `text-entry.spec.ts` que armaste son solo una guía: la fuente de verdad es la regla "Carga por texto".
+
+| Fase | Qué se construye | Casos de uso | Terminado cuando |
+| --- | --- | --- | --- |
+| 32 | Parser, carga por texto en la web, alias y reglas de comercio | TXT-01 a 04 | Escribo "super 45k visa 3c" en la carga rápida y se completa el formulario con la visa, 3 cuotas y Supermercado |
+| 33 | Bot de Telegram | BOT-01 a 06 | Vinculo mi Telegram, mando "café 3500", confirmo con un botón y el gasto aparece en la app |
+| 34 | IA de respaldo (a diseñar) | BOT-07 | Se define después de usar el bot, con los datos de los mensajes no entendidos |
+
+## Fase 32 — Carga por texto, alias y reglas
+
+El parser de la especificación en `libs/domain`, usado en la carga rápida de la web, con alias de cuentas y tarjetas y reglas de comercio del usuario y globales.
+
+**Terminado cuando:**
+- todos los ejemplos de la regla "Carga por texto" (incluida la tabla) son tests literales y pasan, con hoy = 5/11/2026;
+- en la carga rápida toco "Escribir", pongo "super 45k visa 3c" y el formulario queda con gasto de $ 45.000, la visa, 3 cuotas y Supermercado, sin guardar nada hasta tocar "Guardar";
+- "turno médico el 20 15000" me pregunta con dos botones; "heladera 900000 3c" muestra "Las cuotas van con tarjeta…";
+- le pongo "mp" y "mercado" a Mercado Pago y "visa" a la tarjeta, y un alias repetido se rechaza;
+- creo la regla "coto → Supermercado" en Categorías y "coto 12000" la usa; "gaseosa" no agarra una regla "gas";
+- "ypf 30000" va a Nafta por la regla global, y una regla mía de "ypf" la pisa;
+- todo entra sin scroll en 360 × 640.
+
+```
+Leé CLAUDE.md; el módulo 15 (TXT-01 a 04) y la regla "Carga por texto" de docs/especificacion.md; en docs/arquitectura.md "Iteración 8: carga por texto y Telegram" y "Componentes y patrones de la iteración 8"; y docs/adr/0025-carga-por-texto-y-telegram.md.
+
+Vamos a hacer la Fase 32 de docs/plan.md. Hay una versión previa del parser hecha aparte (te la paso si la pedís); usala como mucho de guía: la fuente de verdad es la regla de la especificación, que corrige varias cosas (reglas por palabra entera, fecha sin año, motivo con su texto original, errores nuevos).
+
+Dominio:
+1. libs/domain/text-entry: parseTextEntry(text, context) con context = { today, aliases, rules, globalRules, categories }. Montos con Money. Todos los ejemplos de la regla como tests literales, más los bordes: fin de mes, 29/2, 60 y 61 cuotas, "1.5" y "1.500", palabras con tildes y mayúsculas.
+2. Un archivo de textos de los errores del parser en libs/contracts, que usan la web y (en la fase 33) el bot.
+
+Backend:
+3. Migración de toda la iteración 8 según la arquitectura (enum Channel, channel en Transaction y CardCharge, SourceAlias con su check, MerchantRule y las tablas del bot), y el valor merchant-rules con las 35 reglas sembradas. Mostrame la migración antes de aplicarla.
+4. PUT /accounts/:id/aliases y PUT /cards/:id/aliases (ALIAS_TAKEN), CRUD de /merchant-rules (RULE_EXISTS), GET /text-entry/context y GET/PUT /admin/settings/merchant-rules. Tests e2e con aislamiento entre usuarios.
+5. "Empezar de cero" y el borrado de cuenta del administrador borran lo nuevo según la arquitectura. Agregá los casos a sus tests.
+
+Web:
+6. Carga rápida: modo "Escribir" que reemplaza al teclado; Enter o "Listo" interpreta y completa el formulario; los errores se muestran con los textos compartidos; AMBIGUOUS_DATE con dos botones. Nada se guarda hasta "Guardar". Validá en el navegador moneda activada y saldo en esa moneda.
+7. pl-alias-input en los formularios de cuenta y de tarjeta ("Nombres para escribir").
+8. Categorías: pestaña "Reglas" (lista, búsqueda, alta, edición, borrado) y las reglas de cada categoría en su detalle.
+9. Administración: edición de las reglas globales junto a las categorías sugeridas.
+10. Volvé a medir con Playwright que la carga rápida entra sin scroll en 360 × 640 y 390 × 844 en los dos modos.
+
+Forma de trabajo:
+- Plan primero, esperame. Si conviene, dividila en 32a (dominio, migración y backend) y 32b (web).
+- Rama feat/fase-32-carga-por-texto. Todo en verde antes del PR, con capturas del modo "Escribir" (entendido, con error y con fecha ambigua), de los alias y de la pestaña Reglas.
+```
+
+## Fase 33 — Bot de Telegram
+
+Cargar mandando un mensaje: el bot responde con lo que entendió y se guarda al confirmar. Sin reglas de saldos propias: confirma con los mismos servicios que la carga rápida.
+
+**Terminado cuando:**
+- en Perfil › Telegram toco "Vincular", abro el enlace, el bot me da la bienvenida y el perfil muestra el vínculo; el código sirve una vez y vence a los 10 minutos;
+- mando "café 3500", veo "Gasto · $ 3.500 · …" con los cuatro botones, confirmo y el gasto aparece en la app marcado como entrado por Telegram; tocar "Confirmar" de nuevo no crea otro;
+- cambio la categoría a Supermercado, acepto la regla y "coto 9000" ya va a Supermercado;
+- "turno médico el 20 15000" pregunta con dos botones y la opción del 20/11 queda programada;
+- /libre, /hoy, /pendientes, /proximos y /deshacer responden como dice la especificación;
+- un mensaje no entendido aparece en Perfil › Telegram y lo puedo borrar;
+- un update repetido se procesa una vez, un secret inválido da 401, un chat no vinculado recibe las instrucciones y un usuario suspendido no puede cargar;
+- desvinculo desde el perfil y el bot deja de aceptar mensajes de ese chat.
+
+```
+Leé CLAUDE.md; BOT-01 a 06 y la regla "Bot de Telegram" (con sus textos) de docs/especificacion.md; en docs/arquitectura.md "Iteración 8: carga por texto y Telegram", la tabla de componentes de la iteración 8 y las variables de entorno de Telegram; y docs/adr/0025-carga-por-texto-y-telegram.md.
+
+Vamos a hacer la Fase 33 de docs/plan.md. No agregues una librería de bots sin consultarme: la API de Telegram son pocos endpoints HTTP y alcanza con un TelegramClient propio sobre fetch, reemplazable en los tests.
+
+Backend:
+1. Módulo telegram: POST /telegram/webhook sin JWT y fuera de ORIGIN_SECRET, con el secret de Telegram en tiempo constante; solo chats privados; idempotencia por update_id en la misma transacción que los cambios (500 si falla, 200 si ya estaba); respuestas a Telegram después de confirmar.
+2. Vinculación: POST /telegram/link-code (enlace y código, hash con pepper, 10 minutos, un uso), /start <código> y /vincular <código>, GET y DELETE /telegram/link, /desvincular. Suspendido y sin vincular según la especificación.
+3. Borradores: parser + validaciones de TextEntryService, BotDraft de 2 horas, botones con <acción>:<draftId> buscados por id y chatId, confirmar con los servicios de transacciones y consumos marcando channel TELEGRAM, cambiar categoría (con "Otra" escribiendo el nombre) y cuenta, oferta de regla, AMBIGUOUS_DATE con dos botones, cancelar y vencidos.
+4. Comandos /libre, /hoy, /pendientes, /proximos, /deshacer, /ayuda con los textos de la especificación.
+5. UnparsedMessage y GET/DELETE /telegram/unparsed. Límite de 30 por minuto por chat. Limpieza de vencidos al procesar updates y en POST /sync.
+6. nx run api:telegram-setup: setWebhook (secret_token, allowed_updates message y callback_query) y setMyCommands.
+7. Métricas del administrador: usuarios con Telegram, mensajes por semana y porcentaje no entendido (solo conteos).
+8. Tests e2e con TelegramClient falso: secret inválido 401; update duplicado; chat no vinculado; código vencido, usado o de otro usuario; doble confirmación; borrador vencido; el chat de A no puede tocar un borrador de B; suspendido; /deshacer solo lo propio y no un consumo con cuota en resumen cerrado; programado del bot con origin SCHEDULED y channel TELEGRAM.
+
+Web:
+9. Perfil › Telegram: estado, "Vincular" con enlace, código y cuenta regresiva, "Desvincular" y la lista de mensajes no entendidos con borrar uno o todos. Si el bot no está configurado, la sección no aparece.
+10. En Movimientos, una marca chica para lo entrado por Telegram.
+
+Forma de trabajo:
+- Plan primero, esperame. Si conviene, dividila en 33a (webhook, vinculación y borradores) y 33b (comandos, no entendidos, métricas y web).
+- Rama feat/fase-33-telegram. Todo en verde antes del PR, con capturas del perfil y del chat con el bot (vinculación, un gasto confirmado, una fecha ambigua y un error).
+```
+
+## Fase 34 — IA de respaldo
+
+Se diseña cuando el bot lleve un tiempo en uso. Alcance tentativo: interpretar con IA lo que el parser no entiende (texto libre, varios gastos en un mensaje, fotos de tickets, audios), siempre como borrador para confirmar, opcional, del plan Pro y con límite diario. Antes de escribirla: revisar los mensajes no entendidos para ver qué falta y si unas reglas más alcanzan.
+
 ## Después del MVP
 
 La segunda tanda de la especificación, en fases chicas que se pueden hacer en cualquier orden. Los prompts siguen el mismo molde que las fases anteriores: leer `CLAUDE.md` y la sección de la especificación, plan primero, rama propia, PR con todo en verde.

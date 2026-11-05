@@ -196,10 +196,10 @@ Los planes existen y limitan el uso, pero todavía no se cobra: el plan lo asign
 El administrador gestiona la plataforma, no la plata de los usuarios: ve datos de cuenta y métricas agregadas, nunca movimientos, saldos ni montos.
 
 - **ADM-01** Rol de administrador, asignado por configuración del servidor (no se pide ni se otorga desde la app).
-- **ADM-02** Panel con métricas agregadas: usuarios totales, activos en 7 y 30 días, altas por semana, usuarios por plan y uso por funcionalidad (cuántos usuarios usan tarjetas, metas, inversiones, fijos).
+- **ADM-02** Panel con métricas agregadas: usuarios totales, activos en 7 y 30 días, altas por semana, usuarios por plan y uso por funcionalidad (cuántos usuarios usan tarjetas, metas, inversiones, fijos y el bot de Telegram). Del bot, además: mensajes por semana y porcentaje de mensajes que el parser no entendió. Solo conteos.
 - **ADM-03** Lista de usuarios con email, nombre, fecha de alta, último acceso, plan y estado; con búsqueda y filtros. Por usuario se ve cuántos registros tiene de cada tipo, no su contenido.
 - **ADM-04** Acciones sobre un usuario: cambiar el plan, suspender y reactivar, cerrar sus sesiones y eliminar la cuenta con todos sus datos (con confirmación escribiendo el email).
-- **ADM-05** Configuración global: planes y límites, plan por defecto, categorías sugeridas para usuarios nuevos, cotización por defecto, registro abierto o cerrado y un aviso para todos los usuarios con texto y fechas.
+- **ADM-05** Configuración global: planes y límites, plan por defecto, categorías sugeridas para usuarios nuevos, reglas de comercio globales (TXT-04), cotización por defecto, registro abierto o cerrado y un aviso para todos los usuarios con texto y fechas.
 - **ADM-06** Solicitudes de cambio de plan: verlas, aprobarlas o rechazarlas.
 - **ADM-07** Registro de auditoría de cada acción del administrador: quién, qué, cuándo y sobre qué usuario.
 
@@ -213,6 +213,22 @@ Además de pesos y dólares, el usuario puede manejar euros, reales, pesos chile
 - **MON-04** Desactivar una moneda solo si ningún apartado activo, fijo activo ni meta activa la usa; el histórico se conserva.
 - **MON-05** Las tarjetas siguen siendo solo en pesos y dólares, como los resúmenes de los bancos: un consumo en otra moneda se carga en el monto que figura en el resumen.
 
+### 15. Carga por texto y Telegram
+
+Cargar un movimiento escribiendo una línea corta ("super 45k visa 3c", "turno médico 15000 el 20 que viene"), en la app o mandándole un mensaje a un bot de Telegram. Nada toca saldos hasta que la persona confirma, y la confirmación usa los mismos servicios que la carga rápida.
+
+- **TXT-01** En la carga rápida de la web, el modo **"Escribir"** reemplaza el teclado numérico por un campo de texto. Al apretar Enter o "Listo", la app interpreta la línea (regla "Carga por texto") y completa el formulario: tipo, monto, moneda, cuenta o tarjeta, cuotas, fecha, motivo y categoría. Lo que entendió queda a la vista para corregirlo y nada se guarda hasta tocar "Guardar". Si el texto no se entiende, se muestra el mismo mensaje que da el bot y el texto queda para corregirlo. Con una fecha ambigua, dos botones.
+- **TXT-02** **Alias de cuentas y tarjetas**: en el formulario de cada cuenta y de cada tarjeta, "Nombres para escribir" ("mp", "mercado"; "visa"). Un alias es único por usuario y se compara sin mayúsculas ni tildes. Un alias de cuenta apunta a la cuenta, que se resuelve a su saldo en la moneda del monto.
+- **TXT-03** **Reglas de comercio**: "si el motivo dice *coto*, la categoría es Supermercado". Se crean, editan y borran en Categorías (pestaña "Reglas" y en el detalle de cada categoría), y desde el bot al corregir una categoría (BOT-03).
+- **TXT-04** **Reglas globales**: unas 35 reglas de comercios comunes de Argentina, mantenidas por el administrador (ADM-05), que apuntan al nombre de una categoría sugerida. Las reglas del usuario las pisan.
+- **BOT-01** **Vincular Telegram** desde el perfil, con un enlace que abre el bot o con un código para mandarle. Desvincular desde el perfil o con `/desvincular`. Una cuenta de Telegram por cuenta de platin y viceversa.
+- **BOT-02** **Cargar por mensaje**: el bot responde con lo que entendió y botones [Confirmar] [Cambiar categoría] [Cambiar cuenta] [Cancelar]. Recién al confirmar se crea el movimiento, el consumo con tarjeta o el programado.
+- **BOT-03** **Corregir y aprender**: al cambiar la categoría, el bot ofrece crear una regla de comercio ("¿La próxima vez *coto* va a Supermercado?").
+- **BOT-04** **Fecha ambigua**: "el 20" cuando hoy es 5 se pregunta con dos botones: [20/10 · ya pasó] [20/11 · programar].
+- **BOT-05** **Comandos**: `/libre`, `/hoy`, `/pendientes`, `/proximos`, `/deshacer`, `/ayuda` y `/desvincular` (regla "Bot de Telegram").
+- **BOT-06** **Mensajes no entendidos**: lo que el bot no pudo interpretar se guarda 90 días para mejorar el parser. La persona los ve y los borra en Perfil › Telegram; el administrador solo ve conteos.
+- **BOT-07** **IA de respaldo** (fase 34, a diseñar): interpretar con IA lo que el parser no entiende (texto libre, varios gastos en un mensaje, fotos de tickets, audios). Opcional, del plan Pro y con límite diario.
+
 ## Reglas de negocio
 
 Estas reglas son las que más errores generan si se dejan implícitas; cada una debe tener tests unitarios.
@@ -222,7 +238,7 @@ Estas reglas son las que más errores generan si se dejan implícitas; cada una 
 - Cada cuenta tiene un saldo por moneda (el apartado Disponible) y reservas. Cada reserva tiene una sola moneda y un uso: para gastar, ahorro o inversión.
 - Saldo de un apartado = saldo inicial + ingresos confirmados − gastos confirmados ± ajustes ± rendimientos − transferencias que salen + transferencias que entran. Se calcula, no se guarda.
 - Saldo total de una cuenta = su saldo más sus reservas, separado por moneda.
-- **Ingresos, gastos, fijos, programados y pagos de tarjeta van siempre al saldo de una cuenta.** Una reserva no recibe ingresos ni gastos: la plata entra por transferencia desde el saldo de una cuenta y vuelve al saldo de una cuenta. También admite ajustes (para gastar y ahorro) o valuaciones (inversión).
+- **Ingresos, gastos, fijos y programados van siempre al saldo de una cuenta.** Los pagos de tarjeta salen del saldo de una cuenta o de una reserva para gastar (ADR 0024). Una reserva no recibe ingresos ni gastos: la plata entra por transferencia desde el saldo de una cuenta y vuelve al saldo de una cuenta. También admite ajustes (para gastar y ahorro) o valuaciones (inversión).
 - Toda transferencia tiene el saldo de una cuenta en al menos una punta: cuenta a cuenta, cuenta a reserva o reserva a cuenta. Entre dos reservas se pasa por una cuenta.
 - La intención de una transferencia se deduce de las puntas: a una reserva de ahorro es apartar, a una de inversión es invertir, de ahorro o inversión a una cuenta es rescatar, y lo demás es mover.
 - Mover entre monedas iguales pide un monto; entre monedas distintas pide los dos montos y muestra la cotización resultante (comprar dólares dentro de Mercado Pago).
@@ -376,6 +392,117 @@ Ejemplo: en tus cuentas $ 726.150 de saldo y $ 450.000 en reservas para gastar (
 - Queda en la auditoría como acción del propio usuario, con los conteos y sin datos financieros.
 - No se puede deshacer.
 
+### Carga por texto
+
+El parser es una función pura de `libs/domain`: recibe el texto, hoy, los alias, las reglas (del usuario y globales) y las categorías del usuario, y devuelve un borrador o un error. **Ante la duda no adivina.** Todos los ejemplos de esta sección son tests literales, con hoy = 5/11/2026.
+
+**Montos**, en formato argentino:
+- "3500", "3.500", "1.250.000", "1.500,50", "$3500". Un punto seguido de exactamente tres dígitos separa miles; la coma es decimal.
+- Con multiplicador: "45k" y "45 mil" son 45.000; "3,5k" es 3.500; "28 lucas" es 28.000; "1,5 palos" y "1,5m" son 1.500.000.
+- El monto se arma con `Money` y se redondea a 2 decimales, mitad hacia arriba. Un monto de 0 es `ZERO_AMOUNT`.
+
+**Moneda**: pesos por defecto. "usd", "u$s", "u$d", "us$", "dólar", "dólares", "verdes" → USD; "eur", "euro", "euros" → EUR; "brl", "real", "reales" → BRL; "clp", "chilenos" → CLP; "uyu", "uruguayos" → UYU; "ars", "pesos" → ARS. Pegado al monto también vale: "20usd".
+
+**Tipo**: gasto por defecto. Es ingreso si el texto empieza con "+" o tiene "cobré", "cobro", "sueldo", "ingreso" o "aguinaldo" (la palabra queda en el motivo).
+
+**Cuenta o tarjeta**: por alias (TXT-02). Sin alias, la última cuenta o tarjeta usada, en la app o en el bot. Dos alias en el mismo texto es `SEVERAL_SOURCES`.
+
+**Cuotas**: "3c", "x3", "3cuotas", "3 cuotas", "en 3 cuotas", de 1 a 60. Solo con tarjeta (`INSTALLMENTS_WITHOUT_CARD`); más de 60 es `TOO_MANY_INSTALLMENTS`.
+
+**Fechas**:
+- "hoy", "ayer" (4/11), "anteayer" (3/11), "mañana" (6/11, programado), "pasado mañana" (7/11, programado).
+- "el 3" (3/11): un día de este mes que ya pasó es ese día.
+- "el 20": un día de este mes que todavía no llegó es ambiguo, `AMBIGUOUS_DATE` con las dos opciones (20/10 y 20/11). Con tarjeta, siempre el pasado (20/10).
+- "el próximo 20" y "el 20 que viene": siempre el que viene (20/11; "el próximo 3" es el 3/12).
+- **Día y mes sin año ("3/11")**: la próxima vez que llega esa fecha, salvo que haya caído en los últimos 30 días, que es la pasada. "3/11" → 3/11/2026; "20/10" → 20/10/2026 (hace 16 días); "1/10" → 1/10/2027 (hace 35 días: la próxima, programado); "28/12" → 28/12/2026, programado; "15/3" → 15/3/2027, programado. Con tarjeta, siempre la última que ya pasó ("15/3" con la visa → 15/3/2026).
+- Con año: "3/11/2026", "28/12/25".
+- Una fecha que no existe ("31/2", "el 31 que viene" en noviembre) es `INVALID_DATE`. Más de 12 meses adelante es `DATE_TOO_FAR`.
+- Una fecha posterior a hoy da un borrador **programado** (MOV-08). Con tarjeta es `CARD_CANNOT_BE_SCHEDULED`.
+
+**Motivo**: las palabras que no son monto, moneda, alias, cuotas ni fecha, sin las de relleno ("en", "con", "de", "la", "el", "por", "a", "que", "pagué", "gasté"). Se guarda como lo escribió la persona, con sus mayúsculas y tildes ("Café"); solo para comparar se pasa a minúsculas y sin tildes. Vacío: el movimiento toma el nombre de la categoría (MOV-09).
+
+**Categoría**, en este orden:
+1. Las reglas de comercio del usuario.
+2. Las reglas globales, si el usuario tiene una categoría con el nombre al que apuntan.
+3. Una palabra del motivo de 4 letras o más con la que empiece el nombre de una categoría del mismo tipo ("super" → Supermercado, "nafta" → Nafta).
+
+Una regla coincide por **palabra entera** ("gas" no agarra "gaseosa"); si coinciden varias del mismo nivel, gana la del patrón más largo. Si en el paso 3 hay dos candidatas ("comida" con Comida rápida y Comida casera), no elige: queda vacía para que la persona elija.
+
+**Otros errores**: sin monto, `NO_AMOUNT`; dos montos ("luz 18000 y gas 12000"), `SEVERAL_AMOUNTS`; un ingreso con tarjeta, `INCOME_ON_CARD`; una tarjeta en una moneda que no es pesos ni dólares, `CARD_CURRENCY`.
+
+**Después del parser**, el servicio valida lo que depende de los datos antes de mostrar el borrador: que la moneda esté activada (`CURRENCY_NOT_ENABLED`), que la cuenta tenga saldo en esa moneda (`NO_BALANCE_IN_CURRENCY`) y que el alias siga existiendo.
+
+Ejemplos que tienen que pasar tal cual:
+
+| Texto | Resultado |
+| --- | --- |
+| café 3500 | Gasto de $ 3.500, motivo "café", categoría por regla, hoy |
+| super 45k visa 3c | Consumo de $ 45.000 en 3 cuotas con la visa, Supermercado |
+| sueldo 1.800.000 mp | Ingreso de $ 1.800.000 en Mercado Pago, Sueldo |
+| pagué el plomero con efe 28 lucas ayer | Gasto de $ 28.000 en efectivo, motivo "plomero", 4/11, sin categoría |
+| netflix usd 20 | Gasto de USD 20 |
+| turno médico 15000 el próximo 20 | Gasto programado de $ 15.000 el 20/11 |
+| turno médico el 20 15000 | `AMBIGUOUS_DATE`: 20/10 o 20/11 |
+| zapatillas 90000 visa el 20 | Consumo del 20/10 |
+| zapatillas 90000 visa mañana | `CARD_CANNOT_BE_SCHEDULED` |
+| heladera 900000 3c | `INSTALLMENTS_WITHOUT_CARD` |
+| super 5000 mp visa | `SEVERAL_SOURCES` |
+| + 5000 visa | `INCOME_ON_CARD` |
+| taxi 8000 31/2 | `INVALID_DATE` |
+
+### Bot de Telegram
+
+**Vinculación**
+- En Perfil › Telegram, "Vincular" genera un enlace `t.me/<bot>?start=<código>` y el mismo código para mandar como `/vincular <código>` desde otro dispositivo. El código es aleatorio, de un solo uso y vence a los 10 minutos; en la base se guarda su hash.
+- Una cuenta de Telegram queda vinculada a una sola cuenta de platin y viceversa. Vincular otra reemplaza la anterior, con aviso.
+- El bot solo atiende chats privados; en grupos no responde.
+- La identidad es la cuenta de Telegram vinculada: el `userId` nunca viaja en un mensaje ni en un botón. Cada botón lleva solo el id de su borrador y el servidor verifica que el borrador sea de ese chat.
+- Un usuario suspendido recibe "Tu cuenta de platin está suspendida." y no se procesa nada. Eliminar la cuenta borra el vínculo; "Empezar de cero" (AUTH-09) lo conserva y borra los borradores y los mensajes no entendidos.
+
+**Borradores**
+- Cada mensaje entendido crea un borrador que vence a las **2 horas**. Un botón de un borrador vencido responde "Este borrador venció. Mandalo de nuevo."
+- Confirmar crea el movimiento llamando a los mismos servicios que la carga rápida; un segundo toque no crea otro.
+- "Cambiar categoría" muestra hasta 8 categorías del tipo (las recientes primero) y "Otra", que pide escribir el nombre. "Cambiar cuenta" muestra las cuentas y, si es un gasto, las tarjetas.
+- Después de cambiar la categoría, el bot ofrece la regla con la primera palabra del motivo: "¿La próxima vez *coto* va a Supermercado?" [Sí] [No]. La regla se puede editar después en la web.
+- Lo que entra por el bot se marca como entrado por Telegram, sin cambiar su origen (un programado sigue siendo programado).
+
+**Comandos**
+- `/libre`: "Te quedan $ 106.062 para gastar este mes (≈ $ 4.079 por día hasta el 30/11)."
+- `/hoy`: lo cargado hoy, con el total.
+- `/pendientes`: los movimientos para confirmar, cada uno con [Confirmar].
+- `/proximos`: los próximos 5 pagos con fecha, monto y cuenta.
+- `/deshacer`: ofrece borrar el último movimiento entrado por el bot en las últimas 24 horas, con [Sí, borrar] [No]. No se puede si un consumo ya tiene una cuota en un resumen cerrado.
+- `/ayuda` y `/desvincular`.
+- Los saldos de las cuentas no se consultan por el bot, porque los mensajes quedan guardados en Telegram.
+
+**Límites y planes**
+- El bot está en todos los planes. La IA de respaldo (BOT-07) será del plan Pro.
+- Hasta 30 mensajes por minuto por chat; pasado eso: "Vas muy rápido. Esperá un minuto."
+
+**Textos**
+- Bienvenida, al vincular: "¡Listo, {nombre}! Ya podés cargar desde acá. Mandame algo como *super 45k visa 3c* o *+ 50000 freelance*. Antes de guardar te muestro lo que entendí."
+- Chat sin vincular: "Este chat no está vinculado a platin. Entrá a platin › Perfil › Telegram y tocá Vincular."
+- Código vencido o usado: "Ese código ya no sirve. Generá uno nuevo en platin › Perfil › Telegram."
+- `/ayuda`: "Escribime el gasto en una línea: *super 45k visa 3c*, *taxi 8000 ayer*, *netflix usd 20*, *turno médico 15000 el 20 que viene*. Para un ingreso, empezá con + o usá *sueldo* o *cobré*. Comandos: /libre /hoy /pendientes /proximos /deshacer /desvincular."
+- Lo que entendió: "Gasto · $ 45.000 · Supermercado · Visa Santander · 3 cuotas de $ 15.000 · hoy" (o "Ingreso", o "Programado para el 20/11"). Si no tiene categoría: "Sin categoría: elegí una antes de confirmar." y [Confirmar] no aparece hasta elegirla.
+- Confirmado: "Guardado ✓ Te quedan $ 106.062 este mes." Cancelado: "Listo, no guardé nada."
+- Errores del parser:
+  - `NO_AMOUNT`: "No encontré el monto. Probá así: *super 4500*."
+  - `ZERO_AMOUNT`: "El monto tiene que ser mayor a cero."
+  - `SEVERAL_AMOUNTS`: "Encontré más de un monto. Mandame un gasto por mensaje."
+  - `SEVERAL_SOURCES`: "Nombraste más de una cuenta o tarjeta. Dejá una sola."
+  - `INSTALLMENTS_WITHOUT_CARD`: "Las cuotas van con tarjeta. Agregá cuál, por ejemplo *visa 3c*."
+  - `TOO_MANY_INSTALLMENTS`: "Puedo cargar hasta 60 cuotas."
+  - `CARD_CANNOT_BE_SCHEDULED`: "Las compras con tarjeta no se programan. Cargala el día que la hagas."
+  - `INCOME_ON_CARD`: "Un ingreso no puede ir a una tarjeta. Decime a qué cuenta entra."
+  - `CARD_CURRENCY`: "Las tarjetas son en pesos o en dólares."
+  - `INVALID_DATE`: "Esa fecha no existe. Probá con *3/11* o *ayer*."
+  - `DATE_TOO_FAR`: "Puedo programar hasta 12 meses adelante."
+  - `AMBIGUOUS_DATE`: "¿Qué 20?" con [20/10 · ya pasó] [20/11 · programar].
+  - `CURRENCY_NOT_ENABLED`: "No tenés activados los {moneda}. Activalos en platin › Perfil › Monedas."
+  - `NO_BALANCE_IN_CURRENCY`: "{cuenta} no tiene saldo en {moneda}."
+- Un texto que no es ningún comando ni se entiende se guarda en mensajes no entendidos (BOT-06) y recibe el mensaje de su error.
+
 ## Alcance: MVP, backlog y fuera de alcance
 
 El MVP es lo mínimo para dejar de usar la versión actual: cuentas, movimientos, tarjetas con cuotas, fijos, compromisos y metas. Presupuestos, inversiones y reportes completos van en una segunda tanda.
@@ -457,6 +584,14 @@ Cuentas más simples y un libre que coincide con lo que hay en el banco.
 
 - Un inicio que se entiende de un vistazo y sirve para el uso diario, en celular y en escritorio (DAS-05, DAS-07).
 - La carga rápida usa el selector de categorías de los demás formularios (MOV-09).
+
+### Iteración 8 (noviembre 2026)
+
+Cargar escribiendo: en la app y desde Telegram, con un parser con reglas y sin IA.
+
+- Carga por texto en la web, alias de cuentas y tarjetas, reglas de comercio del usuario y globales (TXT-01 a 04).
+- Bot de Telegram con vinculación, borradores con confirmación, corrección que aprende y comandos (BOT-01 a 06).
+- La IA de respaldo queda para una fase aparte (BOT-07).
 
 ## Identidad visual y UX
 
