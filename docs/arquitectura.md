@@ -593,7 +593,7 @@ Cada feature tiene sus rutas (carga diferida), sus componentes de página y un s
 | `pl-usage` | "2 de 2 cuentas" junto a los botones de crear |
 | `pl-category-select` con `allowCreate` | Agrega "+ Nueva categoría" al final; abre el formulario de categoría en una hoja encima y devuelve la creada (CAT-06) |
 | `pl-currency-select` | Muestra solo las monedas activadas del usuario, o solo ARS y USD con `cardOnly` |
-| `HomeShortcuts` | Fila de accesos del inicio, con modo edición para elegir y ordenar (arrastrar en escritorio, botones subir y bajar en celular) |
+| `HomeShortcuts` | Accesos del inicio, con modo edición para elegir y ordenar (arrastrar en escritorio, botones subir y bajar en celular). Desde la iteración 7: grilla de 4 sin tarjetas, ícono Lucide en `ink` dentro de un círculo de 48 px con borde `line`, nombre debajo; sin colores por acceso (ver `docs/mockups/inicio-v2/Accesos.dc.html`) |
 
 ### Componentes y patrones de la iteración 5
 
