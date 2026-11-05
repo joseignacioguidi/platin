@@ -1,7 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import type { ColorToken, Dashboard, UpcomingItem } from '@platin/contracts';
+import type {
+  ColorToken,
+  Dashboard,
+  DashboardAccount,
+  DashboardUnassigned,
+  ToPayItem,
+  UpcomingItem,
+} from '@platin/contracts';
 import {
+  accountCoverage,
   addDays,
+  CommitmentItem,
+  daysLeftIn,
+  freePerDay,
   cardLater,
   compareDates,
   Currency,
@@ -27,7 +38,7 @@ import {
 import { PocketBalancesService } from '../accounts/pocket-balances.service';
 import { STATEMENT_PARTS, statementTotals } from '../cards/statement-math';
 import { ClockService } from '../common/clock.service';
-import { CommitmentsInputBuilder } from '../commitments/commitments-input';
+import { BuiltCommitments, CommitmentsInputBuilder } from '../commitments/commitments-input';
 import { baseCurrency, date, money as money2, toDbDate, toDbPeriod } from '../common/serialize';
 import { FIXED_INCLUDE, FixedRow, toSchedule } from '../fixed/fixed.mapper';
 import type { Prisma } from '../generated/prisma/client';
@@ -37,6 +48,13 @@ import { RatesService } from '../rates/rates.service';
 import { UserRates } from '../rates/user-rates.service';
 
 const UPCOMING_DAYS = 30;
+/** DAS-07: the next payments each account shows. */
+const NEXT_PAYMENTS = 3;
+
+interface AccountInfo {
+  name: string;
+  sortOrder: number;
+}
 
 const STATEMENT_WITH_CARD = { ...STATEMENT_PARTS, card: { select: { name: true } } } as const;
 type StatementRow = Prisma.CardStatementGetPayload<{ include: typeof STATEMENT_WITH_CARD }>;
@@ -81,43 +99,57 @@ export class DashboardService {
         : Money.zero(base);
 
     const past = compareDates(period, periodOf(today)) < 0;
-    const [spendable, expenses, charges, fixedItems, monthFixedTx, statements, pending, built] =
-      await Promise.all([
-        this.prisma.pocket.findMany({
-          where: { userId, kind: { in: ['AVAILABLE', 'SPENDING'] }, archivedAt: null },
-        }),
-        this.prisma.transaction.aggregate({
-          where: { userId, date: range, status: 'CONFIRMED', type: 'EXPENSE' },
-          _sum: { baseAmount: true },
-        }),
-        this.prisma.cardCharge.findMany({
-          where: { userId, date: range },
-          include: { installments: { include: { statement: { select: { dueDate: true } } } } },
-        }),
-        this.prisma.fixedItem.findMany({
-          where: { userId, pocketId: { not: null } },
-          include: FIXED_INCLUDE,
-        }),
-        this.prisma.transaction.findMany({
-          where: { userId, origin: 'FIXED', fixedPeriod: toDbPeriod(period) },
-        }),
-        this.prisma.cardStatement.findMany({
-          where: {
-            userId,
-            status: { not: 'PAID' },
-            dueDate: { gte: toDbDate(today), lte: toDbDate(addDays(today, UPCOMING_DAYS)) },
-          },
-          include: STATEMENT_WITH_CARD,
-          orderBy: { dueDate: 'asc' },
-        }),
-        // "Para confirmar": pending movements whose date arrived (scheduled ones wait for it).
-        this.prisma.transaction.findMany({
-          where: { userId, status: 'PENDING', date: { lte: toDbDate(today) } },
-          orderBy: { date: 'asc' },
-          select: { description: true },
-        }),
-        this.commitments.build(userId, period, period),
-      ]);
+    const [
+      spendable,
+      expenses,
+      incomes,
+      charges,
+      fixedItems,
+      monthFixedTx,
+      statements,
+      pending,
+      built,
+    ] = await Promise.all([
+      this.prisma.pocket.findMany({
+        where: { userId, kind: { in: ['AVAILABLE', 'SPENDING'] }, archivedAt: null },
+        include: { account: { select: { name: true, sortOrder: true } } },
+      }),
+      this.prisma.transaction.aggregate({
+        where: { userId, date: range, status: 'CONFIRMED', type: 'EXPENSE' },
+        _sum: { baseAmount: true },
+      }),
+      this.prisma.transaction.aggregate({
+        where: { userId, date: range, status: 'CONFIRMED', type: 'INCOME' },
+        _sum: { baseAmount: true },
+      }),
+      this.prisma.cardCharge.findMany({
+        where: { userId, date: range },
+        include: { installments: { include: { statement: { select: { dueDate: true } } } } },
+      }),
+      this.prisma.fixedItem.findMany({
+        where: { userId, pocketId: { not: null } },
+        include: FIXED_INCLUDE,
+      }),
+      this.prisma.transaction.findMany({
+        where: { userId, origin: 'FIXED', fixedPeriod: toDbPeriod(period) },
+      }),
+      this.prisma.cardStatement.findMany({
+        where: {
+          userId,
+          status: { not: 'PAID' },
+          dueDate: { gte: toDbDate(today), lte: toDbDate(addDays(today, UPCOMING_DAYS)) },
+        },
+        include: STATEMENT_WITH_CARD,
+        orderBy: { dueDate: 'asc' },
+      }),
+      // "Para confirmar": pending movements whose date arrived (scheduled ones wait for it).
+      this.prisma.transaction.findMany({
+        where: { userId, status: 'PENDING', date: { lte: toDbDate(today) } },
+        orderBy: { date: 'asc' },
+        select: { description: true },
+      }),
+      this.commitments.build(userId, period, period),
+    ]);
 
     const money = (value: { toFixed(d: number): string } | null) =>
       Money.of((value ?? 0).toFixed(2), base);
@@ -178,6 +210,13 @@ export class DashboardService {
         );
     const spent = money(expenses._sum.baseAmount).add(cardSpent);
     const saved = await this.saved(userId, base, user.valuationRate, range);
+    const free = freeThisMonth({ inAccounts, toCollect, toPay, cardLater: later });
+
+    // DAS-07: the same items as "to pay", split by the account they are paid from.
+    const toPayItems = past ? [] : month.items.map((item) => this.toPayItem(item, built));
+    const { accounts, unassigned } = past
+      ? { accounts: [], unassigned: null }
+      : await this.accountPayments(userId, spendable, balances, toPayItems, toBase, todayRates);
 
     return {
       period,
@@ -186,7 +225,7 @@ export class DashboardService {
       toCollect: toCollect.toString(),
       toPay: toPay.toString(),
       cardLater: later.toString(),
-      free: freeThisMonth({ inAccounts, toCollect, toPay, cardLater: later }).toString(),
+      free: free.toString(),
       spent: spent.toString(),
       saved: saved.toString(),
       pending: {
@@ -209,7 +248,167 @@ export class DashboardService {
           }
         : null,
       valuationsOverdue: await this.investments.overdue(userId),
+      perDay: freePerDay(free, today, period)?.toString() ?? null,
+      daysLeft: daysLeftIn(period, today),
+      received: money(incomes._sum.baseAmount).toString(),
+      accounts,
+      unassigned,
+      toPayItems,
     };
+  }
+
+  /** A line of "to pay this month" with where it is paid from (COM-04). */
+  private toPayItem(item: CommitmentItem, built: BuiltCommitments): ToPayItem {
+    const common = {
+      date: item.date,
+      amount: item.amount.toString(),
+      currency: item.amount.currency,
+    };
+    if (item.type === 'STATEMENT') {
+      return {
+        ...common,
+        type: 'STATEMENT',
+        id: item.statementId,
+        cardId: item.cardId,
+        name: built.cardNames.get(item.cardId) ?? '',
+        payFrom: built.cardPayers.get(item.cardId) ?? null,
+      };
+    }
+    if (item.type === 'FIXED') {
+      return {
+        ...common,
+        type: 'FIXED',
+        id: item.fixedId,
+        cardId: item.cardId,
+        name: item.name,
+        payFrom: item.cardId
+          ? (built.cardPayers.get(item.cardId) ?? null)
+          : (built.fixedPayers.get(item.fixedId) ?? null),
+      };
+    }
+    return {
+      ...common,
+      type: 'SCHEDULED',
+      id: item.scheduledId,
+      cardId: null,
+      name: item.description,
+      payFrom: built.scheduled.get(item.scheduledId)?.payFrom ?? null,
+    };
+  }
+
+  /**
+   * DAS-07, per account and currency: what it has to spend (balance + spending reserves) and what
+   * it still pays this month, the items of its payment pockets valued in its currency with today's
+   * rate (ADR 0025). An item in a currency that can't be converted stays in its own currency.
+   * What has no payment account goes apart, in base currency.
+   */
+  private async accountPayments(
+    userId: string,
+    spendable: { id: string; accountId: string; currency: Currency; account: AccountInfo }[],
+    balances: Map<string, Money>,
+    items: ToPayItem[],
+    toBase: (money: Money) => Money,
+    rates: RateTable,
+  ): Promise<{ accounts: DashboardAccount[]; unassigned: DashboardUnassigned | null }> {
+    const payerIds = [
+      ...new Set(items.flatMap((item) => (item.payFrom ? [item.payFrom.pocketId] : []))),
+    ];
+    const payers = new Map(
+      (
+        await this.prisma.pocket.findMany({
+          where: { userId, id: { in: payerIds } },
+          select: {
+            id: true,
+            accountId: true,
+            currency: true,
+            account: { select: { name: true, sortOrder: true } },
+          },
+        })
+      ).map((pocket) => [pocket.id, pocket]),
+    );
+
+    interface Row {
+      accountId: string;
+      account: AccountInfo;
+      currency: Currency;
+      spendable: Money;
+      toPay: Money;
+      items: ToPayItem[];
+    }
+    const rows = new Map<string, Row>();
+    const row = (accountId: string, account: AccountInfo, currency: Currency): Row => {
+      const key = `${accountId}|${currency}`;
+      let found = rows.get(key);
+      if (!found) {
+        found = {
+          accountId,
+          account,
+          currency,
+          spendable: Money.zero(currency),
+          toPay: Money.zero(currency),
+          items: [],
+        };
+        rows.set(key, found);
+      }
+      return found;
+    };
+    for (const pocket of spendable) {
+      const target = row(pocket.accountId, pocket.account, pocket.currency);
+      target.spendable = target.spendable.add(
+        balances.get(pocket.id) ?? Money.zero(pocket.currency),
+      );
+    }
+
+    const unassignedItems: ToPayItem[] = [];
+    let unassignedTotal: Money | null = null;
+    for (const item of items) {
+      const amount = Money.of(item.amount, item.currency as Currency);
+      const payer = item.payFrom ? payers.get(item.payFrom.pocketId) : undefined;
+      if (!payer) {
+        unassignedItems.push(item);
+        const value = toBase(amount);
+        unassignedTotal = unassignedTotal ? unassignedTotal.add(value) : value;
+        continue;
+      }
+      const convertible = canConvert(amount.currency, payer.currency, rates);
+      const target = row(
+        payer.accountId,
+        payer.account,
+        convertible ? payer.currency : amount.currency,
+      );
+      target.toPay = target.toPay.add(
+        convertible ? valueIn(amount, payer.currency, rates) : amount,
+      );
+      target.items.push(item);
+    }
+
+    const accounts = [...rows.values()]
+      // Accounts that pay something first, then in their usual order.
+      .sort(
+        (a, b) =>
+          Number(b.items.length > 0) - Number(a.items.length > 0) ||
+          a.account.sortOrder - b.account.sortOrder ||
+          a.account.name.localeCompare(b.account.name, 'es') ||
+          a.currency.localeCompare(b.currency),
+      )
+      .map((r) => ({
+        accountId: r.accountId,
+        name: r.account.name,
+        currency: r.currency,
+        spendable: r.spendable.toString(),
+        toPay: r.toPay.toString(),
+        shortfall: accountCoverage(r.spendable, r.toPay).shortfall.toString(),
+        payments: r.items.slice(0, NEXT_PAYMENTS),
+        paymentsCount: r.items.length,
+      }));
+    const unassigned = unassignedTotal
+      ? {
+          toPay: unassignedTotal.toString(),
+          payments: unassignedItems.slice(0, NEXT_PAYMENTS),
+          paymentsCount: unassignedItems.length,
+        }
+      : null;
+    return { accounts, unassigned };
   }
 
   /**

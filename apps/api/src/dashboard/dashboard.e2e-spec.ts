@@ -1,3 +1,5 @@
+import type { Dashboard } from '@platin/contracts';
+import { Money } from '@platin/domain';
 import { as, registerUser, TestUser } from '../../test/auth-helpers';
 import { addPocket, category, createPocket } from '../../test/fixtures';
 import { createTestApp, resetDatabase, TestContext } from '../../test/test-app';
@@ -299,10 +301,108 @@ describe('dashboard', () => {
     });
   });
 
+  it('DAS-07: what each account pays plus the unassigned part adds up to "to pay"', async () => {
+    const { galicia } = await scenario();
+    const api = as(ctx.app, user);
+    const res = await api.get('/api/v1/dashboard').expect(200);
+    const body = res.body as Dashboard;
+    // Rent on Galicia (it only has −18.500); the Sept installment of a card without a payment
+    // account; Efectivo (every user starts with it) pays nothing.
+    expect(body.accounts).toEqual([
+      expect.objectContaining({
+        accountId: galicia.accountId,
+        currency: 'ARS',
+        spendable: '-18500.00',
+        toPay: '380000.00',
+        shortfall: '398500.00',
+        paymentsCount: 1,
+        payments: [
+          expect.objectContaining({ type: 'FIXED', name: 'Alquiler', date: '2026-10-28' }),
+        ],
+      }),
+      expect.objectContaining({
+        name: 'Efectivo',
+        spendable: '0.00',
+        toPay: '0.00',
+        shortfall: '0.00',
+        paymentsCount: 0,
+        payments: [],
+      }),
+    ]);
+    expect(body.unassigned).toMatchObject({
+      toPay: '30000.00',
+      paymentsCount: 1,
+      payments: [{ type: 'STATEMENT', name: 'Visa Galicia', amount: '30000.00', payFrom: null }],
+    });
+    const byAccount = body.accounts.reduce(
+      (sum, account) => sum.add(Money.of(account.toPay, 'ARS')),
+      Money.of(body.unassigned?.toPay ?? '0', 'ARS'),
+    );
+    expect(byAccount.toString()).toBe(body.toPay);
+    expect(body.toPayItems.map((item) => [item.type, item.amount])).toEqual([
+      ['STATEMENT', '30000.00'],
+      ['FIXED', '380000.00'],
+    ]);
+    // Free 1.397.200 over Oct 23–31.
+    expect(body).toMatchObject({ daysLeft: 9, perDay: '155244.00', received: '0.00' });
+  });
+
+  it('DAS-07: a card with a payment account adds its statement to that account', async () => {
+    const { card } = await scenario();
+    const api = as(ctx.app, user);
+    const mp = await createPocket(ctx.app, user, {
+      accountName: 'Mercado Pago',
+      initialBalance: '490780',
+    });
+    await api.patch(`/api/v1/cards/${card.id}`).send({ defaultPaymentPocketId: mp.id }).expect(200);
+    const body = (await api.get('/api/v1/dashboard').expect(200)).body as Dashboard;
+    expect(body.unassigned).toBeNull();
+    expect(body.accounts.find((account) => account.name === 'Mercado Pago')).toMatchObject({
+      spendable: '490780.00',
+      toPay: '30000.00',
+      shortfall: '0.00',
+      payments: [
+        {
+          type: 'STATEMENT',
+          cardId: card.id,
+          payFrom: { pocketId: mp.id, accountName: 'Mercado Pago' },
+        },
+      ],
+    });
+    expect(body.toPayItems.find((item) => item.type === 'STATEMENT')?.payFrom?.pocketId).toBe(
+      mp.id,
+    );
+  });
+
+  it('DAS-07: a previous month has no per day nor payments', async () => {
+    await scenario();
+    const res = await as(ctx.app, user)
+      .get('/api/v1/dashboard')
+      .query({ period: '2026-09' })
+      .expect(200);
+    expect(res.body).toMatchObject({
+      perDay: null,
+      daysLeft: 0,
+      accounts: [],
+      unassigned: null,
+      toPayItems: [],
+    });
+  });
+
   it('isolation: another user sees an empty month', async () => {
     await scenario();
     const other = await registerUser(ctx.app);
     const res = await as(ctx.app, other).get('/api/v1/dashboard').expect(200);
+    expect(res.body).toMatchObject({
+      received: '0.00',
+      perDay: null,
+      unassigned: null,
+      toPayItems: [],
+    });
+    // Only the account every user starts with, empty.
+    expect(res.body.accounts).toEqual([
+      expect.objectContaining({ name: 'Efectivo', spendable: '0.00', toPay: '0.00' }),
+    ]);
     expect(res.body).toMatchObject({
       inAccounts: '0.00',
       toCollect: '0.00',

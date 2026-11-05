@@ -1,4 +1,13 @@
-import { cardLater, freeThisMonth, savedThisMonth, SavedTransfer, transferBaseValue } from './free';
+import {
+  accountCoverage,
+  cardLater,
+  daysLeftIn,
+  freePerDay,
+  freeThisMonth,
+  savedThisMonth,
+  SavedTransfer,
+  transferBaseValue,
+} from './free';
 import { Money } from './money';
 import { splitInstallments } from './installments';
 import { ars, d, p, usd } from './test-helpers';
@@ -150,5 +159,47 @@ describe('transferBaseValue', () => {
 
   it('is zero without a usable rate', () => {
     expect(transferBaseValue(usd('10'), usd('10'), 'ARS', null).isZero()).toBe(true);
+  });
+});
+
+describe('Por día (spec example)', () => {
+  it('on 5/11 with a free amount of $ 106.061,83: 26 days left, $ 4.079 per day', () => {
+    expect(daysLeftIn(p('2026-11'), d('2026-11-05'))).toBe(26);
+    expect(freePerDay(ars('106061.83'), d('2026-11-05'), p('2026-11'))?.toString()).toBe('4079.00');
+  });
+
+  it('has no per day when the free amount is zero or negative', () => {
+    expect(freePerDay(ars('0'), d('2026-11-05'), p('2026-11'))).toBeNull();
+    expect(freePerDay(ars('-1500.50'), d('2026-11-05'), p('2026-11'))).toBeNull();
+  });
+
+  it('on the last day of the month all of it is for today', () => {
+    expect(daysLeftIn(p('2026-11'), d('2026-11-30'))).toBe(1);
+    expect(freePerDay(ars('1234.56'), d('2026-11-30'), p('2026-11'))?.toString()).toBe('1234.00');
+  });
+
+  it('has no per day in a previous month', () => {
+    expect(daysLeftIn(p('2026-10'), d('2026-11-05'))).toBe(0);
+    expect(freePerDay(ars('50000'), d('2026-11-05'), p('2026-10'))).toBeNull();
+  });
+
+  it('counts February of a leap year', () => {
+    expect(daysLeftIn(p('2028-02'), d('2028-02-01'))).toBe(29);
+  });
+});
+
+describe('Lo que tiene cada cuenta para gastar', () => {
+  it('covers what it pays this month when it has as much or more', () => {
+    expect(accountCoverage(ars('490780'), ars('379418.27'))).toEqual({
+      covered: true,
+      shortfall: ars('0'),
+    });
+    expect(accountCoverage(ars('100'), ars('100')).covered).toBe(true);
+  });
+
+  it('says how much is missing when it does not reach', () => {
+    const coverage = accountCoverage(ars('20000'), ars('53452.10'));
+    expect(coverage.covered).toBe(false);
+    expect(coverage.shortfall.toString()).toBe('33452.10');
   });
 });
