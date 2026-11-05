@@ -114,3 +114,16 @@ export function rateUnit(currency: Currency, base: Currency): string {
   if (base === 'ARS') return `pesos por ${SINGULAR[currency]}`;
   return `${base} por ${currency}`;
 }
+
+/** "2026-11-10" → "10 nov" (the home's payment lists, DAS-07). */
+export function formatDayMonth(date: LocalDate): string {
+  const { day, month } = dateParts(date);
+  return `${day} ${MONTHS[month - 1].slice(0, 3)}`;
+}
+
+/** "hoy", "ayer" or "3 nov": when a movement was, after its place (DAS-07). */
+export function formatShortDay(date: LocalDate, today: LocalDate): string {
+  if (date === today) return 'hoy';
+  if (date === addDays(today, -1)) return 'ayer';
+  return formatDayMonth(date);
+}

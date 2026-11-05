@@ -94,7 +94,8 @@ import { LAYOUT_TEXTS } from './layout.texts';
     <main
       class="mx-auto w-full max-w-3xl px-5 pb-32 pt-4 lg:pl-72 lg:pr-8 lg:pb-12 lg:pt-8 lg:max-w-none"
     >
-      <div class="mx-auto w-full max-w-3xl">
+      <!-- The home uses the desktop's width in columns (DAS-07); the rest keeps one column. -->
+      <div class="mx-auto w-full max-w-3xl xl:has-[>pl-dashboard-page]:max-w-6xl">
         <pl-announcement-banner />
         <router-outlet />
       </div>

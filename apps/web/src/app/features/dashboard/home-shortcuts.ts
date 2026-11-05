@@ -75,10 +75,11 @@ const SHORTCUTS: Record<HomeShortcut, ShortcutInfo> = {
     LucideX,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'flex flex-col gap-2' },
+  // DAS-04 / DAS-07: a grid of 4 on a phone; on a desktop, 3 inside a card beside the free one.
+  host: { class: 'flex flex-col gap-2 xl:rounded-card xl:bg-surface xl:p-4' },
   template: `
     <div class="flex items-center justify-between">
-      <h2 class="text-lg font-bold" id="home-shortcuts-title">{{ t.title }}</h2>
+      <h2 class="text-lg font-extrabold xl:text-base" id="home-shortcuts-title">{{ t.title }}</h2>
       @if (!editing()) {
         <button
           type="button"
@@ -94,13 +95,13 @@ const SHORTCUTS: Record<HomeShortcut, ShortcutInfo> = {
     @if (!editing()) {
       @if (current().length > 0) {
         <nav aria-labelledby="home-shortcuts-title">
-          <ul class="grid grid-cols-4 gap-2 sm:grid-cols-7">
+          <ul class="grid grid-cols-4 gap-2 xl:grid-cols-3">
             @for (key of current(); track key) {
               <li>
                 <a
                   [routerLink]="info[key].path"
                   [plPlanGate]="info[key].gate ?? []"
-                  class="relative flex min-h-11 flex-col items-center gap-1.5 rounded-tile bg-surface px-1 py-3 text-center text-xs font-medium [&>pl-plan-badge]:absolute [&>pl-plan-badge]:top-1.5 [&>pl-plan-badge]:right-1.5"
+                  class="relative flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-[18px] bg-surface px-1 py-3 text-center text-xs font-semibold xl:bg-field [&>pl-plan-badge]:absolute [&>pl-plan-badge]:top-1.5 [&>pl-plan-badge]:right-1.5"
                 >
                   <span
                     class="flex size-10 items-center justify-center rounded-xl"

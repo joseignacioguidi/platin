@@ -6,7 +6,14 @@ import {
   KeypadKey,
   parseTypedAmount,
 } from './amount-keypad/amount-input';
-import { dateBadge, formatDate, formatDayHeader, formatPeriod } from './format/format';
+import {
+  dateBadge,
+  formatDate,
+  formatDayHeader,
+  formatDayMonth,
+  formatPeriod,
+  formatShortDay,
+} from './format/format';
 
 const type = (keys: string) =>
   [...keys].reduce((raw, key) => applyKey(raw, (key === '<' ? 'back' : key) as KeypadKey), '');
@@ -71,5 +78,16 @@ describe('format', () => {
   it('formats date badges and dates', () => {
     expect(dateBadge(parseLocalDate('2026-11-05'))).toEqual({ day: '05', month: 'NOV' });
     expect(formatDate(parseLocalDate('2026-10-23'))).toBe('23/10/2026');
+  });
+});
+
+describe('short days (DAS-07)', () => {
+  const today = parseLocalDate('2026-11-05');
+
+  it('says hoy, ayer or the day and month', () => {
+    expect(formatShortDay(today, today)).toBe('hoy');
+    expect(formatShortDay(parseLocalDate('2026-11-04'), today)).toBe('ayer');
+    expect(formatShortDay(parseLocalDate('2026-11-03'), today)).toBe('3 nov');
+    expect(formatDayMonth(parseLocalDate('2026-12-10'))).toBe('10 dic');
   });
 });

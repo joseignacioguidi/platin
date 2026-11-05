@@ -144,30 +144,17 @@ type Direction = 'INVEST' | 'REDEEM';
         />
 
         @if (mode() === 'EXPENSE' || mode() === 'INCOME') {
-          <!-- Recent categories in one row; "Más" opens all of them (and creates one). -->
-          <div role="group" [attr.aria-label]="texts.categoryRecent" [class]="row">
-            @for (category of visibleCategories(); track category.id) {
-              <button
-                plChip
-                [selected]="category.id === categoryId()"
-                (click)="categoryId.set(category.id)"
-              >
-                {{ category.name }}
-              </button>
-            }
-            <pl-category-select
-              class="shrink-0"
-              appearance="chip"
-              allowCreate
-              [kind]="mode() === 'INCOME' ? 'INCOME' : 'EXPENSE'"
-              [label]="texts.categoryAll"
-              [placeholder]="texts.more"
-              [categories]="categoriesStore.categories()"
-              [recentIds]="categoriesStore.recentIds()"
-              [value]="null"
-              (valueChange)="$event && categoryId.set($event)"
-            />
-          </div>
+          <!-- MOV-09 (iteration 7): the same category picker as the other forms. -->
+          <pl-category-select
+            class="shrink-0"
+            allowCreate
+            [kind]="mode() === 'INCOME' ? 'INCOME' : 'EXPENSE'"
+            [label]="texts.category"
+            [categories]="categoriesStore.categories()"
+            [recentIds]="categoriesStore.recentIds()"
+            [value]="categoryId()"
+            (valueChange)="categoryId.set($event)"
+          />
 
           <div [class]="row">
             <pl-select
@@ -462,15 +449,6 @@ export class QuickEntrySheet {
       !this.card() &&
       compareDates(this.date(), this.today.date()) > 0,
   );
-
-  protected readonly visibleCategories = computed(() => {
-    const mode = this.mode();
-    if (mode === 'TRANSFER' || mode === 'INVEST') return [];
-    const all = this.categoriesStore.ofKind(mode);
-    const recent = this.categoriesStore.recent(mode);
-    const selected = all.find((c) => c.id === this.categoryId());
-    return selected && !recent.includes(selected) ? [selected, ...recent.slice(0, 4)] : recent;
-  });
 
   protected readonly needsRate = computed(() => {
     const base = this.auth.user()?.baseCurrency ?? 'ARS';
