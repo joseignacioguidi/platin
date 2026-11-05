@@ -209,6 +209,13 @@ export class CardsService {
       dueDay: card.dueDay,
       defaultPaymentPocketId: card.defaultPaymentPocketId,
       archived: card.archivedAt !== null,
+      aliases: (
+        await this.prisma.sourceAlias.findMany({
+          where: { cardId: card.id },
+          select: { alias: true },
+          orderBy: { alias: 'asc' },
+        })
+      ).map((entry) => entry.alias),
       openStatement: open ? toStatementSummary(open) : null,
       previousStatement: await this.previousStatement(card),
       committedArs: committed.toString(),

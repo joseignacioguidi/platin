@@ -119,6 +119,8 @@ export const accountSchema = z.object({
   kind: accountKindSchema,
   color: colorTokenSchema.nullable(),
   archived: z.boolean(),
+  /** "Nombres para escribir" (TXT-02), normalized. */
+  aliases: z.array(z.string()),
   /** Active pockets (all of them with ?archived=true). */
   pockets: z.array(pocketSchema),
   /** Sum of its active pockets per currency. */

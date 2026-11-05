@@ -16,3 +16,4 @@ export * from './lib/goals';
 export * from './lib/investments';
 export * from './lib/admin';
 export * from './lib/plans';
+export * from './lib/text-entry';

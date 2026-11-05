@@ -21,7 +21,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PocketBalancesService } from './pocket-balances.service';
 import { AVAILABLE_POCKET_NAME, toPocketDto } from './pockets.service';
 
-type AccountWithPockets = AccountRow & { pockets: PocketRow[] };
+type AccountWithPockets = AccountRow & { pockets: PocketRow[]; aliases: { alias: string }[] };
+const ALIASES = { select: { alias: true }, orderBy: { alias: 'asc' } } as const;
 
 const totalsDto = (totals: readonly Money[]) =>
   totals.map((money) => ({ currency: money.currency, amount: money.toString() }));
@@ -45,6 +46,7 @@ export class AccountsService {
           where: includeArchived ? {} : { archivedAt: null },
           orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
         },
+        aliases: ALIASES,
       },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
@@ -82,7 +84,10 @@ export class AccountsService {
   async get(userId: string, id: string): Promise<Account> {
     const row = await this.prisma.account.findFirst({
       where: { id, userId },
-      include: { pockets: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] } },
+      include: {
+        pockets: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] },
+        aliases: ALIASES,
+      },
     });
     if (!row) throw AppException.notFound('Account not found');
     const balances = await this.balances.balances(userId, row.pockets);
@@ -181,6 +186,7 @@ export class AccountsService {
       kind: row.kind,
       color: (row.color as ColorToken | null) ?? null,
       archived: row.archivedAt !== null,
+      aliases: row.aliases.map((entry) => entry.alias),
       pockets,
       totals: totalsDto(
         accountTotals(

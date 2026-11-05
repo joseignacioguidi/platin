@@ -95,6 +95,18 @@ enum StatementStatus {
   PAID
 }
 
+// Where a movement came in; it does not change its origin (ADR 0026).
+enum Channel {
+  APP
+  TELEGRAM
+}
+
+enum DraftStatus {
+  OPEN
+  CONFIRMED
+  CANCELLED
+}
+
 // ---------- User and session ----------
 enum Role {
   USER
@@ -142,6 +154,9 @@ model User {
   cardCharges   CardCharge[]
   fixedItems    FixedItem[]
   goals         Goal[]
+  aliases       SourceAlias[]
+  merchantRules MerchantRule[]
+  telegramLink  TelegramLink?
 }
 
 model RefreshToken {
@@ -186,8 +201,9 @@ model Account {
   archivedAt DateTime?
   createdAt  DateTime    @default(now())
 
-  user    User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user    User          @relation(fields: [userId], references: [id], onDelete: Restrict)
   pockets Pocket[]
+  aliases SourceAlias[]
 
   @@unique([userId, name])
   @@index([userId])
@@ -248,13 +264,14 @@ model Category {
   systemKey  String? // "ADJUSTMENT" | "YIELD": not editable nor archivable
   archivedAt DateTime?
 
-  user         User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
-  parent       Category?             @relation("CategoryParent", fields: [parentId], references: [id], onDelete: Restrict)
-  children     Category[]            @relation("CategoryParent")
-  transactions Transaction[]
-  cardCharges  CardCharge[]
-  adjustments  StatementAdjustment[]
-  fixedItems   FixedItem[]
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  parent        Category?             @relation("CategoryParent", fields: [parentId], references: [id], onDelete: Restrict)
+  children      Category[]            @relation("CategoryParent")
+  merchantRules MerchantRule[]
+  transactions  Transaction[]
+  cardCharges   CardCharge[]
+  adjustments   StatementAdjustment[]
+  fixedItems    FixedItem[]
 
   @@unique([userId, kind, name])
   @@unique([userId, systemKey])
@@ -277,6 +294,7 @@ model Transaction {
   description String?
   fixedId     String?   @db.Uuid
   fixedPeriod DateTime? @db.Date
+  channel     Channel   @default(APP)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -335,6 +353,7 @@ model CreditCard {
   statements           CardStatement[]
   charges              CardCharge[]
   fixedItems           FixedItem[]
+  aliases              SourceAlias[]
 
   @@index([userId])
 }
@@ -374,6 +393,7 @@ model CardCharge {
   startInstallment  Int       @default(1) // "voy por la k de N"
   fixedId           String?   @db.Uuid // card subscription (TAR-09)
   fixedPeriod       DateTime? @db.Date
+  channel           Channel   @default(APP)
   createdAt         DateTime  @default(now())
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -584,4 +604,101 @@ model ActivityDay {
 
   @@id([userId, date])
   @@index([date])
+}
+
+// ---------- Text entry and Telegram (iteration 8, ADR 0026) ----------
+// A name to write an account or a card (TXT-02): exactly one of the two (check constraint).
+model SourceAlias {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  alias     String // normalized: lowercase, no accents, no spaces
+  accountId String?  @db.Uuid // resolved to its balance in the amount's currency
+  cardId    String?  @db.Uuid
+  createdAt DateTime @default(now())
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  account Account?    @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  card    CreditCard? @relation(fields: [cardId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, alias])
+  @@index([accountId])
+  @@index([cardId])
+}
+
+// "If the reason says coto, the category is Supermercado" (TXT-03).
+model MerchantRule {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  pattern    String // normalized, one or more whole words
+  categoryId String   @db.Uuid
+  createdVia Channel  @default(APP)
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, pattern])
+  @@index([categoryId])
+}
+
+// One Telegram account per platin account and vice versa (BOT-01).
+model TelegramLink {
+  userId         String    @id @db.Uuid
+  telegramUserId BigInt    @unique
+  chatId         BigInt
+  firstName      String?
+  linkedAt       DateTime  @default(now())
+  lastSeenAt     DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+}
+
+// Single use, 10 minutes; only its hash is stored (BOT-01).
+model TelegramLinkCode {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  codeHash  String    @unique // SHA-256 with pepper
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// What the bot understood, waiting for "Confirmar"; expires after 2 hours (BOT-02).
+model BotDraft {
+  id         String      @id @default(uuid()) @db.Uuid
+  userId     String      @db.Uuid
+  chatId     BigInt
+  messageId  Int? // the bot message edited with each change
+  text       String // what the person wrote
+  draft      Json // TextEntryDraft, validated with Zod when read
+  options    Json? // the two drafts of AMBIGUOUS_DATE
+  awaiting   String? // "CATEGORY_NAME" when asked to write a category
+  status     DraftStatus @default(OPEN)
+  resultType String? // "TRANSACTION" | "CHARGE"
+  resultId   String?     @db.Uuid
+  expiresAt  DateTime
+  createdAt  DateTime    @default(now())
+
+  @@index([chatId, status])
+  @@index([userId])
+}
+
+// Webhook idempotency; cleaned after 3 days.
+model TelegramUpdate {
+  updateId   BigInt   @id
+  receivedAt DateTime @default(now())
+}
+
+// What the parser did not understand, kept 90 days (BOT-06).
+model UnparsedMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  text      String
+  error     String // parser code
+  channel   Channel
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }

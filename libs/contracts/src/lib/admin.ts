@@ -3,6 +3,7 @@ import { colorTokenSchema } from './accounts';
 import { roleSchema, userStatusSchema } from './auth';
 import { categoryKindSchema, iconNameSchema } from './categories';
 import { localDateSchema, pageSchema, rateTypeSchema, uuidSchema } from './common';
+import { merchantRulesSettingSchema } from './text-entry';
 
 // ---------- Settings (ADM-05) ----------
 
@@ -47,6 +48,7 @@ export const SETTING_SCHEMAS = {
   announcement: announcementSettingSchema,
   'suggested-categories': suggestedCategoriesSettingSchema,
   'default-rate': defaultRateSettingSchema,
+  'merchant-rules': merchantRulesSettingSchema,
 } as const;
 
 export type SettingKey = keyof typeof SETTING_SCHEMAS;
