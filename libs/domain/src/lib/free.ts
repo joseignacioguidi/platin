@@ -1,4 +1,12 @@
-import { compareDates, lastDayOf, LocalDate, Period } from './dates';
+import {
+  compareDates,
+  daysBetween,
+  daysInPeriod,
+  lastDayOf,
+  LocalDate,
+  Period,
+  periodOf,
+} from './dates';
 import { Currency, PocketKind } from './enums';
 import { canConvert, RatesInput, valueIn } from './exchange';
 import { Money } from './money';
@@ -93,4 +101,42 @@ export function savedThisMonth(transfers: readonly SavedTransfer[], base: Curren
     else if (isStored(fromKind) && isSpendable(toKind)) total = total.subtract(value);
   }
   return total;
+}
+
+/**
+ * Days left in `period` counting `today`: the whole month for a future one, zero for a past one.
+ */
+export function daysLeftIn(period: Period, today: LocalDate): number {
+  const current = periodOf(today);
+  if (compareDates(period, current) < 0) return 0;
+  if (compareDates(period, current) > 0) return daysInPeriod(period);
+  return daysBetween(today, lastDayOf(period)) + 1;
+}
+
+/**
+ * "Por día" (DAS-07): free ÷ days left in the month counting today, rounded down to whole units.
+ * Null when the free amount is zero or negative, or when the period already passed.
+ */
+export function freePerDay(free: Money, today: LocalDate, period: Period): Money | null {
+  const days = daysLeftIn(period, today);
+  if (days === 0 || !free.isPositive()) return null;
+  return Money.of(free.amount.dividedBy(days).floor(), free.currency);
+}
+
+export interface AccountCoverage {
+  /** What the account has to spend covers what it pays this month. */
+  covered: boolean;
+  /** What is missing to cover it (zero when covered). */
+  shortfall: Money;
+}
+
+/**
+ * DAS-07: an account covers its payments of the month when what it has to spend (balance +
+ * spending reserves) is at least what it still pays this month.
+ */
+export function accountCoverage(spendable: Money, toPay: Money): AccountCoverage {
+  const shortfall = toPay.subtract(spendable);
+  return shortfall.isPositive()
+    ? { covered: false, shortfall }
+    : { covered: true, shortfall: Money.zero(toPay.currency) };
 }

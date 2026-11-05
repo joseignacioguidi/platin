@@ -1,8 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import type { Movement } from '@platin/contracts';
-import { type Currency, parsePeriod } from '@platin/domain';
+import { type Currency, parseLocalDate, parsePeriod } from '@platin/domain';
 import {
   formatPeriodShort,
+  formatShortDay,
   formatRate,
   HideAmounts,
   moneyText,
@@ -11,6 +12,7 @@ import {
   PlMoney,
   PlTone,
 } from '@platin/web-ui';
+import { Today } from '../../core/today';
 import { TRANSACTIONS_TEXTS } from './transactions.texts';
 
 /**
@@ -55,8 +57,8 @@ interface RowView {
   template: `
     <pl-list-item
       [heading]="view().heading"
-      [subtitle]="view().subtitle"
-      [icon]="view().icon"
+      [subtitle]="subtitle()"
+      [icon]="icons() ? view().icon : null"
       [tone]="view().tone"
       [wrap]="!!view().wrap"
     >
@@ -84,6 +86,11 @@ export class MovementRow {
   readonly movement = input.required<Movement>();
   /** The pocket the list belongs to, if any: transfers into it read as money in. */
   readonly pocketId = input<string | null>(null);
+  /** The home's last movements go without category icons (DAS-07). */
+  readonly icons = input(true);
+  /** Adds when it was ("hoy", "ayer", "3 nov") to the subtitle, outside a list grouped by day. */
+  readonly dated = input(false);
+  private readonly today = inject(Today);
   protected readonly texts = TRANSACTIONS_TEXTS;
   private readonly hideAmounts = inject(HideAmounts);
 
@@ -208,6 +215,13 @@ export class MovementRow {
         },
       ],
     };
+  });
+
+  protected readonly subtitle = computed(() => {
+    const subtitle = this.view().subtitle;
+    if (!this.dated()) return subtitle;
+    const day = formatShortDay(parseLocalDate(this.movement().date), this.today.date());
+    return subtitle ? `${subtitle} · ${day}` : day;
   });
 
   /** "Compra de dólares", "Venta de euros"; between two other currencies, "Cambio de moneda". */

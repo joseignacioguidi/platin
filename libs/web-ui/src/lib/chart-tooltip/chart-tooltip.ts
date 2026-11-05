@@ -24,12 +24,16 @@ import type { Currency } from '@platin/domain';
 import { HideAmounts } from '../money/hide-amounts';
 import { moneyText, PlMoney } from '../money/money';
 
-/** What a tooltip shows: a label and an amount (with pl-money) or a plain value (counts). */
+/**
+ * What a tooltip shows: a label and an amount (with pl-money) or a plain value (counts), or a
+ * label and a sentence that explains it (plInfoTip).
+ */
 export interface PlChartTip {
   label: string;
   amount: string | null;
   currency: Currency;
   value: string | null;
+  text?: string | null;
 }
 
 let nextTipId = 0;
@@ -44,10 +48,12 @@ let nextTipId = 0;
       <div
         role="tooltip"
         [id]="id()"
-        class="pointer-events-none flex flex-col gap-0.5 rounded-xl bg-ink px-3 py-2 text-on-ink shadow-lg"
+        class="pointer-events-none flex max-w-64 flex-col gap-0.5 rounded-xl bg-ink px-3 py-2 text-on-ink shadow-lg"
       >
         <span class="text-xs opacity-80">{{ tip.label }}</span>
-        @if (tip.amount !== null) {
+        @if (tip.text) {
+          <span class="text-sm leading-snug">{{ tip.text }}</span>
+        } @else if (tip.amount !== null) {
           <pl-money
             class="text-[15px] font-semibold"
             [amount]="tip.amount"
@@ -208,5 +214,54 @@ export class PlChartPoint {
       currency: this.currency(),
       value: this.value(),
     };
+  }
+}
+
+/**
+ * A help button that explains a term in the shared tooltip, on hover, focus and tap. Like the
+ * chart points, a tap outside, Escape or leaving closes it. Put it on a real `<button>` with an
+ * aria-label.
+ */
+@Directive({
+  selector: 'button[plInfoTip]',
+  host: {
+    type: 'button',
+    '[attr.aria-describedby]': 'describedBy()',
+    '(mouseenter)': 'show()',
+    '(mouseleave)': 'hide()',
+    '(focus)': 'show()',
+    '(blur)': 'hide()',
+    // Touch has no hover; it doesn't reach a row the button sits on either.
+    '(click)': 'show(); $event.stopPropagation()',
+  },
+})
+export class PlInfoTip {
+  /** The sentence that explains the term. */
+  readonly plInfoTip = input.required<string>();
+  /** The term, shown on top. */
+  readonly term = input.required<string>();
+
+  private readonly element = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+  private readonly tooltips = inject(PlChartTooltips);
+
+  protected readonly describedBy = computed(() => {
+    const current = this.tooltips.describedBy();
+    return current?.owner === this.element ? current.id : null;
+  });
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => this.tooltips.hide(this.element));
+  }
+
+  protected show(): void {
+    this.tooltips.show(
+      this.element,
+      { label: this.term(), amount: null, currency: 'ARS', value: null, text: this.plInfoTip() },
+      this.element,
+    );
+  }
+
+  protected hide(): void {
+    this.tooltips.hide(this.element);
   }
 }

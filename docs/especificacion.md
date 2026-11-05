@@ -90,7 +90,7 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 - **MOV-06** Exportar movimientos a CSV.
 - **MOV-07** Invertir o rescatar desde la carga rápida: un cuarto modo "Invertir", con "Invertir" / "Rescatar". Invertir pasa plata del saldo de una cuenta a una reserva de inversión, existente o nueva ("+ Nueva inversión"); Rescatar hace lo inverso. Es el único lugar fuera de la reserva donde se invierte. Si las monedas son distintas pide los dos montos. Se guarda como transferencia con intención `INVEST` o `REDEEM` y en la lista se lee "Invertiste $ 150.000 en CEDEARs". Requiere el plan que incluye inversiones.
 - **MOV-08** Cargar un gasto o ingreso con fecha futura (un turno médico el 20 con su costo): queda programado, no toca saldos y aparece en compromisos y en los próximos 30 días. Cuando llega su fecha pasa a "Para confirmar".
-- **MOV-09** La carga rápida entra en la pantalla de un celular sin scroll (360 × 640 como mínimo), también con tarjeta y cuotas. El **motivo** ("¿En qué?") está siempre visible debajo del monto; si queda vacío, el movimiento toma el nombre de la categoría.
+- **MOV-09** La carga rápida entra en la pantalla de un celular sin scroll (360 × 640 como mínimo), también con tarjeta y cuotas. El **motivo** ("¿En qué?") está siempre visible debajo del monto; si queda vacío, el movimiento toma el nombre de la categoría. Desde la iteración 7, la categoría se elige con el mismo selector que el resto de los formularios (búsqueda, ícono y color, recientes primero y "+ Nueva categoría"), en lugar de la fila de chips.
 
 ### 4. Tarjetas de crédito
 
@@ -156,6 +156,16 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 
 * **DAS-04** Accesos rápidos en el inicio a las demás funciones (cuentas, tarjetas, fijos, compromisos, ahorros, inversiones, categorías, presupuestos cuando existan). Cada usuario elige cuáles ver y en qué orden; hay un conjunto por defecto.
 * **DAS-05** "Libre este mes" se calcula desde los saldos (regla "Libre este mes"). Debajo del número, cómo se llega a él: en tus cuentas, por cobrar, a pagar este mes y tarjeta de los meses siguientes. Aparte, como dato, lo gastado y lo ahorrado o invertido en el mes.
+* **DAS-07** Inicio práctico (iteración 7), igual a `docs/mockups/inicio-v2/`. En celular, una columna en este orden:
+  1. **Lo que te queda**: "Te quedan para gastar este mes", el libre, y "≈ $ X por día hasta el 30/11". La barra muestra en qué se reparte lo que hay: para pagar este mes, tarjeta de los meses siguientes y libre, cada parte con su nombre y monto. "Para pagar este mes" se abre y lista lo que hay que pagar, con su cuenta de pago.
+  2. **Avisos**, una línea cada uno y solo si aplican: movimientos para confirmar, cotización desactualizada, valores de inversión para actualizar.
+  3. **Últimos movimientos**: los 5 más recientes; tocar uno abre su edición; "Ver todos".
+  4. **Accesos** (DAS-04) en una grilla de 4, sin tarjetas ni colores: cada uno es un ícono de línea en tinta dentro de un círculo de borde fino, con el nombre debajo, sobre el fondo de la pantalla.
+  5. **Tus cuentas y sus pagos**: por cuenta, lo que tiene para gastar, cuánto paga este mes y si le alcanza, y sus próximos 3 pagos del mes; "Ver los N pagos de noviembre".
+  6. **Ahorros y metas**: cada meta activa con lo ahorrado, su avance y su ritmo.
+  7. **El mes hasta hoy**: entraron, gastaste y separaste para ahorro e inversión.
+
+  En escritorio, con la barra lateral, en dos filas: arriba la tarjeta de lo que te queda (dos tercios) y al lado los avisos y los accesos; abajo tres columnas: últimos movimientos (8), cuentas y sus pagos, y ahorros y metas con el mes debajo. A menos ancho las columnas se apilan.
 * **DAS-06** Todos los gráficos muestran el valor exacto y su etiqueta (mes, categoría, apartado) al pasar el mouse, al enfocar con teclado o al tocar.
 
 ### 11. Categorías
@@ -297,6 +307,8 @@ Libre = en tus cuentas + por cobrar − a pagar este mes − tarjeta de los mese
 - Pasar plata del saldo de una cuenta a una reserva de ahorro o inversión baja el libre (baja "en tus cuentas"); retirarla lo sube. Pasarla a una reserva para gastar no lo cambia.
 - Los rendimientos y los ajustes de reservas de ahorro e inversión no cambian el libre; los ajustes del saldo de una cuenta o de una reserva para gastar sí, porque cambian lo que hay.
 - **Meses anteriores**: el libre es lo que quedó en tus cuentas el último día del mes, sin por cobrar ni a pagar.
+- **Por día**: libre ÷ días que faltan del mes, contando hoy, redondeado a pesos hacia abajo. El 5/11 con un libre de $ 106.061,83 faltan 26 días: $ 4.079 por día. Si el libre es 0 o negativo no hay por día: el inicio dice "No te queda libre este mes" y, si es negativo, cuánto falta para cubrir lo de este mes. En meses anteriores tampoco hay por día.
+- **Lo que tiene cada cuenta para gastar**: su saldo más sus reservas para gastar. **Lo que paga este mes** una cuenta: lo que falta pagar este mes cuya cuenta de pago es esa (COM-04). **Le alcanza** si lo primero es mayor o igual que lo segundo; si no, el inicio dice cuánto le falta. Lo que no tiene cuenta de pago se muestra aparte, como "Sin cuenta asignada".
 
 Ejemplo: en tus cuentas $ 726.150 de saldo y $ 450.000 en reservas para gastar (Gastos Previstos $ 220.000, Cuotas $ 120.000, Extras $ 110.000); por cobrar $ 0; a pagar este mes $ 379.418,27; ninguna compra con tarjeta del mes cae en meses siguientes. Libre = 1.176.150 − 379.418,27 = $ 796.731,73. Si el 20 compro con tarjeta $ 90.000 en 3 cuotas que vencen en diciembre, enero y febrero, Libre = $ 706.731,73. Si después paso $ 200.000 del saldo a la reserva Auto (ahorro), Libre = $ 506.731,73.
 
@@ -441,6 +453,11 @@ Cuentas más simples y un libre que coincide con lo que hay en el banco.
 - "Libre este mes" calculado desde los saldos, con las compras con tarjeta de los meses siguientes y sin contar nada dos veces (DAS-05).
 - Carga rápida sin scroll y con el motivo siempre visible (MOV-09); "Guardar" al editar un programado (MOV-04); Compromisos con la cuenta de pago de cada línea (COM-04).
 
+### Iteración 7 (noviembre 2026)
+
+- Un inicio que se entiende de un vistazo y sirve para el uso diario, en celular y en escritorio (DAS-05, DAS-07).
+- La carga rápida usa el selector de categorías de los demás formularios (MOV-09).
+
 ## Identidad visual y UX
 
 La app usa la paleta y la tipografía de Hecho, con los colores reasignados a significados financieros. La interfaz se diseña de cero, mobile-first, alrededor de una pregunta: cuánto puedo gastar este mes.
@@ -459,6 +476,8 @@ La app usa la paleta y la tipografía de Hecho, con los colores reasignados a si
 | Celeste | #7DE2F2 | Dólares y metas en ahorro (acento) |
 | Gris | #6D6D6D | Texto secundario |
 | Rosa | #FFC7C7 | Solo landing e ilustraciones |
+
+**El color siempre significa algo.** Se usa para montos y estados (gasto, pendiente, libre, tarjeta, transferencia) y para las categorías, que tienen el color que elige el usuario. Íconos, accesos, menús y botones secundarios van en tinta y gris; el verde de marca queda para la acción principal, los enlaces y el foco.
 
 Coral pasa de acento a color funcional porque las finanzas necesitan un "negativo" claro. El verde y el coral tienen poco contraste sobre blanco: se usan como fondos, íconos y texto grande; para texto chico se definen variantes más oscuras.
 

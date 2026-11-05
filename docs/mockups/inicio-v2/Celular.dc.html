@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Inicio, celular</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#007A65}a:hover{color:#005c4c}
+</style>
+</helmet>
+<div style="width: 390px; height: 2280px; box-sizing: border-box; background: #F4F4F1; font-family: 'Hanken Grotesk', system-ui, sans-serif; color: #181818; padding: 20px 16px 40px; display: flex; flex-direction: column; gap: 20px">
+
+  <!-- Header -->
+  <div style="display: flex; flex-direction: column; gap: 6px">
+    <p style="margin: 0; font-size: 14px; color: #6D6D6D">Hola, Jose Ignacio</p>
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <div style="display: flex; align-items: center; gap: 4px">
+        <button type="button" aria-label="Mes anterior" style="width: 44px; height: 44px; border: 0; background: transparent; border-radius: 22px; display: flex; align-items: center; justify-content: center; color: #181818">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+        </button>
+        <h1 style="margin: 0; font-size: 22px; font-weight: 800">Noviembre 2026</h1>
+      </div>
+      <button type="button" aria-label="Ocultar montos" style="width: 44px; height: 44px; border: 0; background: #FFFFFF; border-radius: 22px; display: flex; align-items: center; justify-content: center; color: #181818">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Libre -->
+  <section style="background: #FFFFFF; border-radius: 24px; padding: 20px; display: flex; flex-direction: column; gap: 16px">
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <p style="margin: 0; font-size: 15px; color: #6D6D6D">Te quedan para gastar este mes</p>
+      <p style="margin: 0; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; font-size: 42px; font-weight: 700; letter-spacing: -1px">$ 106.062</p>
+      <p style="margin: 0; align-self: flex-start; background: #E3F7F3; color: #007A65; font-size: 14px; font-weight: 600; padding: 6px 12px; border-radius: 999px">≈ <span style="font-family: 'JetBrains Mono', monospace">$ 4.079</span> por día hasta el 30/11</p>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <p style="margin: 0; font-size: 14px; color: #6D6D6D">Tus <span style="font-family: 'JetBrains Mono', monospace; color: #181818">$ 490.780</span> en cuentas se reparten así</p>
+      <div style="display: flex; gap: 3px; height: 14px">
+        <div style="flex: 379 1 0; background: #F9C558; border-radius: 7px 2px 2px 7px"></div>
+        <div style="flex: 6 1 0; min-width: 6px; background: #8B7FFF; border-radius: 2px"></div>
+        <div style="flex: 106 1 0; background: #00B99A; border-radius: 2px 7px 7px 2px"></div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column">
+      <button type="button" style="min-height: 48px; border: 0; background: transparent; padding: 0; display: flex; align-items: center; gap: 10px; font: inherit; color: inherit; text-align: left">
+        <span style="width: 10px; height: 10px; border-radius: 5px; background: #F9C558; flex: none"></span>
+        <span style="flex: 1; font-size: 15px">Para pagar este mes</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px">$ 379.418</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6D6D6D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+      </button>
+      <div style="min-height: 44px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #EEEEEA">
+        <span style="width: 10px; height: 10px; border-radius: 5px; background: #8B7FFF; flex: none"></span>
+        <span style="flex: 1; font-size: 15px">Tarjeta, meses siguientes</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; margin-right: 28px">$ 5.300</span>
+      </div>
+      <div style="min-height: 44px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #EEEEEA">
+        <span style="width: 10px; height: 10px; border-radius: 5px; background: #00B99A; flex: none"></span>
+        <span style="flex: 1; font-size: 15px; font-weight: 700">Libre</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; font-weight: 700; margin-right: 28px">$ 106.062</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Aviso -->
+  <a href="#" style="min-height: 52px; box-sizing: border-box; background: #FDF1D3; color: #6B4E00; border-radius: 16px; padding: 12px 16px; display: flex; align-items: center; gap: 10px; text-decoration: none; font-size: 15px; font-weight: 600">
+    <span style="flex: 1">2 movimientos para confirmar</span>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+  </a>
+
+  <!-- Últimos movimientos -->
+  <section style="display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <h2 style="margin: 0; font-size: 18px; font-weight: 800">Últimos movimientos</h2>
+      <a href="#" style="font-size: 15px; font-weight: 600; min-height: 44px; display: flex; align-items: center">Ver todos</a>
+    </div>
+    <div style="background: #FFFFFF; border-radius: 20px; padding: 4px 16px; display: flex; flex-direction: column">
+      <sc-for list="{{movements}}" as="m" hint-placeholder-count="5">
+        <a href="#" style="min-height: 56px; display: flex; align-items: center; gap: 12px; text-decoration: none; color: #181818; border-bottom: 1px solid #EEEEEA">
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0">
+            <span style="font-size: 15px; font-weight: 600">{{m.title}}</span>
+            <span style="font-size: 13px; color: #6D6D6D">{{m.sub}}</span>
+          </span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px; color: {{m.color}}">{{m.amount}}</span>
+        </a>
+      </sc-for>
+    </div>
+  </section>
+
+  <!-- Accesos -->
+  <section style="display: flex; flex-direction: column; gap: 8px">
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <h2 style="margin: 0; font-size: 18px; font-weight: 800">Accesos</h2>
+      <button type="button" style="min-height: 44px; border: 0; background: transparent; font: inherit; font-size: 15px; font-weight: 600; color: #007A65; padding: 0 4px">Editar</button>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 4px">
+      <a href="#" style="min-height: 76px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-decoration: none; color: #181818; font-size: 13px; font-weight: 600">
+        <span style="width: 48px; height: 48px; border-radius: 24px; border: 1.5px solid #D9D9D3; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg></span>
+        Cuentas
+      </a>
+      <a href="#" style="min-height: 76px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-decoration: none; color: #181818; font-size: 13px; font-weight: 600">
+        <span style="width: 48px; height: 48px; border-radius: 24px; border: 1.5px solid #D9D9D3; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg></span>
+        Tarjetas
+      </a>
+      <a href="#" style="min-height: 76px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-decoration: none; color: #181818; font-size: 13px; font-weight: 600">
+        <span style="width: 48px; height: 48px; border-radius: 24px; border: 1.5px solid #D9D9D3; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m17 2 4 4-4 4"></path><path d="M3 11v-1a4 4 0 0 1 4-4h14"></path><path d="m7 22-4-4 4-4"></path><path d="M21 13v1a4 4 0 0 1-4 4H3"></path></svg></span>
+        Fijos
+      </a>
+      <a href="#" style="min-height: 76px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-decoration: none; color: #181818; font-size: 13px; font-weight: 600">
+        <span style="width: 48px; height: 48px; border-radius: 24px; border: 1.5px solid #D9D9D3; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg></span>
+        Compromisos
+      </a>
+      <a href="#" style="min-height: 76px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-decoration: none; color: #181818; font-size: 13px; font-weight: 600">
+        <span style="width: 48px; height: 48px; border-radius: 24px; border: 1.5px solid #D9D9D3; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-11-.3-11 5 0 1.8 0 3 2 4.5V20h4v-2h3v2h4v-4c1-.5 1.7-1 2-2h2v-4h-2c0-1-.5-1.5-1-2V5z"></path><path d="M2 9v1c0 1.1.9 2 2 2h1"></path><path d="M16 11h.01"></path></svg></span>
+        Ahorros
+      </a>
+      <a href="#" style="min-height: 76px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-decoration: none; color: #181818; font-size: 13px; font-weight: 600">
+        <span style="width: 48px; height: 48px; border-radius: 24px; border: 1.5px solid #D9D9D3; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 7 13.5 15.5 8.5 10.5 2 17"></path><path d="M16 7h6v6"></path></svg></span>
+        Inversiones
+      </a>
+      <a href="#" style="min-height: 76px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-decoration: none; color: #181818; font-size: 13px; font-weight: 600">
+        <span style="width: 48px; height: 48px; border-radius: 24px; border: 1.5px solid #D9D9D3; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"></path><circle cx="7.5" cy="7.5" r="1"></circle></svg></span>
+        Categorías
+      </a>
+    </div>
+  </section>
+
+  <!-- Cuentas y sus pagos -->
+  <section style="display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <h2 style="margin: 0; font-size: 18px; font-weight: 800">Tus cuentas y sus pagos</h2>
+      <a href="#" style="font-size: 15px; font-weight: 600; min-height: 44px; display: flex; align-items: center">Ver</a>
+    </div>
+    <div style="background: #FFFFFF; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; align-items: baseline; justify-content: space-between">
+        <span style="font-size: 16px; font-weight: 700">Mercado Pago</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 600">$ 490.780</span>
+      </div>
+      <p style="margin: 0; font-size: 13px; color: #6D6D6D">Paga <span style="font-family: 'JetBrains Mono', monospace; color: #181818">$ 379.418</span> este mes · todo alcanza</p>
+      <div style="display: flex; flex-direction: column; border-top: 1px solid #EEEEEA">
+        <sc-for list="{{payments}}" as="p" hint-placeholder-count="3">
+          <div style="min-height: 48px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #EEEEEA">
+            <span style="width: 52px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #6D6D6D; flex: none">{{p.date}}</span>
+            <span style="flex: 1; font-size: 15px">{{p.title}}</span>
+            <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px">{{p.amount}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <a href="#" style="font-size: 14px; font-weight: 600; min-height: 44px; display: flex; align-items: center">Ver los 6 pagos de noviembre</a>
+    </div>
+    <div style="background: #FFFFFF; border-radius: 20px; padding: 16px; display: flex; align-items: baseline; justify-content: space-between">
+      <span style="display: flex; flex-direction: column; gap: 2px">
+        <span style="font-size: 16px; font-weight: 700">Efectivo</span>
+        <span style="font-size: 13px; color: #6D6D6D">Sin pagos este mes</span>
+      </span>
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 600">$ 0</span>
+    </div>
+  </section>
+
+  <!-- Ahorros y metas -->
+  <section style="display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <h2 style="margin: 0; font-size: 18px; font-weight: 800">Ahorros y metas</h2>
+      <a href="#" style="font-size: 15px; font-weight: 600; min-height: 44px; display: flex; align-items: center">Ver</a>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+      <sc-for list="{{goals}}" as="g" hint-placeholder-count="2">
+        <a href="#" style="background: #FFFFFF; border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: #181818">
+          <span style="font-size: 15px; font-weight: 700">{{g.name}}</span>
+          <span style="font-family: 'JetBrains Mono', monospace; font-size: 15px">{{g.saved}}</span>
+          <span style="height: 6px; background: #EEEEEA; border-radius: 3px; display: flex">
+            <span style="width: {{g.width}}; background: #00B99A; border-radius: 3px"></span>
+          </span>
+          <span style="font-size: 13px; color: #6D6D6D">{{g.pct}} · {{g.pace}}</span>
+        </a>
+      </sc-for>
+    </div>
+  </section>
+
+  <!-- Mes -->
+  <a href="#" style="background: #FFFFFF; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 10px; text-decoration: none; color: #181818">
+    <span style="display: flex; justify-content: space-between; align-items: center">
+      <span style="font-size: 16px; font-weight: 700">Noviembre hasta hoy</span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6D6D6D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+    </span>
+    <span style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: #6D6D6D">Entraron</span><span style="font-family: 'JetBrains Mono', monospace">$ 2.000.000</span></span>
+    <span style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: #6D6D6D">Gastaste</span><span style="font-family: 'JetBrains Mono', monospace">$ 661.420</span></span>
+    <span style="display: flex; justify-content: space-between; font-size: 14px"><span style="color: #6D6D6D">Separaste para ahorro e inversión</span><span style="font-family: 'JetBrains Mono', monospace">$ 904.000</span></span>
+  </a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":2280}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      movements: [
+        { title: 'Supermercado', sub: 'Mercado Pago · hoy', amount: '−$ 18.400', color: '#181818' },
+        { title: 'Nafta', sub: 'Visa Santander · hoy', amount: '−$ 32.000', color: '#181818' },
+        { title: 'Apartaste a Auto', sub: 'Mercado Pago · ayer', amount: '$ 200.000', color: '#6D6D6D' },
+        { title: 'Farmacia', sub: 'Mercado Pago · 3 nov', amount: '−$ 9.850', color: '#181818' },
+        { title: 'Sueldo', sub: 'Mercado Pago · 1 nov', amount: '+$ 1.600.000', color: '#007A65' }
+      ],
+      shortcuts: [
+        { label: 'Tarjetas', tint: '#E8E5FF' },
+        { label: 'Fijos', tint: '#FDF1D3' },
+        { label: 'Metas', tint: '#D7F5EF' },
+        { label: 'Más', tint: '#EEEEEA' }
+      ],
+      payments: [
+        { date: '10 nov', title: 'Resumen Mercado Pago', amount: '$ 53.452' },
+        { date: '15 nov', title: 'Alquiler · fijo', amount: '[MONTO]' },
+        { date: '20 nov', title: 'Turno médico', amount: '$ 45.000' }
+      ],
+      goals: [
+        { name: 'Auto', saved: '$ 4.054.000', width: '34%', pct: '34 %', pace: 'a ritmo' },
+        { name: 'Vacaciones', saved: '$ 500.000', width: '33%', pct: '33 %', pace: 'atrasada' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

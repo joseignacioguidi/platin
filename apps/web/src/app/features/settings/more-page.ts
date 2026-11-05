@@ -2,17 +2,9 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { RouterLink } from '@angular/router';
 import { LucideChevronRight, LucideDynamicIcon } from '@lucide/angular';
 import { AuthService } from '../../core/auth/auth.service';
-import type { PlanFeature } from '@platin/domain';
 import { PlanGate } from '../plans/plan-gate';
+import { moreLinksFor } from './more-links';
 import { SETTINGS_TEXTS } from './settings.texts';
-
-interface MoreLink {
-  path: string;
-  label: string;
-  icon: string;
-  /** PLN-07: outside the plan, the link shows the plan mark and opens the plan sheet. */
-  gate?: PlanFeature;
-}
 
 /** "Más": secondary sections that don't fit in the bottom bar. Later phases add entries. */
 @Component({
@@ -44,25 +36,5 @@ interface MoreLink {
 export class MorePage {
   private readonly auth = inject(AuthService);
   protected readonly texts = SETTINGS_TEXTS.more;
-  protected readonly links: MoreLink[] = [
-    { path: '/app/ahorros', label: SETTINGS_TEXTS.more.savings, icon: 'piggy-bank' },
-    {
-      path: '/app/inversiones',
-      label: SETTINGS_TEXTS.more.investments,
-      icon: 'trending-up',
-      gate: 'investments',
-    },
-    { path: '/app/pendientes', label: SETTINGS_TEXTS.more.pending, icon: 'sparkles' },
-    { path: '/app/compromisos', label: SETTINGS_TEXTS.more.commitments, icon: 'calendar' },
-    { path: '/app/fijos', label: SETTINGS_TEXTS.more.fixed, icon: 'repeat' },
-    { path: '/app/cuentas', label: SETTINGS_TEXTS.more.accounts, icon: 'wallet' },
-    { path: '/app/categorias', label: SETTINGS_TEXTS.more.categories, icon: 'tag' },
-    { path: '/app/perfil', label: SETTINGS_TEXTS.more.profile, icon: 'user' },
-  ];
-  /** The admin panel shows up only for administrators; the API checks it again. */
-  protected readonly visibleLinks = computed<MoreLink[]>(() =>
-    this.auth.user()?.role === 'ADMIN'
-      ? [...this.links, { path: '/admin', label: SETTINGS_TEXTS.more.admin, icon: 'shield-check' }]
-      : this.links,
-  );
+  protected readonly visibleLinks = computed(() => moreLinksFor(this.auth.user()?.role));
 }
