@@ -1037,6 +1037,50 @@ Forma de trabajo:
 - Rama feat/fase-30-carga-compromisos. Todo en verde antes del PR, con las capturas del punto 2 y de Compromisos.
 ```
 
+## Iteración 7: un inicio práctico
+
+Una fase: el inicio rediseñado a partir del uso con datos reales, en celular y en escritorio, y la carga rápida con el selector de categorías de siempre. Las capturas de referencia están en `docs/mockups/inicio-v2/`.
+
+| Fase | Qué se construye | Casos de uso | Terminado cuando |
+| --- | --- | --- | --- |
+| 31 | Inicio nuevo y selector de categorías en la carga | DAS-04, 05, 07, MOV-09 | El inicio se ve como el mockup en celular y en escritorio, y cargo un gasto eligiendo la categoría con el selector de siempre |
+
+## Fase 31 — Inicio práctico
+
+El inicio responde de un vistazo cuánto me queda y cuánto puedo gastar por día, muestra lo último que cargué y qué tiene que pagar cada cuenta. En escritorio aprovecha el ancho en columnas.
+
+**Terminado cuando:**
+- el inicio en celular tiene las siete secciones de DAS-07 en ese orden y se parece a `docs/mockups/inicio-v2/Celular.dc.html`;
+- con el libre de $ 106.061,83 el 5/11, la tarjeta dice "≈ $ 4.079 por día hasta el 30/11"; con libre negativo dice "No te queda libre este mes" y cuánto falta;
+- "Para pagar este mes" abre la lista de lo que hay que pagar con su cuenta;
+- Mercado Pago muestra lo que paga este mes y "todo alcanza", y una cuenta que no llega dice cuánto le falta;
+- en escritorio (1440 px) se ve como `docs/mockups/inicio-v2/Escritorio.dc.html`, y a 1024 px las columnas se apilan sin scroll horizontal;
+- en la carga rápida elijo la categoría con el selector de los demás formularios, creo una nueva desde ahí y la carga sigue entrando sin scroll en 360 × 640.
+
+```
+Leé CLAUDE.md; DAS-04, DAS-05, DAS-07 y MOV-09 y la regla "Libre este mes" (incluidos "Por día" y "Lo que tiene cada cuenta para gastar") de docs/especificacion.md; en docs/arquitectura.md "Iteración 7: inicio práctico" y "Componentes y patrones de la iteración 7"; y los mockups de docs/mockups/inicio-v2/ (leé su README).
+
+Vamos a hacer la Fase 31 de docs/plan.md.
+
+Dominio:
+1. freePerDay y accountCoverage en libs/domain, con los ejemplos de la regla como tests literales, más libre 0, libre negativo, último día del mes y un mes anterior.
+
+Backend:
+2. GET /dashboard suma perDay, daysLeft, received, accounts, unassigned y toPayItems (contrato en libs/contracts). accounts y unassigned salen de los mismos ítems de commitmentsByMonth que toPay, así la suma de toPay por cuenta más unassigned es igual a toPay. Test e2e de esa igualdad, del escenario del criterio de terminado y del aislamiento entre usuarios.
+
+Web:
+3. Reescribí el inicio con los componentes de la tabla de la iteración 7, en el orden de DAS-07. Usá los tokens de Tailwind y pl-money para todo monto; los mockups son referencia de valores, no se copia su markup.
+4. Escritorio: grilla de 3 columnas desde lg, como el mockup; por debajo se apila. Sin scroll horizontal a ningún ancho.
+5. "Para pagar este mes" abre una hoja con toPayItems (fecha, descripción, cuenta de pago, monto); cada ítem lleva a su resumen, fijo o programado.
+6. Los accesos (DAS-04) pasan a una grilla de 4 en celular y de 3 en escritorio; siguen siendo personalizables.
+7. Carga rápida: reemplazá la fila de chips y el chip "Más" por pl-category-select con su apariencia normal, allowCreate y recientes primero. Volvé a medir con Playwright a 360 × 640 y 390 × 844 (gasto, gasto con tarjeta y cuotas, ingreso) que no haya scroll.
+8. Textos en el archivo de textos del inicio y de la carga rápida.
+
+Forma de trabajo:
+- Plan primero, esperame.
+- Rama feat/fase-31-inicio. Todo en verde antes del PR, con capturas del inicio en celular y escritorio (claro y oscuro) y de la carga rápida.
+```
+
 ## Después del MVP
 
 La segunda tanda de la especificación, en fases chicas que se pueden hacer en cualquier orden. Los prompts siguen el mismo molde que las fases anteriores: leer `CLAUDE.md` y la sección de la especificación, plan primero, rama propia, PR con todo en verde.

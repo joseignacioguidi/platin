@@ -415,6 +415,19 @@ enum PocketKind { AVAILABLE SPENDING SAVINGS INVESTMENT }   // SPENDING = reserv
 | `GET /dashboard` con la forma nueva | DAS-05 |
 | `GET /commitments` con `payFrom` y `margin` | COM-02, 04 |
 
+### Iteración 7: inicio práctico
+
+Sin cambios de esquema.
+
+- `libs/domain`: `freePerDay(free, today, period)` (días que faltan contando hoy, redondeo a pesos hacia abajo; `null` si el libre es 0 o negativo o si el período ya pasó) y `accountCoverage(spendable, toPay)` (alcanza o cuánto falta). Los ejemplos de la regla "Libre este mes" son tests literales.
+- `GET /dashboard` suma, sin quitar nada:
+  - `perDay` y `daysLeft`;
+  - `received`: ingresos confirmados del período (el "entraron" del mes);
+  - `accounts`: por cuenta y moneda, `{ accountId, name, currency, spendable, toPay, shortfall, payments (los próximos 3 del período, con fecha, descripción y monto), paymentsCount }`, armado con los ítems de `commitmentsByMonth` y su `payFrom`;
+  - `unassigned`: lo que falta pagar este mes sin cuenta de pago, con el mismo formato;
+  - `toPayItems`: todos los ítems de "para pagar este mes", para la hoja que se abre desde la tarjeta.
+- Los últimos movimientos salen de `GET /movements?limit=5` (8 en escritorio) y las metas de `GET /goals`: no se duplican en el dashboard.
+
 ## Backend
 
 Un módulo de Nest por dominio; los controladores son finos, los servicios orquestan y las reglas viven en `libs/domain`.
@@ -601,6 +614,19 @@ Cada feature tiene sus rutas (carga diferida), sus componentes de página y un s
 | Detalle de reserva | Botones "Ajustar saldo" (hoja con "Ingresar desde una cuenta" y "Ajustar saldo" o "Actualizar valor") y "Retirar"; sin Apartar, Invertir ni Rescatar |
 | Carga rápida compacta | Monto, motivo siempre visible, una fila deslizable de categorías con "Más" al final, cuenta y fecha como chips, teclado más bajo; entra en 360 × 640 sin scroll |
 | `HomeFree` | El inicio muestra el libre y debajo la cuenta: en tus cuentas, + por cobrar, − a pagar este mes, − tarjeta de los meses siguientes. La barra reparte "en tus cuentas + por cobrar" entre a pagar, tarjeta y libre. Gastado y ahorrado del mes van como datos aparte |
+
+### Componentes y patrones de la iteración 7
+
+| Pieza | Uso |
+| --- | --- |
+| `HomeFreeCard` | Reemplaza a `HomeFree`: "Te quedan para gastar este mes", el libre, el por día, la barra (para pagar en `pending`, tarjeta en `card`, libre en `brand`) y tres filas con nombre y monto; "Para pagar este mes" abre una hoja con `toPayItems` |
+| `HomeAlerts` | Una línea por aviso que aplica (pendientes, cotización, valuaciones), en `pending-soft` |
+| `HomeRecentMovements` | Los últimos movimientos con `movement-row`, sin íconos de categoría en celular; tocar abre `movement-sheet` |
+| `HomeAccounts` | Cuentas con lo que tienen para gastar, lo que pagan este mes, "todo alcanza" o "te faltan $ X" (en `expense-ink`), y sus próximos pagos |
+| `HomeGoals` | Metas activas con barra de avance en `brand` y ritmo |
+| `HomeMonth` | Entraron, gastaste y separaste del período |
+| Layout del inicio | Celular: una columna en el orden de DAS-07. Escritorio (`lg`): grilla de 3 columnas; la tarjeta del libre ocupa 2 y avisos más accesos 1; abajo movimientos, cuentas, y metas con el mes. Se apila por debajo de `lg` |
+| `pl-category-select` en la carga rápida | Reemplaza la fila de chips y el chip "Más": mismo componente y apariencia que en fijos y consumos, con `allowCreate` y recientes primero |
 
 ## Auth y seguridad
 
