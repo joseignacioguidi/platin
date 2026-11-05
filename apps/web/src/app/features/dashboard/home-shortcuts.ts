@@ -22,7 +22,7 @@ import {
   type HomeShortcut,
 } from '@platin/contracts';
 import type { PlanFeature } from '@platin/domain';
-import { PL_TONE_CLASSES, PlButton, PlTone } from '@platin/web-ui';
+import { PlButton } from '@platin/web-ui';
 import { AuthService } from '../../core/auth/auth.service';
 import { errorMessage } from '../../core/errors';
 import { PlanGate } from '../plans/plan-gate';
@@ -31,26 +31,24 @@ import { DASHBOARD_TEXTS } from './dashboard.texts';
 interface ShortcutInfo {
   path: string;
   icon: string;
-  tone: PlTone;
   gate?: PlanFeature;
 }
 
 const SHORTCUTS: Record<HomeShortcut, ShortcutInfo> = {
-  accounts: { path: '/app/cuentas', icon: 'wallet', tone: 'brand' },
-  cards: { path: '/app/tarjetas', icon: 'credit-card', tone: 'card' },
-  fixed: { path: '/app/fijos', icon: 'repeat', tone: 'pending' },
-  commitments: { path: '/app/compromisos', icon: 'calendar', tone: 'transfer' },
-  savings: { path: '/app/ahorros', icon: 'piggy-bank', tone: 'savings' },
+  accounts: { path: '/app/cuentas', icon: 'wallet' },
+  cards: { path: '/app/tarjetas', icon: 'credit-card' },
+  fixed: { path: '/app/fijos', icon: 'repeat' },
+  commitments: { path: '/app/compromisos', icon: 'calendar' },
+  savings: { path: '/app/ahorros', icon: 'piggy-bank' },
   investments: {
     path: '/app/inversiones',
     icon: 'trending-up',
-    tone: 'card',
     gate: 'investments',
   },
-  categories: { path: '/app/categorias', icon: 'tag', tone: 'expense' },
-  movements: { path: '/app/movimientos', icon: 'arrow-left-right', tone: 'transfer' },
-  pending: { path: '/app/pendientes', icon: 'sparkles', tone: 'pending' },
-  profile: { path: '/app/perfil', icon: 'user', tone: 'muted' },
+  categories: { path: '/app/categorias', icon: 'tag' },
+  movements: { path: '/app/movimientos', icon: 'arrow-left-right' },
+  pending: { path: '/app/pendientes', icon: 'sparkles' },
+  profile: { path: '/app/perfil', icon: 'user' },
 };
 
 /**
@@ -75,15 +73,15 @@ const SHORTCUTS: Record<HomeShortcut, ShortcutInfo> = {
     LucideX,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // DAS-04 / DAS-07: a grid of 4 on a phone; on a desktop, 3 inside a card beside the free one.
-  host: { class: 'flex flex-col gap-2 xl:rounded-card xl:bg-surface xl:p-4' },
+  // DAS-04 / DAS-07: a grid of 4 on the screen's background, on a phone and on a desktop.
+  host: { class: 'flex flex-col gap-2 xl:px-1 xl:pt-1' },
   template: `
     <div class="flex items-center justify-between">
       <h2 class="text-lg font-extrabold xl:text-base" id="home-shortcuts-title">{{ t.title }}</h2>
       @if (!editing()) {
         <button
           type="button"
-          class="min-h-11 px-2 text-sm font-semibold text-brand-strong"
+          class="min-h-11 px-1 text-[15px] font-semibold text-brand-strong xl:text-sm"
           [attr.aria-label]="t.editLabel"
           (click)="startEditing()"
         >
@@ -95,22 +93,28 @@ const SHORTCUTS: Record<HomeShortcut, ShortcutInfo> = {
     @if (!editing()) {
       @if (current().length > 0) {
         <nav aria-labelledby="home-shortcuts-title">
-          <ul class="grid grid-cols-4 gap-2 xl:grid-cols-3">
+          <!-- No cards nor colors: color always means something (iteration 7). -->
+          <ul class="grid grid-cols-4 gap-x-1 gap-y-3">
             @for (key of current(); track key) {
               <li>
                 <a
                   [routerLink]="info[key].path"
                   [plPlanGate]="info[key].gate ?? []"
-                  class="relative flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-[18px] bg-surface px-1 py-3 text-center text-xs font-semibold xl:bg-field [&>pl-plan-badge]:absolute [&>pl-plan-badge]:top-1.5 [&>pl-plan-badge]:right-1.5"
+                  class="group relative flex min-h-[76px] flex-col items-center justify-center gap-2 rounded-2xl px-0.5 text-center text-[13px] font-semibold text-ink [&>pl-plan-badge]:absolute [&>pl-plan-badge]:top-0 [&>pl-plan-badge]:right-0"
                 >
                   <span
-                    class="flex size-10 items-center justify-center rounded-xl"
-                    [class]="tone(info[key].tone)"
+                    class="flex size-12 items-center justify-center rounded-full border-[1.5px] border-line group-hover:bg-surface"
                     aria-hidden="true"
                   >
-                    <svg [lucideIcon]="info[key].icon" [size]="20"></svg>
+                    <svg [lucideIcon]="info[key].icon" [size]="22" [strokeWidth]="1.8"></svg>
                   </span>
-                  <span class="w-full truncate">{{ t.names[key] }}</span>
+                  <!--
+                    Never cut: two words wrap ("Para confirmar"); one long word ("Compromisos")
+                    overflows a few pixels into the gap, centered (flex centering overflows both ways).
+                  -->
+                  <span class="flex w-full justify-center leading-tight tracking-tight">
+                    <span data-name>{{ t.names[key] }}</span>
+                  </span>
                 </a>
               </li>
             }
@@ -145,8 +149,7 @@ const SHORTCUTS: Record<HomeShortcut, ShortcutInfo> = {
                 <svg lucideGripVertical [size]="18"></svg>
               </span>
               <span
-                class="flex size-8 shrink-0 items-center justify-center rounded-lg"
-                [class]="tone(info[key].tone)"
+                class="flex size-8 shrink-0 items-center justify-center rounded-full border border-line"
                 aria-hidden="true"
               >
                 <svg [lucideIcon]="info[key].icon" [size]="16"></svg>
@@ -244,10 +247,6 @@ export class HomeShortcuts {
   protected readonly full = computed(() => this.draft().length >= HOME_SHORTCUTS_MAX);
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
-
-  protected tone(tone: PlTone): string {
-    return PL_TONE_CLASSES[tone];
-  }
 
   protected startEditing(): void {
     this.draft.set([...this.current()]);

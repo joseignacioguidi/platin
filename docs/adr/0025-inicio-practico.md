@@ -33,7 +33,7 @@ La iteración 7 rediseña el inicio (`docs/mockups/inicio-v2/`) y suma a `GET /d
 
 - La arquitectura dice "grilla de 3 columnas desde `lg`", pero el criterio de terminado pide que a 1024 px las columnas se apilen. A 1024 px (`lg`) la barra lateral deja unos 704 px de contenido, y tres columnas no entran (el mockup también las apila ahí). La grilla arranca en `xl` (1280 px). Entre `lg` y `xl` se ve una columna, como en celular.
 - Solo en el inicio, el contenedor del shell se ensancha a `max-w-6xl` desde `xl` (`has-[>pl-dashboard-page]`). El resto de las pantallas sigue en una columna de `max-w-3xl`.
-- Los accesos son una grilla de 4 en celular y de 3 desde `xl`, dentro de una tarjeta.
+- Los accesos son una grilla de 4 en celular y en la columna de escritorio, sin tarjetas ni colores (`Accesos.dc.html`). Los nombres nunca se cortan: dos palabras pasan a dos líneas ("Para confirmar"); una palabra larga ("Compromisos") puede ocupar unos píxeles del espacio entre accesos, centrada.
 
 **Token nuevo.** `expense-ink` (#B3401C claro, #FFA58C oscuro) para "te faltan $ X". La arquitectura ya lo nombra y no existía. `expense` sobre blanco no llega a contraste AA para texto chico.
 
