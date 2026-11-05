@@ -160,7 +160,7 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
   1. **Lo que te queda**: "Te quedan para gastar este mes", el libre, y "≈ $ X por día hasta el 30/11". La barra muestra en qué se reparte lo que hay: para pagar este mes, tarjeta de los meses siguientes y libre, cada parte con su nombre y monto. "Para pagar este mes" se abre y lista lo que hay que pagar, con su cuenta de pago.
   2. **Avisos**, una línea cada uno y solo si aplican: movimientos para confirmar, cotización desactualizada, valores de inversión para actualizar.
   3. **Últimos movimientos**: los 5 más recientes; tocar uno abre su edición; "Ver todos".
-  4. **Accesos** (DAS-04) en una grilla de 4.
+  4. **Accesos** (DAS-04) en una grilla de 4, sin tarjetas ni colores: cada uno es un ícono de línea en tinta dentro de un círculo de borde fino, con el nombre debajo, sobre el fondo de la pantalla.
   5. **Tus cuentas y sus pagos**: por cuenta, lo que tiene para gastar, cuánto paga este mes y si le alcanza, y sus próximos 3 pagos del mes; "Ver los N pagos de noviembre".
   6. **Ahorros y metas**: cada meta activa con lo ahorrado, su avance y su ritmo.
   7. **El mes hasta hoy**: entraron, gastaste y separaste para ahorro e inversión.
@@ -476,6 +476,8 @@ La app usa la paleta y la tipografía de Hecho, con los colores reasignados a si
 | Celeste | #7DE2F2 | Dólares y metas en ahorro (acento) |
 | Gris | #6D6D6D | Texto secundario |
 | Rosa | #FFC7C7 | Solo landing e ilustraciones |
+
+**El color siempre significa algo.** Se usa para montos y estados (gasto, pendiente, libre, tarjeta, transferencia) y para las categorías, que tienen el color que elige el usuario. Íconos, accesos, menús y botones secundarios van en tinta y gris; el verde de marca queda para la acción principal, los enlaces y el foco.
 
 Coral pasa de acento a color funcional porque las finanzas necesitan un "negativo" claro. El verde y el coral tienen poco contraste sobre blanco: se usan como fondos, íconos y texto grande; para texto chico se definen variantes más oscuras.
 

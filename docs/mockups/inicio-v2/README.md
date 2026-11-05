@@ -6,6 +6,7 @@ Mockups del inicio rediseñado (fase 31), exportados del canvas de diseño. Son 
 
 - `Celular.dc.html` — el inicio en un celular (390 px).
 - `Escritorio.dc.html` — el inicio en escritorio (1440 px), con barra lateral y columnas; a menos ancho las columnas se apilan.
+- `Accesos.dc.html` — el bloque de accesos solo: sin tarjetas ni colores, ícono en tinta dentro de un círculo de borde fino.
 - `support.js`, `vendor/react*.js` — el runtime que dibuja los mockups en el navegador; no es parte del diseño.
 
 ## Datos

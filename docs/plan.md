@@ -1072,7 +1072,7 @@ Web:
 3. Reescribí el inicio con los componentes de la tabla de la iteración 7, en el orden de DAS-07. Usá los tokens de Tailwind y pl-money para todo monto; los mockups son referencia de valores, no se copia su markup.
 4. Escritorio: grilla de 3 columnas desde lg, como el mockup; por debajo se apila. Sin scroll horizontal a ningún ancho.
 5. "Para pagar este mes" abre una hoja con toPayItems (fecha, descripción, cuenta de pago, monto); cada ítem lleva a su resumen, fijo o programado.
-6. Los accesos (DAS-04) pasan a una grilla de 4 en celular y de 3 en escritorio; siguen siendo personalizables.
+6. Los accesos (DAS-04) pasan a una grilla de 4, en celular y en la columna de escritorio, con el estilo de docs/mockups/inicio-v2/Accesos.dc.html: sin tarjetas ni colores, ícono en tinta dentro de un círculo de borde fino y el nombre debajo. Siguen siendo personalizables. Revisá el resto del inicio con la regla "El color siempre significa algo" de la especificación.
 7. Carga rápida: reemplazá la fila de chips y el chip "Más" por pl-category-select con su apariencia normal, allowCreate y recientes primero. Volvé a medir con Playwright a 360 × 640 y 390 × 844 (gasto, gasto con tarjeta y cuotas, ingreso) que no haya scroll.
 8. Textos en el archivo de textos del inicio y de la carga rápida.
 
