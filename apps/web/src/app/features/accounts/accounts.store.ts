@@ -2,6 +2,7 @@ import { HttpClient, httpResource } from '@angular/common/http';
 import { computed, inject, Injectable } from '@angular/core';
 import type {
   Account,
+  AliasesResponse,
   AccountsResponse,
   AdjustBalanceRequest,
   AdjustBalanceResponse,
@@ -85,6 +86,15 @@ export class AccountsStore {
     return this.write(
       this.http.post<AdjustBalanceResponse>(`${API}/pockets/${pocketId}/adjust`, request),
     );
+  }
+
+  /** TXT-02: replaces the "Nombres para escribir" of an account. */
+  async putAliases(accountId: string, aliases: string[]): Promise<AliasesResponse> {
+    const result = await firstValueFrom(
+      this.http.put<AliasesResponse>(`${API}/accounts/${accountId}/aliases`, { aliases }),
+    );
+    this.bus.invalidate('accounts', 'text-entry');
+    return result;
   }
 
   /** The pocket used last in the quick entry (preselected next time). */

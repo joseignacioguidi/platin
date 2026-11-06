@@ -27,6 +27,8 @@ export const transactionMovementSchema = z.object({
   type: txTypeSchema,
   status: txStatusSchema,
   origin: txOriginSchema,
+  /** Where it came in: the app or the Telegram bot (ADR 0026). */
+  channel: z.enum(['APP', 'TELEGRAM']),
   date: z.string(),
   amount: z.string(),
   currency: currencySchema,
@@ -70,6 +72,7 @@ export const cardChargeMovementSchema = z.object({
   startInstallment: z.number().int(),
   card: z.object({ id: uuidSchema, name: z.string() }),
   category: categoryRefSchema,
+  channel: z.enum(['APP', 'TELEGRAM']),
 });
 
 export const movementSchema = z.discriminatedUnion('kind', [

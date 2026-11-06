@@ -126,6 +126,45 @@ describe('start over (AUTH-09)', () => {
     expect(names.filter((name) => name === 'Ajustes')).toHaveLength(1);
   });
 
+  it('iteration 8: aliases, drafts and unparsed messages go; rules only with the categories', async () => {
+    const account = await createPocket(ctx.app, user);
+    const food = await category(ctx.app, user, 'Supermercado');
+    await as(ctx.app, user)
+      .put(`/api/v1/accounts/${account.accountId}/aliases`)
+      .send({ aliases: ['mp'] })
+      .expect(200);
+    await as(ctx.app, user)
+      .post('/api/v1/merchant-rules')
+      .send({ pattern: 'coto', categoryId: food.id })
+      .expect(201);
+    await ctx.prisma.unparsedMessage.create({
+      data: { userId: user.id, text: 'hola', error: 'NO_AMOUNT', channel: 'TELEGRAM' },
+    });
+    await ctx.prisma.telegramLink.create({
+      data: { userId: user.id, telegramUserId: 42n, chatId: 42n },
+    });
+    const count = () =>
+      Promise.all([
+        ctx.prisma.sourceAlias.count({ where: { userId: user.id } }),
+        ctx.prisma.merchantRule.count({ where: { userId: user.id } }),
+        ctx.prisma.unparsedMessage.count({ where: { userId: user.id } }),
+        ctx.prisma.telegramLink.count({ where: { userId: user.id } }),
+      ]);
+
+    await reset(user, {
+      confirmEmail: user.email,
+      password: PASSWORD,
+      keepCategories: true,
+    }).expect(200);
+    expect(await count()).toEqual([0, 1, 0, 1]);
+    await reset(user, {
+      confirmEmail: user.email,
+      password: PASSWORD,
+      keepCategories: false,
+    }).expect(200);
+    expect(await count()).toEqual([0, 0, 0, 1]);
+  });
+
   it('a wrong email or password deletes nothing', async () => {
     await fill(user);
     const before = await owned(user);

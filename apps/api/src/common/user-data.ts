@@ -55,6 +55,11 @@ export async function deleteFinancialData(
   options: { keepCategories: boolean },
 ): Promise<void> {
   const where = { userId };
+  // Iteration 8: aliases go with their accounts and cards; drafts and unparsed messages too.
+  // The Telegram link stays (AUTH-09), and the rules only go with the categories.
+  await tx.sourceAlias.deleteMany({ where });
+  await tx.botDraft.deleteMany({ where });
+  await tx.unparsedMessage.deleteMany({ where });
   await tx.pocketValuation.deleteMany({ where: { pocket: { userId } } });
   await tx.goal.deleteMany({ where });
   await tx.transfer.deleteMany({ where });
@@ -66,6 +71,7 @@ export async function deleteFinancialData(
   await tx.pocket.deleteMany({ where });
   await tx.account.deleteMany({ where });
   if (!options.keepCategories) {
+    await tx.merchantRule.deleteMany({ where });
     await tx.category.deleteMany({ where: { userId, parentId: { not: null } } });
     await tx.category.deleteMany({ where });
   }
@@ -75,6 +81,8 @@ export async function deleteFinancialData(
 export async function deleteUser(tx: Prisma.TransactionClient, userId: string): Promise<void> {
   const where = { userId };
   await deleteFinancialData(tx, userId, { keepCategories: false });
+  await tx.telegramLink.deleteMany({ where });
+  await tx.telegramLinkCode.deleteMany({ where });
   await tx.refreshToken.deleteMany({ where });
   await tx.authIdentity.deleteMany({ where });
   await tx.activityDay.deleteMany({ where });

@@ -6,7 +6,7 @@ import {
   type SettingKey,
   type SettingValue,
 } from '@platin/contracts';
-import { isAnnouncementActive } from '@platin/domain';
+import { DEFAULT_MERCHANT_RULES, isAnnouncementActive } from '@platin/domain';
 import { AuditService } from '../audit/audit.service';
 import { SUGGESTED_CATEGORIES } from '../categories/suggested-categories';
 import { AppException } from '../common/app-exception';
@@ -20,6 +20,7 @@ const DEFAULTS: { [K in SettingKey]: SettingValue<K> } = {
   announcement: { text: '', startsOn: null, endsOn: null },
   'suggested-categories': { categories: [...SUGGESTED_CATEGORIES] },
   'default-rate': { rateType: 'MEP' },
+  'merchant-rules': { rules: [...DEFAULT_MERCHANT_RULES] },
 };
 
 type Client = Pick<Prisma.TransactionClient, 'appSetting'>;

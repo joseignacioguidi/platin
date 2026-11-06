@@ -27,6 +27,8 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { RatesModule } from '../rates/rates.module';
 import { SettingsModule } from '../settings/settings.module';
 import { SyncModule } from '../sync/sync.module';
+import { TelegramModule } from '../telegram/telegram.module';
+import { TextEntryModule } from '../text-entry/text-entry.module';
 import { TransactionsModule } from '../transactions/transactions.module';
 import { TransfersModule } from '../transfers/transfers.module';
 import { UsersModule } from '../users/users.module';
@@ -96,6 +98,8 @@ export function clientIpOf(req: Request, header: string | undefined): string {
     PlansModule,
     ActivityModule,
     AdminModule,
+    TextEntryModule,
+    TelegramModule,
   ],
   providers: [
     // Global pipes run in order: NUL characters are refused before the Zod schemas.

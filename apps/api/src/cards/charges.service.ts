@@ -45,6 +45,8 @@ export interface NewCharge {
   startStatement?: StartStatement;
   fixedId?: string;
   fixedPeriod?: Date;
+  /** Where it came in (ADR 0026); the app by default. */
+  channel?: 'APP' | 'TELEGRAM';
 }
 
 interface Plan {
@@ -81,6 +83,20 @@ export class ChargesService {
   ) {}
 
   async create(userId: string, cardId: string, request: CreateChargeRequest): Promise<Charge> {
+    const id = await this.prisma.$transaction((tx) =>
+      this.createIn(tx, userId, cardId, request, 'APP'),
+    );
+    return this.get(userId, id);
+  }
+
+  /** The same with the caller's transaction (the bot's update); checks run before the write. */
+  async createIn(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    cardId: string,
+    request: CreateChargeRequest,
+    channel: 'APP' | 'TELEGRAM',
+  ): Promise<string> {
     const card = await this.cards.getActive(userId, cardId);
     await this.categories.getOwned(userId, request.categoryId, 'EXPENSE');
     const installmentsCount = request.installmentsCount ?? 1;
@@ -91,19 +107,17 @@ export class ChargesService {
           installmentsCount,
         )
       : Money.of(request.totalAmount as string, request.currency);
-    const id = await this.prisma.$transaction((tx) =>
-      this.createInTx(tx, card, {
-        categoryId: request.categoryId,
-        description: request.description,
-        date: parseLocalDate(request.date),
-        totalAmount: total.toString(),
-        currency: request.currency,
-        installmentsCount,
-        startInstallment: request.startInstallment ?? 1,
-        startStatement: request.startStatement ?? 'OPEN',
-      }),
-    );
-    return this.get(userId, id);
+    return this.createInTx(tx, card, {
+      categoryId: request.categoryId,
+      description: request.description,
+      date: parseLocalDate(request.date),
+      totalAmount: total.toString(),
+      currency: request.currency,
+      installmentsCount,
+      startInstallment: request.startInstallment ?? 1,
+      startStatement: request.startStatement ?? 'OPEN',
+      channel,
+    });
   }
 
   /** Creates the charge and its installments with the caller's transaction; returns its id. */
@@ -125,6 +139,7 @@ export class ChargesService {
         startInstallment: charge.startInstallment,
         fixedId: charge.fixedId ?? null,
         fixedPeriod: charge.fixedPeriod ?? null,
+        channel: charge.channel ?? 'APP',
       },
     });
     await this.createInstallments(tx, card, row.id, charge);

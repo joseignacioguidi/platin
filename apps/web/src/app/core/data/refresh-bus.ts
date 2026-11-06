@@ -10,7 +10,9 @@ export type DataKey =
   | 'commitments'
   | 'dashboard'
   | 'goals'
-  | 'plan';
+  | 'plan'
+  /** Aliases and merchant rules (TXT-01 to 03). */
+  | 'text-entry';
 
 /**
  * After each write, the feature calls `invalidate(...)` with what it affected; stores that

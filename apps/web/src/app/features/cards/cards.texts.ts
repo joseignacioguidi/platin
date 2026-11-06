@@ -84,6 +84,10 @@ export const CARDS_TEXTS = {
   form: {
     name: 'Nombre',
     namePlaceholder: 'Ej.: Visa Galicia',
+    aliases: 'Nombres para escribir',
+    aliasesHint: 'Para cargar escribiendo, por ejemplo “super 45k visa 3c”.',
+    removeAlias: 'Quitar',
+    aliasTaken: (alias: string) => `“${alias}” ya lo usa otra cuenta o tarjeta.`,
     issuer: 'Banco (opcional)',
     last4: 'Últimos 4 números (opcional)',
     limit: 'Límite (opcional)',

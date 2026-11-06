@@ -180,6 +180,19 @@ describe('admin', () => {
         })
         .expect(201);
 
+      const ruled = await category(ctx.app, user, 'Salidas');
+      await as(ctx.app, user)
+        .post('/api/v1/merchant-rules')
+        .send({ pattern: 'coto', categoryId: ruled.id })
+        .expect(201);
+      await as(ctx.app, user)
+        .put(`/api/v1/accounts/${pocket.accountId}/aliases`)
+        .send({ aliases: ['mp'] })
+        .expect(200);
+      await ctx.prisma.telegramLink.create({
+        data: { userId: user.id, telegramUserId: 42n, chatId: 42n },
+      });
+
       const wrong = await asAdmin()
         .delete(`/api/v1/admin/users/${user.id}`)
         .send({ confirmEmail: 'otra@test.platin' })
@@ -197,6 +210,9 @@ describe('admin', () => {
         ctx.prisma.category.count({ where: { userId: user.id } }),
         ctx.prisma.goal.count({ where: { userId: user.id } }),
         ctx.prisma.creditCard.count({ where: { userId: user.id } }),
+        ctx.prisma.sourceAlias.count({ where: { userId: user.id } }),
+        ctx.prisma.merchantRule.count({ where: { userId: user.id } }),
+        ctx.prisma.telegramLink.count({ where: { userId: user.id } }),
       ]) {
         expect(await count).toBe(0);
       }

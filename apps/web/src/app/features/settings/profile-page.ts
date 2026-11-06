@@ -13,11 +13,13 @@ import { CurrenciesSettings } from './currencies-settings';
 import { SETTINGS_TEXTS } from './settings.texts';
 import { SignInMethods } from './sign-in-methods';
 import { StartOverSheet } from './start-over-sheet';
+import { TelegramSettings } from './telegram-settings';
 
 /** AUTH-04: name, base currency and preferred rate; the plan (PLN-03); appearance and logout. */
 @Component({
   selector: 'pl-profile-page',
   imports: [
+    TelegramSettings,
     ReactiveFormsModule,
     FormField,
     PlButton,
@@ -94,6 +96,8 @@ import { StartOverSheet } from './start-over-sheet';
     <pl-plan-summary class="mt-4" />
 
     <pl-sign-in-methods class="mt-4 block" [linked]="vinculado()" [linkError]="error()" />
+
+    <pl-telegram-settings class="mt-4 block" />
 
     <section class="mt-4 flex flex-col gap-1 rounded-card bg-surface p-3">
       <h2 class="sr-only">{{ texts.appearance }}</h2>

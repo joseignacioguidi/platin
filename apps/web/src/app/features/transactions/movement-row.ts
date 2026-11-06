@@ -218,7 +218,10 @@ export class MovementRow {
   });
 
   protected readonly subtitle = computed(() => {
-    const subtitle = this.view().subtitle;
+    const m = this.movement();
+    // Entered by the Telegram bot (ADR 0026): a small mark at the end.
+    const via = 'channel' in m && m.channel === 'TELEGRAM' ? ` · ${this.texts.viaTelegram}` : '';
+    const subtitle = this.view().subtitle + via;
     if (!this.dated()) return subtitle;
     const day = formatShortDay(parseLocalDate(this.movement().date), this.today.date());
     return subtitle ? `${subtitle} · ${day}` : day;

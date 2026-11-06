@@ -8,6 +8,7 @@ import { toDbDate, toDbPeriod } from '../common/serialize';
 import { FIXED_INCLUDE, toSchedule } from '../fixed/fixed.mapper';
 import { PrismaService } from '../prisma/prisma.service';
 import { RatesService } from '../rates/rates.service';
+import { cleanupTelegram } from '../telegram/cleanup';
 
 /**
  * Runs when the app opens (POST /sync): generates the pending movements of fixed items for
@@ -32,6 +33,8 @@ export class SyncService {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     // Rates refresh here too (there is no cron); a failure is not a sync failure.
     await this.rates.refreshIfStale();
+    // Expired bot drafts and old webhook rows go here too (ADR 0026).
+    await cleanupTelegram(this.prisma, new Date());
 
     return this.prisma.$transaction(
       async (tx) => {

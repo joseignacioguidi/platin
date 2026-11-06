@@ -13,9 +13,13 @@ import {
 } from '@angular/core';
 import type { Pocket } from '@platin/contracts';
 import { Router } from '@angular/router';
+import { AMBIGUOUS_DATE_TEXTS } from '@platin/contracts';
+import { LucideKeyboard, LucideType } from '@lucide/angular';
 import {
   compareDates,
   currencySymbol,
+  dateParts,
+  type TextEntryDraft,
   impliedRate,
   LocalDate,
   Money,
@@ -60,6 +64,7 @@ import { PlanStore } from '../plans/plan.store';
 import { PLANS_TEXTS } from '../plans/plans.texts';
 import { TransactionsStore } from '../transactions/transactions.store';
 import { QUICK_ENTRY_TEXTS } from './quick-entry.texts';
+import { TextEntryStore } from './text-entry.store';
 
 type Mode = 'EXPENSE' | 'INCOME' | 'TRANSFER' | 'INVEST';
 type Direction = 'INVEST' | 'REDEEM';
@@ -83,6 +88,8 @@ type Direction = 'INVEST' | 'REDEEM';
     PlAccountSelect,
     PlCategorySelect,
     PlDateField,
+    LucideKeyboard,
+    LucideType,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -129,6 +136,22 @@ type Direction = 'INVEST' | 'REDEEM';
             <span class="font-amount rounded-full border border-line px-2.5 py-1 text-sm">
               {{ amountCurrency() }}
             </span>
+          }
+          @if (mode() === 'EXPENSE' || mode() === 'INCOME') {
+            <!-- TXT-01: switches between the keypad and a line of text. -->
+            <button
+              type="button"
+              class="inline-flex size-11 shrink-0 items-center justify-center rounded-full border border-line text-ink hover:bg-field focus-visible:outline-2 focus-visible:outline-brand"
+              [attr.aria-label]="writing() ? texts.useKeypad : texts.write"
+              [attr.aria-pressed]="writing()"
+              (click)="toggleWriting()"
+            >
+              @if (writing()) {
+                <svg lucideKeyboard [size]="20" aria-hidden="true"></svg>
+              } @else {
+                <svg lucideType [size]="20" aria-hidden="true"></svg>
+              }
+            </button>
           }
         </div>
 
@@ -183,7 +206,7 @@ type Direction = 'INVEST' | 'REDEEM';
 
           @if (card()) {
             <div role="group" [attr.aria-label]="texts.installments" [class]="row">
-              @for (n of installmentOptions; track n) {
+              @for (n of installmentOptions(); track n) {
                 <button
                   plChip
                   tone="ink"
@@ -309,7 +332,53 @@ type Direction = 'INVEST' | 'REDEEM';
           }
         }
 
-        <pl-amount-keypad [(value)]="amount" />
+        @if (writing() && (mode() === 'EXPENSE' || mode() === 'INCOME')) {
+          <div class="flex shrink-0 flex-col gap-2">
+            <div class="flex gap-2">
+              <input
+                type="text"
+                enterkeyhint="done"
+                autocomplete="off"
+                maxlength="200"
+                class="min-h-12 min-w-0 flex-1 rounded-2xl border border-line bg-surface px-4 text-[15px]"
+                [attr.aria-label]="texts.writeLabel"
+                aria-describedby="write-hint"
+                [placeholder]="texts.writePlaceholder"
+                [value]="text()"
+                (input)="text.set(inputValue($event))"
+                (keydown.enter)="$event.preventDefault(); interpret()"
+              />
+              <button plButton type="button" class="min-h-12!" (click)="interpret()">
+                {{ texts.interpret }}
+              </button>
+            </div>
+            @if (ambiguous(); as options) {
+              <div
+                role="group"
+                [attr.aria-label]="texts.ambiguousLabel"
+                class="flex flex-col gap-2"
+              >
+                <p class="text-center text-sm font-medium">{{ ambiguousQuestion() }}</p>
+                <div class="grid grid-cols-2 gap-2">
+                  <button plButton="secondary" type="button" (click)="chooseOption(options[0])">
+                    {{ dateOption(options[0], false) }}
+                  </button>
+                  <button plButton="secondary" type="button" (click)="chooseOption(options[1])">
+                    {{ dateOption(options[1], true) }}
+                  </button>
+                </div>
+              </div>
+            } @else if (understood()) {
+              <p id="write-hint" class="text-center text-xs text-brand-strong" role="status">
+                {{ texts.understood }}
+              </p>
+            } @else {
+              <p id="write-hint" class="text-center text-xs text-muted">{{ texts.writeHint }}</p>
+            }
+          </div>
+        } @else {
+          <pl-amount-keypad [(value)]="amount" />
+        }
 
         @if (error()) {
           <p class="rounded-2xl bg-expense-soft px-4 py-2 text-sm" role="alert">{{ error() }}</p>
@@ -351,6 +420,20 @@ export class QuickEntrySheet {
   private readonly planStore = inject(PlanStore);
   private readonly sheet = inject(PlBottomSheet);
   private readonly injector = inject(Injector);
+  private readonly textEntry = inject(TextEntryStore);
+
+  /** TXT-01: "Escribir" replaces the keypad with a line of text. */
+  protected readonly writing = signal(false);
+  protected readonly text = signal('');
+  protected readonly understood = signal(false);
+  /** The two drafts of AMBIGUOUS_DATE, until one is chosen. */
+  protected readonly ambiguous = signal<[TextEntryDraft, TextEntryDraft] | null>(null);
+  protected readonly ambiguousQuestion = computed(() => {
+    const options = this.ambiguous();
+    return options ? AMBIGUOUS_DATE_TEXTS.question(dateParts(options[1].date).day) : '';
+  });
+  /** The category a draft brings, applied after the type change resets it. */
+  private nextCategory: string | null = null;
 
   /** "Invertir" needs the plan that includes investments (PLN-07). */
   protected readonly modeOptions = computed<PlSegmentOption<Mode>[]>(() => {
@@ -394,7 +477,10 @@ export class QuickEntrySheet {
   protected readonly cardId = signal<string | null>(null);
   protected readonly cardCurrency = signal<'ARS' | 'USD'>('ARS');
   protected readonly installments = signal(1);
-  protected readonly installmentOptions = [1, 2, 3, 6, 9, 12, 18, 24];
+  /** The usual counts, plus the one a written text brought ("5c"). */
+  protected readonly installmentOptions = computed(() =>
+    [...new Set([1, 2, 3, 6, 9, 12, 18, 24, this.installments()])].sort((a, b) => a - b),
+  );
 
   protected readonly cards = computed(() => this.cardsStore.cards().filter((c) => !c.archived));
   protected readonly card = computed(() =>
@@ -499,10 +585,12 @@ export class QuickEntrySheet {
       const last = this.accountsStore.lastUsedId();
       this.accountId.set(balances.find((p) => p.id === last)?.id ?? balances[0].id);
     });
-    // Changing the type resets the category (income and expense categories differ).
+    // Changing the type resets the category (income and expense categories differ), unless a
+    // written text brought one.
     effect(() => {
       this.mode();
-      this.categoryId.set(null);
+      this.categoryId.set(this.nextCategory);
+      this.nextCategory = null;
       this.error.set(null);
     });
     // Only incomes and expenses are scheduled: anything else goes back to today at most.
@@ -541,6 +629,78 @@ export class QuickEntrySheet {
       const choice = investments.find((p) => p.accountId === accountId) ?? investments[0];
       if (choice) this.investmentId.set(choice.id);
     });
+  }
+
+  protected toggleWriting(): void {
+    this.writing.update((writing) => !writing);
+    this.ambiguous.set(null);
+    this.understood.set(false);
+    if (this.writing()) {
+      // Focus the new field once it is rendered.
+      setTimeout(() =>
+        this.host.nativeElement.querySelector<HTMLInputElement>('input[enterkeyhint]')?.focus(),
+      );
+    }
+  }
+
+  /** Enter or "Listo": the parser fills the form; nothing is saved until "Guardar". */
+  protected interpret(): void {
+    this.ambiguous.set(null);
+    this.understood.set(false);
+    if (!this.text().trim()) return;
+    const result = this.textEntry.interpret(this.text(), this.account()?.accountId ?? null);
+    if (result.ok) {
+      this.applyDraft(result.draft, result.pocketId);
+    } else if ('ambiguous' in result) {
+      // Everything but the date is known: fill it and ask only for the date.
+      const first = this.textEntry.check(result.ambiguous[0], this.account()?.accountId ?? null);
+      if (!first.ok) {
+        this.error.set('message' in first ? first.message : null);
+        return;
+      }
+      this.applyDraft(first.draft, first.pocketId);
+      this.understood.set(false);
+      this.ambiguous.set(result.ambiguous);
+    } else {
+      this.error.set(result.message);
+    }
+  }
+
+  protected chooseOption(draft: TextEntryDraft): void {
+    this.ambiguous.set(null);
+    const result = this.textEntry.check(draft, this.account()?.accountId ?? null);
+    if (result.ok) this.applyDraft(result.draft, result.pocketId);
+    else if ('message' in result) this.error.set(result.message);
+  }
+
+  /** "20/10 · ya pasó" or "20/11 · programar". */
+  protected dateOption(draft: TextEntryDraft, future: boolean): string {
+    const { day, month } = dateParts(draft.date);
+    const label = `${day}/${month}`;
+    return future ? AMBIGUOUS_DATE_TEXTS.future(label) : AMBIGUOUS_DATE_TEXTS.past(label);
+  }
+
+  private applyDraft(draft: TextEntryDraft, pocketId: string | null): void {
+    if (this.mode() === draft.type) {
+      this.categoryId.set(draft.categoryId);
+    } else {
+      this.nextCategory = draft.categoryId;
+      this.mode.set(draft.type);
+    }
+    if (draft.source?.kind === 'CARD') {
+      this.cardId.set(draft.source.id);
+      this.cardCurrency.set(draft.currency === 'USD' ? 'USD' : 'ARS');
+      this.installments.set(draft.installments);
+    } else {
+      this.cardId.set(null);
+      this.installments.set(1);
+      if (pocketId) this.accountId.set(pocketId);
+    }
+    this.amount.set(draft.amount.replace(/\.00$/, ''));
+    this.date.set(draft.date);
+    this.note.set(draft.description);
+    this.error.set(null);
+    this.understood.set(true);
   }
 
   protected showInvestmentsBlock(): void {

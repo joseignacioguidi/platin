@@ -15,8 +15,9 @@ import {
   Validators,
 } from '@angular/forms';
 import { type Card, createCardRequestSchema } from '@platin/contracts';
-import { parseTypedAmount, PlButton, PlAccountSelect, PlSheet } from '@platin/web-ui';
+import { parseTypedAmount, PlAliasInput, PlButton, PlAccountSelect, PlSheet } from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
+import { TextEntryStore } from '../quick-entry/text-entry.store';
 import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { fieldError, zodValidator } from '../../core/forms/zod-validator';
 import { AccountsStore } from '../accounts/accounts.store';
@@ -38,7 +39,7 @@ function optionalAmount(control: AbstractControl<string>): ValidationErrors | nu
 /** TAR-01: card with its closing and due days. */
 @Component({
   selector: 'pl-card-form-sheet',
-  imports: [PlSheet, PlButton, PlAccountSelect, ReactiveFormsModule, FormField],
+  imports: [PlSheet, PlButton, PlAccountSelect, PlAliasInput, ReactiveFormsModule, FormField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="card ? texts.edit : texts.new">
@@ -131,6 +132,15 @@ function optionalAmount(control: AbstractControl<string>): ValidationErrors | nu
             formControlName="defaultPaymentPocketId"
           />
         </pl-form-field>
+        <!-- TXT-02 -->
+        <pl-form-field [label]="f.aliases" controlId="card-aliases" [hint]="f.aliasesHint">
+          <pl-alias-input
+            inputId="card-aliases"
+            placeholder="visa"
+            [removeLabel]="f.removeAlias"
+            formControlName="aliases"
+          />
+        </pl-form-field>
         @if (error()) {
           <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">{{ error() }}</p>
         }
@@ -156,7 +166,10 @@ export class CardFormSheet {
   private readonly payment = viewChild(PlAccountSelect);
   protected readonly accounts = inject(AccountsStore);
   private readonly store = inject(CardsStore);
+  private readonly textEntry = inject(TextEntryStore);
   private readonly ref = inject(DialogRef);
+  /** Set once the card exists, so a failed alias save does not create it twice. */
+  private saved: Card | null = this.card;
 
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -172,6 +185,7 @@ export class CardFormSheet {
     issuer: [this.card?.issuer ?? ''],
     last4: [this.card?.last4 ?? '', Validators.pattern(/^(\d{4})?$/)],
     defaultPaymentPocketId: [this.card?.defaultPaymentPocketId ?? ''],
+    aliases: [this.card?.aliases ?? ([] as string[])],
   });
 
   constructor() {
@@ -191,8 +205,26 @@ export class CardFormSheet {
       last4: v.last4 || null,
       defaultPaymentPocketId: v.defaultPaymentPocketId || null,
     };
-    const card = this.card;
-    await this.run(() => (card ? this.store.update(card.id, request) : this.store.create(request)));
+    const taken = v.aliases.find((alias) => {
+      const owner = this.textEntry.aliasOwner(alias);
+      return owner && !(owner.kind === 'CARD' && owner.id === this.saved?.id);
+    });
+    if (taken) {
+      this.error.set(this.f.aliasTaken(taken));
+      return;
+    }
+    await this.run(async () => {
+      const card = this.saved
+        ? await this.store.update(this.saved.id, request)
+        : await this.store.create(request);
+      this.saved = card;
+      const before = this.card?.aliases ?? [];
+      if (v.aliases.join() !== before.join()) {
+        const { aliases } = await this.store.putAliases(card.id, v.aliases);
+        return { ...card, aliases };
+      }
+      return card;
+    });
   }
 
   protected async archive(): Promise<void> {

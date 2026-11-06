@@ -126,6 +126,11 @@ export class CategoriesService {
           data: { categoryId: targetId },
         }),
       ]);
+      // Merchant rules follow too (TXT-03), but they are not counted as moved records.
+      await tx.merchantRule.updateMany({
+        where: { userId, categoryId: id },
+        data: { categoryId: targetId },
+      });
       // Subcategories follow their parent (the target itself, if it was one, becomes top level).
       if (target.parentId === id) {
         await tx.category.update({ where: { id: targetId }, data: { parentId: null } });

@@ -91,6 +91,8 @@ export const cardSchema = z.object({
   dueDay: z.number().int(),
   defaultPaymentPocketId: uuidSchema.nullable(),
   archived: z.boolean(),
+  /** "Nombres para escribir" (TXT-02), normalized. */
+  aliases: z.array(z.string()),
   /** The statement that collects today's purchases. */
   openStatement: statementSummarySchema.nullable(),
   /** Closed and still to be paid (TAR-03); null outside the window between closing and due date. */

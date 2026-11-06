@@ -21,7 +21,7 @@ import { freezeBase } from '../common/base-conversion';
 import { ClockService } from '../common/clock.service';
 import { CurrenciesService } from '../common/currencies.service';
 import { toDbDate } from '../common/serialize';
-import type { Transaction as TransactionRow } from '../generated/prisma/client';
+import type { Channel, Prisma, Transaction as TransactionRow } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserRates } from '../rates/user-rates.service';
 import { toTransactionDto } from './transaction.mapper';
@@ -47,6 +47,20 @@ export class TransactionsService {
    * frozen again when it is confirmed.
    */
   async create(userId: string, request: CreateTransactionRequest): Promise<Transaction> {
+    const id = await this.createIn(this.prisma, userId, request, 'APP');
+    return this.get(userId, id);
+  }
+
+  /**
+   * The same, writing with the caller's client: the bot creates the movement in the transaction
+   * of its update (ADR 0026), marked with the channel it came in. Checks run before the write.
+   */
+  async createIn(
+    client: Prisma.TransactionClient | PrismaService,
+    userId: string,
+    request: CreateTransactionRequest,
+    channel: Channel,
+  ): Promise<string> {
     const pocket = await this.pockets.getAccountBalance(userId, request.pocketId);
     await this.categories.getOwned(userId, request.categoryId, request.type);
     await this.currencies.assertEnabled(userId, pocket.currency);
@@ -59,9 +73,10 @@ export class TransactionsService {
       (await this.rateOfDay(userId, amount, baseCurrency, scheduled ? today : request.date));
     const frozen = freezeBase(amount, baseCurrency, rate);
 
-    const row = await this.prisma.transaction.create({
+    const row = await client.transaction.create({
       data: {
         userId,
+        channel,
         pocketId: pocket.id,
         categoryId: request.categoryId,
         type: request.type,
@@ -74,7 +89,7 @@ export class TransactionsService {
         ...(scheduled ? { status: 'PENDING' as const, origin: 'SCHEDULED' as const } : {}),
       },
     });
-    return toTransactionDto(row);
+    return row.id;
   }
 
   /**
@@ -168,6 +183,28 @@ export class TransactionsService {
    * the rate of its date.
    */
   async confirm(userId: string, request: ConfirmTransactionsRequest): Promise<Transaction[]> {
+    const updates = await this.confirmUpdates(userId, request);
+    const updated = await this.prisma.$transaction(
+      updates.map((args) => this.prisma.transaction.update(args)),
+    );
+    return updated.map(toTransactionDto);
+  }
+
+  /** The same, inside the caller's transaction (the bot's /pendientes). */
+  async confirmIn(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    request: ConfirmTransactionsRequest,
+  ): Promise<void> {
+    for (const args of await this.confirmUpdates(userId, request)) {
+      await tx.transaction.update(args);
+    }
+  }
+
+  private async confirmUpdates(
+    userId: string,
+    request: ConfirmTransactionsRequest,
+  ): Promise<Prisma.TransactionUpdateArgs[]> {
     const ids = request.items.map((item) => item.id);
     const rows = await this.prisma.transaction.findMany({ where: { id: { in: ids }, userId } });
     if (rows.length !== new Set(ids).size) throw AppException.notFound('Movement not found');
@@ -194,28 +231,24 @@ export class TransactionsService {
       }
     }
 
-    const updated = await this.prisma.$transaction(
-      request.items.map((item) => {
-        const row = rows.find((r) => r.id === item.id) as TransactionRow;
-        const amount = Money.of(item.amount ?? row.amount.toFixed(2), row.currency);
-        // Pending movements in another currency arrive without a frozen rate (ADR 0008):
-        // it is frozen now, with the rate sent or, from phase 6, the one of the day.
-        const unfrozen = row.rateToBase.isZero() || row.origin === 'SCHEDULED';
-        const rate =
-          item.exchangeRate ?? (unfrozen ? ratesOfDay.get(row.id) : this.storedRate(row));
-        const frozen = item.amount || unfrozen ? freezeBase(amount, baseCurrency, rate) : undefined;
-        return this.prisma.transaction.update({
-          where: { id: row.id },
-          data: {
-            status: 'CONFIRMED',
-            amount: amount.toString(),
-            date: toDbDate(dateOf(item, row)),
-            ...(frozen ?? {}),
-          },
-        });
-      }),
-    );
-    return updated.map(toTransactionDto);
+    return request.items.map((item) => {
+      const row = rows.find((r) => r.id === item.id) as TransactionRow;
+      const amount = Money.of(item.amount ?? row.amount.toFixed(2), row.currency);
+      // Pending movements in another currency arrive without a frozen rate (ADR 0008):
+      // it is frozen now, with the rate sent or, from phase 6, the one of the day.
+      const unfrozen = row.rateToBase.isZero() || row.origin === 'SCHEDULED';
+      const rate = item.exchangeRate ?? (unfrozen ? ratesOfDay.get(row.id) : this.storedRate(row));
+      const frozen = item.amount || unfrozen ? freezeBase(amount, baseCurrency, rate) : undefined;
+      return {
+        where: { id: row.id },
+        data: {
+          status: 'CONFIRMED' as const,
+          amount: amount.toString(),
+          date: toDbDate(dateOf(item, row)),
+          ...(frozen ?? {}),
+        },
+      };
+    });
   }
 
   /**
