@@ -404,6 +404,7 @@ enum PocketKind { AVAILABLE SPENDING SAVINGS INVESTMENT }   // SPENDING = reserv
   - `toPay`: el comprometido del período de `commitmentsByMonth` (la misma entrada que `GET /commitments`);
   - `cardLater`: cuotas de los consumos con fecha en el período cuyo resumen vence después del período;
   - para un período anterior: saldo de `AVAILABLE` y `SPENDING` al último día del período, sin los otros tres.
+  - ADR 0029 sacó `cardLater` de la entrada y de la respuesta: `freeThisMonth({ inAccounts, toCollect, toPay })`.
 - `GET /dashboard` cambia su respuesta (contrato y web en el mismo PR): `inAccounts`, `toCollect`, `toPay`, `cardLater`, `free`, y como datos `spent` (gastos confirmados del período + consumos con tarjeta del período por su total) y `saved` (transferencias del período desde `AVAILABLE`/`SPENDING` hacia `SAVINGS`/`INVESTMENT`, menos las inversas). Se quitan `separated` y `committed` sueltos.
 - `GET /commitments`: cada ítem suma `payFrom: { pocketId, accountName, pocketName } | null` (resumen: el `defaultPaymentPocketId` de la tarjeta; fijo y programado: su apartado). `free` de cada mes pasa a llamarse `margin`.
 
@@ -603,7 +604,7 @@ Todo lo que tiene una regla de la especificación es una función pura en `libs/
 - `splitInstallments(total, count, startAt)`: montos de cada cuota, con el redondeo en la última.
 - `duePeriods(fixed, from, to)`: períodos que un fijo debe generar.
 - `commitmentsByMonth(input, months)`: compromisos por mes y moneda; única fuente del comprometido para Compromisos y el inicio.
-- `freeThisMonth({ inAccounts, toCollect, toPay, cardLater })`: libre del mes desde los saldos (iteración 6; reemplaza a la versión con `separatedThisMonth`).
+- `freeThisMonth({ inAccounts, toCollect, toPay })`: libre del mes desde los saldos (iteración 6; reemplaza a la versión con `separatedThisMonth`). Sin las cuotas de los meses siguientes (ADR 0029).
 - `goalProjection(goal, accumulated, today, monthly?)`: faltante, aporte mensual, ritmo y fecha estimada.
 - `pocketBalance(initial, transactions, transfers, at?)` y `accountTotals(pockets)`: saldo de un apartado a una fecha y totales de la cuenta por moneda.
 - `yieldFromValuation(balanceAt, value)`: rendimiento que genera una valuación.
@@ -718,7 +719,7 @@ Cada feature tiene sus rutas (carga diferida), sus componentes de página y un s
 | `pl-pocket-select` | Queda solo para elegir reservas (metas, invertir, ingresar, retirar) |
 | Detalle de reserva | Botones "Ajustar saldo" (hoja con "Ingresar desde una cuenta" y "Ajustar saldo" o "Actualizar valor") y "Retirar"; sin Apartar, Invertir ni Rescatar |
 | Carga rápida compacta | Monto, motivo siempre visible, una fila deslizable de categorías con "Más" al final, cuenta y fecha como chips, teclado más bajo; entra en 360 × 640 sin scroll |
-| `HomeFree` | El inicio muestra el libre y debajo la cuenta: en tus cuentas, + por cobrar, − a pagar este mes, − tarjeta de los meses siguientes. La barra reparte "en tus cuentas + por cobrar" entre a pagar, tarjeta y libre. Gastado y ahorrado del mes van como datos aparte |
+| `HomeFree` | El inicio muestra el libre y debajo la cuenta: en tus cuentas, + por cobrar, − a pagar este mes. La barra reparte "en tus cuentas + por cobrar" entre a pagar y libre. Gastado y ahorrado del mes van como datos aparte |
 
 ### Componentes y patrones de la iteración 7
 

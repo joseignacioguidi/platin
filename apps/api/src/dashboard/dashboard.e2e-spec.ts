@@ -113,15 +113,14 @@ describe('dashboard', () => {
     await scenario();
     const res = await as(ctx.app, user).get('/api/v1/dashboard').expect(200);
     // in accounts = 0 − Coto 18.500; to collect = salary; to pay = rent 380.000 + Sept
-    // installment 30.000; card later = PedidosYa 12.300 + USD 10 × 1.200 (due Nov 5).
+    // installment 30.000. PedidosYa and Spotify are due Nov 5: they don't lower the free amount.
     expect(res.body).toMatchObject({
       period: '2026-10',
       currency: 'ARS',
       inAccounts: '-18500.00',
       toCollect: '1850000.00',
       toPay: '410000.00',
-      cardLater: '24300.00',
-      free: '1397200.00',
+      free: '1421500.00',
       spent: '42800.00',
       saved: '0.00',
       // The rent (Oct 28) is not to confirm until its date.
@@ -157,12 +156,12 @@ describe('dashboard', () => {
     expect(res.body).toMatchObject({
       inAccounts: '-218500.00',
       saved: '200000.00',
-      free: '1197200.00',
+      free: '1221500.00',
     });
 
     await transfer(reserva.id, galicia.id, '30000');
     res = await api.get('/api/v1/dashboard').expect(200);
-    expect(res.body).toMatchObject({ saved: '170000.00', free: '1227200.00' });
+    expect(res.body).toMatchObject({ saved: '170000.00', free: '1251500.00' });
   });
 
   it('DAS-05: the example of the specification', async () => {
@@ -199,11 +198,10 @@ describe('dashboard', () => {
       inAccounts: '1176150.00',
       toCollect: '0.00',
       toPay: '379418.27',
-      cardLater: '0.00',
       free: '796731.73',
     });
 
-    // On the 20th, $ 90.000 in 3 installments due in December, January and February.
+    // On the 20th, $ 90.000 in 3 installments due later: the free amount stays the same.
     const card = (
       await api.post('/api/v1/cards').send({ name: 'Visa', closingDay: 15, dueDay: 5 }).expect(201)
     ).body;
@@ -219,14 +217,15 @@ describe('dashboard', () => {
       })
       .expect(201);
     res = await api.get('/api/v1/dashboard').expect(200);
-    expect(res.body).toMatchObject({ cardLater: '90000.00', free: '706731.73' });
+    expect(res.body).toMatchObject({ toPay: '379418.27', free: '796731.73' });
+    expect(res.body).not.toHaveProperty('cardLater');
 
     await api
       .post('/api/v1/transfers')
       .send({ fromPocketId: mp.id, toPocketId: auto.id, amountOut: '200000', date: '2026-10-23' })
       .expect(201);
     res = await api.get('/api/v1/dashboard').expect(200);
-    expect(res.body).toMatchObject({ free: '506731.73', saved: '200000.00' });
+    expect(res.body).toMatchObject({ free: '596731.73', saved: '200000.00' });
   });
 
   it('a previous month is what was left in the accounts on its last day', async () => {
@@ -238,7 +237,6 @@ describe('dashboard', () => {
       inAccounts: '0.00',
       toCollect: '0.00',
       toPay: '0.00',
-      cardLater: '0.00',
       free: '0.00',
       // The September purchase still counts as spent in its month.
       spent: '90000.00',
@@ -258,7 +256,7 @@ describe('dashboard', () => {
     expect(res.body).toMatchObject({
       spent: '442800.00',
       toPay: '30000.00',
-      free: '1377200.00',
+      free: '1401500.00',
       pending: { count: 1, names: ['Sueldo'] },
     });
   });
@@ -343,8 +341,8 @@ describe('dashboard', () => {
       ['STATEMENT', '30000.00'],
       ['FIXED', '380000.00'],
     ]);
-    // Free 1.397.200 over Oct 23–31.
-    expect(body).toMatchObject({ daysLeft: 9, perDay: '155244.00', received: '0.00' });
+    // Free 1.421.500 over Oct 23–31.
+    expect(body).toMatchObject({ daysLeft: 9, perDay: '157944.00', received: '0.00' });
   });
 
   it('DAS-07: a card with a payment account adds its statement to that account', async () => {
@@ -407,7 +405,6 @@ describe('dashboard', () => {
       inAccounts: '0.00',
       toCollect: '0.00',
       toPay: '0.00',
-      cardLater: '0.00',
       free: '0.00',
       spent: '0.00',
       saved: '0.00',

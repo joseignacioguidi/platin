@@ -91,7 +91,7 @@ export const dashboardUnassignedSchema = z.object({ toPay: z.string(), ...paymen
 
 /**
  * DAS-01 / DAS-05: "Libre este mes" and how it is reached, all in base currency with today's
- * rate. For a previous month, `inAccounts` is the balance on its last day and the other three
+ * rate. For a previous month, `inAccounts` is the balance on its last day and the other two
  * parts are zero.
  */
 export const dashboardSchema = z.object({
@@ -103,9 +103,7 @@ export const dashboardSchema = z.object({
   toCollect: z.string(),
   /** Still to pay this month, by the rule of Compromisos (COM-02). */
   toPay: z.string(),
-  /** Installments of this month's card purchases due in the following months. */
-  cardLater: z.string(),
-  /** inAccounts + toCollect − toPay − cardLater (can be negative). */
+  /** inAccounts + toCollect − toPay (can be negative). */
   free: z.string(),
   /** As data: confirmed expenses + card purchases of the month (by their total). */
   spent: z.string(),

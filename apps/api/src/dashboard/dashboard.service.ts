@@ -13,7 +13,6 @@ import {
   CommitmentItem,
   daysLeftIn,
   freePerDay,
-  cardLater,
   compareDates,
   Currency,
   duePeriods,
@@ -66,9 +65,8 @@ type StatementRow = Prisma.CardStatementGetPayload<{ include: typeof STATEMENT_W
  * - to collect = unconfirmed fixed incomes of the month + scheduled incomes (MOV-08);
  * - to pay = what is still to pay this month, with the rule and input of Compromisos
  *   (commitmentsByMonth);
- * - card later = installments of this month's card purchases due after the month;
- * - free = in your accounts + to collect − to pay − card later. A previous month only has the
- *   first part;
+ * - free = in your accounts + to collect − to pay (card installments due after the month are
+ *   left out, ADR 0029). A previous month only has the first part;
  * - spent and saved are shown as data apart.
  */
 @Injectable()
@@ -122,10 +120,7 @@ export class DashboardService {
         where: { userId, date: range, status: 'CONFIRMED', type: 'INCOME' },
         _sum: { baseAmount: true },
       }),
-      this.prisma.cardCharge.findMany({
-        where: { userId, date: range },
-        include: { installments: { include: { statement: { select: { dueDate: true } } } } },
-      }),
+      this.prisma.cardCharge.findMany({ where: { userId, date: range } }),
       this.prisma.fixedItem.findMany({
         where: { userId, pocketId: { not: null } },
         include: FIXED_INCLUDE,
@@ -195,22 +190,9 @@ export class DashboardService {
     const zero = Money.zero(base);
     const toCollect = past ? zero : fixedIncome.add(scheduledIncome);
     const toPay = past ? zero : month.committed.base;
-    const later = past
-      ? zero
-      : cardLater(
-          charges.flatMap((charge) =>
-            charge.installments.map((installment) => ({
-              chargeDate: utcToLocalDate(charge.date),
-              dueDate: utcToLocalDate(installment.statement.dueDate),
-              value: toBase(Money.of(installment.amount.toFixed(2), installment.currency)),
-            })),
-          ),
-          period,
-          base,
-        );
     const spent = money(expenses._sum.baseAmount).add(cardSpent);
     const saved = await this.saved(userId, base, user.valuationRate, range);
-    const free = freeThisMonth({ inAccounts, toCollect, toPay, cardLater: later });
+    const free = freeThisMonth({ inAccounts, toCollect, toPay });
 
     // DAS-07: the same items as "to pay", split by the account they are paid from.
     const toPayItems = past ? [] : month.items.map((item) => this.toPayItem(item, built));
@@ -224,7 +206,6 @@ export class DashboardService {
       inAccounts: inAccounts.toString(),
       toCollect: toCollect.toString(),
       toPay: toPay.toString(),
-      cardLater: later.toString(),
       free: free.toString(),
       spent: spent.toString(),
       saved: saved.toString(),
