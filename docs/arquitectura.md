@@ -430,7 +430,7 @@ Sin cambios de esquema.
 
 ### Iteración 8: carga por texto y Telegram
 
-Cambios de esquema en una migración normal; las razones están en `docs/adr/0025-carga-por-texto-y-telegram.md`.
+Cambios de esquema en una migración normal; las razones están en `docs/adr/0026-carga-por-texto-y-telegram.md`.
 
 ```prisma
 enum Channel { APP TELEGRAM }

@@ -1107,7 +1107,7 @@ El parser de la especificación en `libs/domain`, usado en la carga rápida de l
 - todo entra sin scroll en 360 × 640.
 
 ```
-Leé CLAUDE.md; el módulo 15 (TXT-01 a 04) y la regla "Carga por texto" de docs/especificacion.md; en docs/arquitectura.md "Iteración 8: carga por texto y Telegram" y "Componentes y patrones de la iteración 8"; y docs/adr/0025-carga-por-texto-y-telegram.md.
+Leé CLAUDE.md; el módulo 15 (TXT-01 a 04) y la regla "Carga por texto" de docs/especificacion.md; en docs/arquitectura.md "Iteración 8: carga por texto y Telegram" y "Componentes y patrones de la iteración 8"; y docs/adr/0026-carga-por-texto-y-telegram.md.
 
 Vamos a hacer la Fase 32 de docs/plan.md. Hay una versión previa del parser hecha aparte (te la paso si la pedís); usala como mucho de guía: la fuente de verdad es la regla de la especificación, que corrige varias cosas (reglas por palabra entera, fecha sin año, motivo con su texto original, errores nuevos).
 
@@ -1147,7 +1147,7 @@ Cargar mandando un mensaje: el bot responde con lo que entendió y se guarda al 
 - desvinculo desde el perfil y el bot deja de aceptar mensajes de ese chat.
 
 ```
-Leé CLAUDE.md; BOT-01 a 06 y la regla "Bot de Telegram" (con sus textos) de docs/especificacion.md; en docs/arquitectura.md "Iteración 8: carga por texto y Telegram", la tabla de componentes de la iteración 8 y las variables de entorno de Telegram; y docs/adr/0025-carga-por-texto-y-telegram.md.
+Leé CLAUDE.md; BOT-01 a 06 y la regla "Bot de Telegram" (con sus textos) de docs/especificacion.md; en docs/arquitectura.md "Iteración 8: carga por texto y Telegram", la tabla de componentes de la iteración 8 y las variables de entorno de Telegram; y docs/adr/0026-carga-por-texto-y-telegram.md.
 
 Vamos a hacer la Fase 33 de docs/plan.md. No agregues una librería de bots sin consultarme: la API de Telegram son pocos endpoints HTTP y alcanza con un TelegramClient propio sobre fetch, reemplazable en los tests.
 

@@ -26,3 +26,4 @@ export * from './lib/forms/pocket-select';
 export * from './lib/forms/currency-select';
 export * from './lib/wink/wink';
 export * from './lib/plan-badge/plan-badge';
+export * from './lib/forms/alias-input';

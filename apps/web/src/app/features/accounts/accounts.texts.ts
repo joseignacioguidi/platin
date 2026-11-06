@@ -39,6 +39,10 @@ export const ACCOUNTS_TEXTS = {
   form: {
     name: 'Nombre',
     namePlaceholder: 'Ej.: Mercado Pago',
+    aliases: 'Nombres para escribir',
+    aliasesHint: 'Para cargar escribiendo, por ejemplo “super 4500 mp”.',
+    removeAlias: 'Quitar',
+    aliasTaken: (alias: string) => `“${alias}” ya lo usa otra cuenta o tarjeta.`,
     kind: 'Tipo',
     color: 'Color',
     initialBalance: 'Saldo de hoy (en pesos)',

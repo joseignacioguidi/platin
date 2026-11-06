@@ -15,6 +15,7 @@ import {
 import type { AccountKind } from '@platin/domain';
 import {
   parseTypedAmount,
+  PlAliasInput,
   PlButton,
   PlColorPicker,
   PlSelect,
@@ -22,6 +23,7 @@ import {
   PlSheet,
 } from '@platin/web-ui';
 import { errorMessage } from '../../core/errors';
+import { TextEntryStore } from '../quick-entry/text-entry.store';
 import { PlanGate } from '../plans/plan-gate';
 import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { fieldError, zodValidator } from '../../core/forms/zod-validator';
@@ -49,7 +51,16 @@ export const ACCOUNT_KIND_ICONS: Record<AccountKind, string> = {
 /** CTA-01: create or edit an account (the balance of its "Disponible" only on creation). */
 @Component({
   selector: 'pl-account-form-sheet',
-  imports: [PlSheet, PlButton, PlSelect, PlColorPicker, ReactiveFormsModule, FormField, PlanGate],
+  imports: [
+    PlSheet,
+    PlButton,
+    PlSelect,
+    PlColorPicker,
+    PlAliasInput,
+    ReactiveFormsModule,
+    FormField,
+    PlanGate,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="account ? texts.edit : texts.newLabel">
@@ -98,6 +109,16 @@ export const ACCOUNT_KIND_ICONS: Record<AccountKind, string> = {
           </pl-form-field>
         }
 
+        <!-- TXT-02 -->
+        <pl-form-field [label]="f.aliases" controlId="account-aliases" [hint]="f.aliasesHint">
+          <pl-alias-input
+            inputId="account-aliases"
+            placeholder="mp"
+            [removeLabel]="f.removeAlias"
+            formControlName="aliases"
+          />
+        </pl-form-field>
+
         @if (error()) {
           <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">{{ error() }}</p>
         }
@@ -135,6 +156,9 @@ export class AccountFormSheet {
   protected readonly account = inject<Account | null>(DIALOG_DATA);
   private readonly ref = inject(DialogRef);
   private readonly store = inject(AccountsStore);
+  private readonly textEntry = inject(TextEntryStore);
+  /** Set once the account exists, so a failed alias save does not create it twice. */
+  private saved: Account | null = this.account;
 
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
@@ -144,26 +168,42 @@ export class AccountFormSheet {
     kind: [this.account?.kind ?? ('WALLET' as AccountKind)],
     color: [(this.account?.color ?? 'transfer') as ColorToken],
     initialBalance: ['0', nonNegativeAmountValidator],
+    aliases: [this.account?.aliases ?? ([] as string[])],
   });
 
   protected async save(): Promise<void> {
     this.form.markAllAsTouched();
     if (this.form.invalid || this.saving()) return;
     const value = this.form.getRawValue();
-    await this.run(() =>
-      this.account
-        ? this.store.update(this.account.id, {
+    const taken = value.aliases.find((alias) => {
+      const owner = this.textEntry.aliasOwner(alias);
+      return owner && !(owner.kind === 'ACCOUNT' && owner.id === this.saved?.id);
+    });
+    if (taken) {
+      this.error.set(this.f.aliasTaken(taken));
+      return;
+    }
+    await this.run(async () => {
+      const account = this.saved
+        ? await this.store.update(this.saved.id, {
             name: value.name.trim(),
             kind: value.kind,
             color: value.color,
           })
-        : this.store.create({
+        : await this.store.create({
             name: value.name.trim(),
             kind: value.kind,
             color: value.color,
             initialBalance: parseTypedAmount(value.initialBalance) ?? '0',
-          }),
-    );
+          });
+      this.saved = account;
+      const before = this.account?.aliases ?? [];
+      if (value.aliases.join() !== before.join()) {
+        const { aliases } = await this.store.putAliases(account.id, value.aliases);
+        return { ...account, aliases };
+      }
+      return account;
+    });
   }
 
   protected async toggleArchive(): Promise<void> {

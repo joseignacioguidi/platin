@@ -1,4 +1,4 @@
-# 0025 — Carga por texto y bot de Telegram
+# 0026 — Carga por texto y bot de Telegram
 
 Fecha: 2026-11-05 · Iteración 8, fases 32 y 33 (TXT-01 a 04, BOT-01 a 06)
 

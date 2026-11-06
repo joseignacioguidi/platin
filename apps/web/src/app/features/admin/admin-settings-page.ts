@@ -2,6 +2,7 @@ import { httpResource } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   Directive,
   effect,
   inject,
@@ -13,9 +14,11 @@ import { LucidePlus, LucideTrash2 } from '@lucide/angular';
 import {
   announcementSettingSchema,
   defaultRateSettingSchema,
+  merchantRulesSettingSchema,
   registrationSettingSchema,
   suggestedCategoriesSettingSchema,
   type ColorToken,
+  type GlobalMerchantRule,
   type Setting,
   type SettingKey,
   type SuggestedCategory,
@@ -387,10 +390,108 @@ export class CategoriesSetting extends SettingForm<typeof suggestedCategoriesSet
   }
 }
 
+/** TXT-04: rules of common merchants, pointing to the name of a suggested category. */
+@Component({
+  selector: 'pl-admin-merchant-rules-setting',
+  imports: [AdminSettingCard, PlSelect, PlButton, LucidePlus, LucideTrash2],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <pl-admin-setting-card
+      [heading]="t.merchantRules.title"
+      [hint]="t.merchantRules.hint"
+      [save]="submit"
+      [saving]="saving()"
+      [saved]="saved()"
+      [error]="error()"
+      [updatedAt]="updatedAt()"
+    >
+      <ul class="flex flex-col gap-2">
+        @for (rule of rules(); track $index; let i = $index) {
+          <li class="grid grid-cols-[1fr_1fr_auto] gap-2 rounded-2xl border border-line-soft p-2">
+            <input
+              type="text"
+              maxlength="40"
+              autocapitalize="off"
+              [class]="input"
+              [attr.aria-label]="t.merchantRules.pattern"
+              [value]="rule.pattern"
+              (input)="patch(i, { pattern: value($event) })"
+            />
+            <pl-select
+              [label]="t.merchantRules.category"
+              [options]="categoryOptions()"
+              [value]="rule.categoryName"
+              (valueChange)="$event && patch(i, { categoryName: $event })"
+            />
+            <button
+              plButton="ghost"
+              size="icon"
+              type="button"
+              [attr.aria-label]="t.merchantRules.remove(rule.pattern)"
+              (click)="removeAt(i)"
+            >
+              <svg lucideTrash2 [size]="18"></svg>
+            </button>
+          </li>
+        }
+      </ul>
+      <button plButton="secondary" type="button" class="self-start" (click)="add()">
+        <svg lucidePlus [size]="18"></svg>{{ t.merchantRules.add }}
+      </button>
+    </pl-admin-setting-card>
+  `,
+})
+export class MerchantRulesSetting extends SettingForm<typeof merchantRulesSettingSchema> {
+  protected readonly key = 'merchant-rules';
+  protected readonly schema = merchantRulesSettingSchema;
+  protected readonly input = INPUT_CLASS;
+  protected readonly rules = signal<GlobalMerchantRule[]>([]);
+  /** The suggested expense and income categories (a rule points to one of their names). */
+  private readonly suggested = httpResource<Setting>(
+    () => `${ADMIN_API}/settings/suggested-categories`,
+  );
+  protected readonly categoryOptions = computed<PlSelectOption<string>[]>(() => {
+    const parsed = suggestedCategoriesSettingSchema.safeParse(this.suggested.value()?.value);
+    const names = parsed.success ? parsed.data.categories.map((c) => c.name) : [];
+    // A rule pointing to a name that is no longer suggested keeps it as an option.
+    const extra = this.rules()
+      .map((rule) => rule.categoryName)
+      .filter((name) => name && !names.includes(name));
+    return [...new Set([...names, ...extra])].map((name) => ({ value: name, label: name }));
+  });
+
+  protected fill(value: z.infer<typeof merchantRulesSettingSchema>): void {
+    this.rules.set(value.rules);
+  }
+  protected read(): unknown {
+    return { rules: this.rules() };
+  }
+  protected patch(index: number, changes: Partial<GlobalMerchantRule>): void {
+    this.rules.update((list) =>
+      list.map((rule, i) => (i === index ? { ...rule, ...changes } : rule)),
+    );
+  }
+  protected add(): void {
+    this.rules.update((list) => [...list, { pattern: '', categoryName: '' }]);
+  }
+  protected removeAt(index: number): void {
+    this.rules.update((list) => list.filter((_, i) => i !== index));
+  }
+  protected value(event: Event): string {
+    return (event.target as HTMLInputElement).value;
+  }
+}
+
 /** ADM-05: global configuration, one form per key. */
 @Component({
   selector: 'pl-admin-settings-page',
-  imports: [RegistrationSetting, AnnouncementSetting, DefaultRateSetting, CategoriesSetting],
+  imports: [
+    RegistrationSetting,
+    AnnouncementSetting,
+    DefaultRateSetting,
+    CategoriesSetting,
+    MerchantRulesSetting,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <h1 class="mb-5 text-2xl font-bold tracking-[-0.03em]">{{ title }}</h1>
@@ -399,6 +500,7 @@ export class CategoriesSetting extends SettingForm<typeof suggestedCategoriesSet
       <pl-admin-announcement-setting />
       <pl-admin-default-rate-setting />
       <pl-admin-categories-setting />
+      <pl-admin-merchant-rules-setting />
     </div>
   `,
 })

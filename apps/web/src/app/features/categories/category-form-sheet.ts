@@ -19,6 +19,7 @@ import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { CATEGORY_ICONS } from '../../core/icons';
 import { CategoriesStore } from './categories.store';
 import { CATEGORIES_TEXTS } from './categories.texts';
+import { RulesList } from './rules-list';
 
 export interface CategoryFormData {
   /** Editing; without it, a new category of `kind`. */
@@ -46,6 +47,7 @@ type Mode = 'form' | 'merge';
     PlIconPicker,
     PlColorPicker,
     FormField,
+    RulesList,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -122,6 +124,11 @@ type Mode = 'form' | 'merge';
           </div>
           @if (!category.archived) {
             <p class="text-xs text-muted">{{ f.archiveHint }}</p>
+            <!-- TXT-03: the rules that choose this category. -->
+            <section class="flex flex-col gap-2" aria-labelledby="category-rules">
+              <h3 id="category-rules" class="text-sm font-semibold">{{ rulesTitle }}</h3>
+              <pl-rules-list [categoryId]="category.id" />
+            </section>
           }
         }
       } @else if (category) {
@@ -157,6 +164,7 @@ type Mode = 'form' | 'merge';
 })
 export class CategoryFormSheet {
   protected readonly f = CATEGORIES_TEXTS.form;
+  protected readonly rulesTitle = CATEGORIES_TEXTS.rules.section;
   protected readonly input = INPUT_CLASS;
   protected readonly icons = CATEGORY_ICONS;
   private readonly data = inject<CategoryFormData>(DIALOG_DATA);

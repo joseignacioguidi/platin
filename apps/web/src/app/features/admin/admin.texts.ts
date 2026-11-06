@@ -136,6 +136,14 @@ export const ADMIN_TEXTS = {
       expense: 'Gasto',
       income: 'Ingreso',
     },
+    merchantRules: {
+      title: 'Reglas de comercios',
+      hint: 'Eligen la categoría al cargar escribiendo (“ypf” → Nafta) si el usuario tiene una categoría con ese nombre. Las reglas de cada usuario las pisan.',
+      pattern: 'Si el motivo dice',
+      category: 'Categoría sugerida',
+      add: 'Agregar regla',
+      remove: (pattern: string) => `Quitar ${pattern || 'regla'}`,
+    },
     rates: { OFICIAL: 'Oficial', MEP: 'MEP', BLUE: 'Blue' },
   },
   audit: {
@@ -161,6 +169,7 @@ export const ADMIN_TEXTS = {
       announcement: 'Aviso para todos',
       'suggested-categories': 'Categorías sugeridas',
       'default-rate': 'Cotización por defecto',
+      'merchant-rules': 'Reglas de comercios',
     } as Record<string, string>,
   },
   plans: {

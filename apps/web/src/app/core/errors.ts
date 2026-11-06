@@ -27,6 +27,8 @@ const MESSAGES: Record<string, string> = {
   PLAN_ARCHIVED: 'El plan está archivado.',
   PLAN_REQUEST_DECIDED: 'La solicitud ya fue respondida.',
   FORBIDDEN: 'No tenés permiso para hacer eso.',
+  ALIAS_TAKEN: 'Ese nombre ya lo usa otra cuenta o tarjeta.',
+  RULE_EXISTS: 'Ya tenés una regla con ese texto.',
   CURRENCY_NOT_ENABLED: 'Esa moneda no está activada. Activala desde tu perfil, en "Monedas".',
   CURRENCY_IN_USE:
     'No podés desactivar esa moneda: la usa una cuenta, una reserva, un fijo o una meta activa. Tu historial se conserva.',

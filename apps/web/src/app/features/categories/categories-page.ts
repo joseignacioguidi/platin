@@ -16,6 +16,9 @@ import { API } from '../../core/api';
 import { RefreshBus, reloadOn } from '../../core/data/refresh-bus';
 import { CATEGORIES_TEXTS } from './categories.texts';
 import { CategoryFormData, CategoryFormSheet } from './category-form-sheet';
+import { RulesList } from './rules-list';
+
+type View = 'CATEGORIES' | 'RULES';
 
 interface Row {
   category: Category;
@@ -31,6 +34,7 @@ interface Row {
     PlListItem,
     PlSkeleton,
     PlErrorState,
+    RulesList,
     LucidePlus,
     LucideLock,
     LucideChevronDown,
@@ -40,16 +44,23 @@ interface Row {
   template: `
     <header class="flex items-center justify-between gap-3">
       <h1 class="text-3xl font-bold">{{ texts.title }}</h1>
-      <button
-        plButton
-        size="sm"
-        type="button"
-        [attr.aria-label]="texts.newLabel"
-        (click)="open(null)"
-      >
-        <svg lucidePlus [size]="18"></svg>{{ texts.new }}
-      </button>
+      @if (view() === 'CATEGORIES') {
+        <button
+          plButton
+          size="sm"
+          type="button"
+          [attr.aria-label]="texts.newLabel"
+          (click)="open(null)"
+        >
+          <svg lucidePlus [size]="18"></svg>{{ texts.new }}
+        </button>
+      }
     </header>
+    <pl-segmented [label]="texts.viewLabel" [options]="views" [(value)]="view" />
+
+    @if (view() === 'RULES') {
+      <pl-rules-list searchable />
+    } @else {
     <p class="text-[15px] text-muted">{{ texts.intro }}</p>
     <pl-segmented tone="surface" [label]="texts.kindLabel" [options]="kinds" [(value)]="kind" />
 
@@ -135,6 +146,7 @@ interface Row {
         }
       </section>
     }
+    }
   `,
 })
 export class CategoriesPage {
@@ -146,6 +158,11 @@ export class CategoriesPage {
     { value: 'EXPENSE', label: CATEGORIES_TEXTS.kinds.EXPENSE },
     { value: 'INCOME', label: CATEGORIES_TEXTS.kinds.INCOME },
   ];
+  protected readonly views: PlSegmentOption<View>[] = [
+    { value: 'CATEGORIES', label: CATEGORIES_TEXTS.views.CATEGORIES },
+    { value: 'RULES', label: CATEGORIES_TEXTS.views.RULES },
+  ];
+  protected readonly view = signal<View>('CATEGORIES');
   protected readonly kind = signal<CategoryKind>('EXPENSE');
   protected readonly showArchived = signal(false);
 

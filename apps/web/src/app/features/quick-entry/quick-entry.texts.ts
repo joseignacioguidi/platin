@@ -45,6 +45,15 @@ export const QUICK_ENTRY_TEXTS = {
   noAccountsTitle: 'Primero creá una cuenta',
   noAccountsBody: 'Los movimientos se cargan sobre una cuenta: efectivo, banco o billetera.',
   createAccount: 'Crear cuenta',
+  // TXT-01: "Escribir"
+  write: 'Escribir el movimiento',
+  useKeypad: 'Usar el teclado',
+  writeLabel: 'Escribí el movimiento en una línea',
+  writePlaceholder: 'super 45k visa 3c',
+  writeHint: 'Probá con “taxi 8000 ayer” o “+ 50000 freelance”.',
+  interpret: 'Listo',
+  understood: 'Listo: revisá lo que entendí y guardá.',
+  ambiguousLabel: 'Elegí la fecha',
   errors: {
     amount: 'Ingresá un monto.',
     category: 'Elegí una categoría.',

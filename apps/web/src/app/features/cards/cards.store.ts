@@ -1,6 +1,7 @@
 import { HttpClient, httpResource } from '@angular/common/http';
 import { computed, inject, Injectable } from '@angular/core';
 import type {
+  AliasesResponse,
   Card,
   Charge,
   CloseStatementRequest,
@@ -41,6 +42,15 @@ export class CardsStore {
 
   update(id: string, changes: UpdateCardRequest): Promise<Card> {
     return this.write(this.http.patch<Card>(`${API}/cards/${id}`, changes));
+  }
+
+  /** TXT-02: replaces the "Nombres para escribir" of a card. */
+  async putAliases(cardId: string, aliases: string[]): Promise<AliasesResponse> {
+    const result = await firstValueFrom(
+      this.http.put<AliasesResponse>(`${API}/cards/${cardId}/aliases`, { aliases }),
+    );
+    this.bus.invalidate('cards', 'text-entry');
+    return result;
   }
 
   createCharge(cardId: string, request: CreateChargeRequest): Promise<Charge> {
