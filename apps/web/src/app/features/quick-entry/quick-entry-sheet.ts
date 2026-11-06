@@ -38,6 +38,7 @@ import {
   PlButton,
   PlChip,
   PlEmptyState,
+  PlInstallmentsPicker,
   PlSegmented,
   PlDateField,
   PlSegmentOption,
@@ -81,6 +82,7 @@ type Direction = 'INVEST' | 'REDEEM';
     PlButton,
     PlSegmented,
     PlChip,
+    PlInstallmentsPicker,
     PlAmountKeypad,
     PlEmptyState,
     PlSelect,
@@ -204,20 +206,9 @@ type Direction = 'INVEST' | 'REDEEM';
             </p>
           }
 
-          @if (card()) {
-            <div role="group" [attr.aria-label]="texts.installments" [class]="row">
-              @for (n of installmentOptions(); track n) {
-                <button
-                  plChip
-                  tone="ink"
-                  [selected]="installments() === n"
-                  [attr.aria-label]="n === 1 ? texts.onePayment : texts.installmentsOf(n)"
-                  (click)="installments.set(n)"
-                >
-                  {{ n === 1 ? texts.onePayment : texts.installmentsShort(n) }}
-                </button>
-              }
-            </div>
+          @if (card(); as card) {
+            <!-- TAR-02: the two most used counts and "Otra"; a written "5c" shows as the third. -->
+            <pl-installments-picker [top]="card.topInstallments" [(value)]="installments" />
           }
 
           @if (needsRate()) {
@@ -477,10 +468,6 @@ export class QuickEntrySheet {
   protected readonly cardId = signal<string | null>(null);
   protected readonly cardCurrency = signal<'ARS' | 'USD'>('ARS');
   protected readonly installments = signal(1);
-  /** The usual counts, plus the one a written text brought ("5c"). */
-  protected readonly installmentOptions = computed(() =>
-    [...new Set([1, 2, 3, 6, 9, 12, 18, 24, this.installments()])].sort((a, b) => a - b),
-  );
 
   protected readonly cards = computed(() => this.cardsStore.cards().filter((c) => !c.archived));
   protected readonly card = computed(() =>
