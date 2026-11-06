@@ -101,6 +101,8 @@ export const cardSchema = z.object({
   committedArs: z.string(),
   /** creditLimit − committedArs, when there is a limit. */
   available: z.string().nullable(),
+  /** "Cuotas más usadas" (TAR-02): the two counts the picker offers, lower first. */
+  topInstallments: z.tuple([z.number().int(), z.number().int()]),
 });
 
 /**
@@ -249,6 +251,43 @@ export const activeInstallmentSchema = z.object({
   lastPeriod: z.string(),
 });
 
+/**
+ * TAR-05 / COM-03 (iteration 9): a statement in the "Cuotas por resumen" chart. Every statement
+ * from the first to the last one with installments (1 payment included), oldest first.
+ */
+export const installmentStatementSchema = z.object({
+  period: periodSchema,
+  dueDate: z.string(),
+  status: statementStatusSchema,
+  /** Sum of the installments in the statement (adjustments not included). */
+  installmentsTotal: byCurrencySchema,
+  installmentsCount: z.number().int(),
+  /** Last installments of plans of 2 or more that end in this statement: what frees next month. */
+  releases: byCurrencySchema,
+});
+
+export const installmentsQuerySchema = z.object({
+  active: z.enum(['true', 'false']).optional(),
+  /** The installments of the statement of this period (TAR-05, iteration 9). */
+  period: periodSchema.optional(),
+});
+
+/** TAR-05 (iteration 9): an installment of the chosen statement. */
+export const statementPlanInstallmentSchema = z.object({
+  chargeId: uuidSchema,
+  description: z.string(),
+  category: categoryRefSchema,
+  currency: cardCurrencySchema,
+  /** "Cuota 4 de 12". */
+  number: z.number().int(),
+  count: z.number().int(),
+  amount: z.string(),
+  /** Installments covered up to this statement, for the progress bar (equals `number`). */
+  paidThrough: z.number().int(),
+  /** What the plan still owes after this statement. */
+  remainingAfter: z.string(),
+});
+
 // ---------- Purchase history (TAR-13) ----------
 
 /** Active: some installment still in an open statement. Finished: the last one is closed. */
@@ -326,6 +365,9 @@ export type CreateChargeRequest = z.input<typeof createChargeRequestSchema>;
 export type UpdateChargeRequest = z.infer<typeof updateChargeRequestSchema>;
 export type Charge = z.infer<typeof chargeSchema>;
 export type ActiveInstallment = z.infer<typeof activeInstallmentSchema>;
+export type InstallmentStatement = z.infer<typeof installmentStatementSchema>;
+export type InstallmentsQuery = z.infer<typeof installmentsQuerySchema>;
+export type StatementPlanInstallment = z.infer<typeof statementPlanInstallmentSchema>;
 export type ChargeStatus = z.infer<typeof chargeStatusSchema>;
 export type ChargesQuery = z.infer<typeof chargesQuerySchema>;
 export type ChargeListItem = z.infer<typeof chargeListItemSchema>;

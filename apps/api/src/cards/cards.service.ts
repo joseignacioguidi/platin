@@ -4,20 +4,25 @@ import type {
   Card,
   ColorToken,
   CreateCardRequest,
+  InstallmentStatement,
+  StatementPlanInstallment,
   StatementSummary,
   UpdateCardRequest,
 } from '@platin/contracts';
 import {
+  addDays,
   installmentProgress,
   Money,
   Period,
   previousStatementWindow,
+  topInstallmentCounts,
+  utcToLocalDate,
   utcToPeriod,
 } from '@platin/domain';
 import { PocketsService } from '../accounts/pockets.service';
 import { AppException } from '../common/app-exception';
 import { ClockService } from '../common/clock.service';
-import { cardCurrency, toDbPeriod } from '../common/serialize';
+import { cardCurrency, toDbDate, toDbPeriod } from '../common/serialize';
 import type { CreditCard } from '../generated/prisma/client';
 import { EntitlementsService } from '../plans/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -148,6 +153,94 @@ export class CardsService {
       .filter((plan) => !onlyActive || plan.remainingCount > 0);
   }
 
+  /**
+   * TAR-05 / COM-03 (iteration 9): the statements from the first to the last one with
+   * installments, with what the installments add up to and what each one frees.
+   */
+  async installmentStatements(userId: string, id: string): Promise<InstallmentStatement[]> {
+    await this.getOwned(userId, id);
+    const installments = await this.prisma.installment.findMany({
+      where: { charge: { cardId: id, userId } },
+      select: {
+        number: true,
+        amount: true,
+        currency: true,
+        statementId: true,
+        charge: { select: { installmentsCount: true } },
+        statement: { select: { period: true } },
+      },
+    });
+    if (installments.length === 0) return [];
+    const periods = installments.map((i) => i.statement.period.getTime());
+    const statements = await this.prisma.cardStatement.findMany({
+      where: {
+        cardId: id,
+        userId,
+        period: { gte: new Date(Math.min(...periods)), lte: new Date(Math.max(...periods)) },
+      },
+      orderBy: { period: 'asc' },
+    });
+    const byCurrency = (rows: typeof installments, currency: 'ARS' | 'USD') =>
+      Money.sum(
+        rows.filter((i) => i.currency === currency).map((i) => Money.of(i.amount.toFixed(2), currency)),
+        currency,
+      ).toString();
+    return statements.map((statement) => {
+      const own = installments.filter((i) => i.statementId === statement.id);
+      const ending = own.filter(
+        (i) => i.charge.installmentsCount > 1 && i.number === i.charge.installmentsCount,
+      );
+      return {
+        period: utcToPeriod(statement.period),
+        dueDate: utcToLocalDate(statement.dueDate),
+        status: statement.status,
+        installmentsTotal: { ARS: byCurrency(own, 'ARS'), USD: byCurrency(own, 'USD') },
+        installmentsCount: own.length,
+        releases: { ARS: byCurrency(ending, 'ARS'), USD: byCurrency(ending, 'USD') },
+      };
+    });
+  }
+
+  /** TAR-05 (iteration 9): the installments of the statement of `period`, as of that statement. */
+  async statementInstallments(
+    userId: string,
+    id: string,
+    period: Period,
+  ): Promise<StatementPlanInstallment[]> {
+    await this.getOwned(userId, id);
+    const rows = await this.prisma.installment.findMany({
+      where: { statement: { cardId: id, userId, period: toDbPeriod(period) } },
+      include: {
+        charge: {
+          include: {
+            category: { select: { id: true, name: true, icon: true, color: true } },
+            installments: { select: { number: true, amount: true } },
+          },
+        },
+      },
+      orderBy: [{ charge: { date: 'desc' } }, { charge: { createdAt: 'desc' } }],
+    });
+    return rows.map(({ charge, number, amount }) => {
+      const currency = cardCurrency(charge.currency);
+      return {
+        chargeId: charge.id,
+        description: charge.description,
+        category: { ...charge.category, color: charge.category.color as ColorToken },
+        currency,
+        number,
+        count: charge.installmentsCount,
+        amount: amount.toFixed(2),
+        paidThrough: number,
+        remainingAfter: Money.sum(
+          charge.installments
+            .filter((i) => i.number > number)
+            .map((i) => Money.of(i.amount.toFixed(2), currency)),
+          currency,
+        ).toString(),
+      };
+    });
+  }
+
   async getOwned(userId: string, id: string): Promise<CreditCard> {
     const card = await this.prisma.creditCard.findFirst({ where: { id, userId } });
     if (!card) throw AppException.notFound('Card not found');
@@ -220,6 +313,17 @@ export class CardsService {
       previousStatement: await this.previousStatement(card),
       committedArs: committed.toString(),
       available: limit ? limit.subtract(committed).toString() : null,
+      topInstallments: await this.topInstallments(card),
     };
+  }
+
+  /** "Cuotas más usadas": the installment counts of the card's purchases of the last 12 months. */
+  private async topInstallments(card: CreditCard): Promise<[number, number]> {
+    const since = addDays(this.clock.today(), -365);
+    const charges = await this.prisma.cardCharge.findMany({
+      where: { cardId: card.id, userId: card.userId, date: { gte: toDbDate(since) } },
+      select: { installmentsCount: true },
+    });
+    return topInstallmentCounts(charges.map((charge) => charge.installmentsCount));
   }
 }

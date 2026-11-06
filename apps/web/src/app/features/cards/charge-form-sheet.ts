@@ -23,8 +23,8 @@ import {
   PlButton,
   PlCategorySelect,
   PlCurrencySelect,
-  PlChip,
   PlDateField,
+  PlInstallmentsPicker,
   PlMoney,
   PlSegmented,
   PlSegmentOption,
@@ -38,7 +38,6 @@ import { CardsStore } from './cards.store';
 import { CARDS_TEXTS } from './cards.texts';
 import { CloseStatementSheet } from './close-statement-sheet';
 
-const COUNTS = [1, 3, 6, 12, 18, 24];
 const MODE_KEY = 'platin.chargeAmountMode';
 
 type AmountMode = 'TOTAL' | 'INSTALLMENT';
@@ -71,7 +70,7 @@ export interface ChargeFormData {
   imports: [
     PlSheet,
     PlButton,
-    PlChip,
+    PlInstallmentsPicker,
     PlMoney,
     PlSegmented,
     PlCurrencySelect,
@@ -165,23 +164,13 @@ export interface ChargeFormData {
 
       <fieldset class="flex flex-col gap-2" [disabled]="locked">
         <legend class="mb-2 text-sm font-medium">{{ t.installments }}</legend>
-        <div class="flex flex-wrap gap-2" [class.opacity-60]="locked">
-          @for (n of counts; track n) {
-            <button plChip tone="ink" [selected]="count() === n" (click)="setCount(n)">
-              {{ n === 1 ? t.oneInstallment : n }}
-            </button>
-          }
-          <input
-            type="number"
-            min="1"
-            max="60"
-            inputmode="numeric"
-            class="font-amount min-h-11 w-20 rounded-full border border-line bg-surface px-3 text-center"
-            [attr.aria-label]="t.installments"
-            [value]="count()"
-            (input)="setCount(numberValue($event))"
-          />
-        </div>
+        <!-- TAR-02: the card's two most used counts and "Otra" (1 to 60), in one row. -->
+        <pl-installments-picker
+          [top]="card.topInstallments"
+          [value]="count()"
+          (valueChange)="setCount($event)"
+          [disabled]="locked"
+        />
       </fieldset>
 
       @if (count() > 1 && !charge) {
@@ -280,7 +269,6 @@ export class ChargeFormSheet {
   protected readonly texts = CARDS_TEXTS;
   protected readonly t = CARDS_TEXTS.charge;
   protected readonly input = INPUT_CLASS;
-  protected readonly counts = COUNTS;
   private readonly data = inject<ChargeFormData>(DIALOG_DATA);
   protected readonly card = this.data.card;
   protected readonly charge = this.data.charge;

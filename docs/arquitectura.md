@@ -534,6 +534,22 @@ model UnparsedMessage {                   // BOT-06: 90 días
 | `GET /telegram/unparsed`, `DELETE /telegram/unparsed/:id`, `DELETE /telegram/unparsed` | BOT-06 |
 | `POST /telegram/webhook` | BOT-02 a 05 (sin JWT; secret de Telegram) |
 
+### Iteración 9: cuotas
+
+Sin cambios de esquema.
+
+- `libs/domain`: `topInstallmentCounts(counts, defaults = [1, 3])` devuelve las dos cantidades más usadas según la regla "Cuotas más usadas", con su ejemplo como test literal.
+- `GET /cards` y `GET /cards/:id` suman `topInstallments: [number, number]`, calculado con los consumos de los últimos 12 meses de esa tarjeta.
+- `GET /cards/:id/statements/summary` devuelve, para todos los resúmenes de la tarjeta con cuotas, `{ period, dueDate, status, installmentsTotal (por moneda), installmentsCount, releases (lo que termina en ese resumen) }`, ordenados por período. El gráfico pagina sobre esta lista en el cliente.
+- `GET /cards/:id/installments?period=YYYY-MM`: las cuotas del resumen de ese período, cada una con `{ chargeId, description, number, count, amount, paidThrough (cuántas quedan cubiertas hasta ese resumen), remainingAfter }`. Sin `period` sigue respondiendo como hoy.
+- Web: `pl-installments-picker` (tres opciones en una fila, "Otra" con un campo numérico de 1 a 60) reemplaza la lista de cantidades en la carga rápida y en `charge-form-sheet`. La pestaña Cuotas guarda el período elegido en la URL (`?period=2026-12`), así "atrás" del navegador y recargar la página lo mantienen.
+
+| Método y ruta | Caso de uso |
+| --- | --- |
+| `GET /cards` y `GET /cards/:id` con `topInstallments` | TAR-02 |
+| `GET /cards/:id/statements/summary` | TAR-05, COM-03 |
+| `GET /cards/:id/installments?period=YYYY-MM` | TAR-05 |
+
 ## Backend
 
 Un módulo de Nest por dominio; los controladores son finos, los servicios orquestan y las reglas viven en `libs/domain`.
@@ -586,6 +602,7 @@ Un módulo de Nest por dominio; los controladores son finos, los servicios orque
 | `GET /cards/:id/statements?from=&to=` | TAR-04 |
 | `POST /cards/:id/charges`, `PATCH/DELETE /charges/:id` | TAR-02, 03, 11 |
 | `GET /cards/:id/installments?active=true` | TAR-05 |
+| `GET /cards/:id/installments?period=YYYY-MM` | TAR-05 (iteración 9): las cuotas del resumen de ese período |
 | `POST /statements/:id/close`, `POST /statements/:id/payments` | TAR-07, 08 |
 | `GET/POST /fixed`, `POST /fixed/:id/amounts` | FIJ-01, 02 |
 | `GET /commitments?months=12` | COM-01, 02 |

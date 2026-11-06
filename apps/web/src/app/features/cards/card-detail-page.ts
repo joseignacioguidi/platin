@@ -6,10 +6,11 @@ import {
   effect,
   inject,
   input,
+  linkedSignal,
   signal,
   untracked,
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   LucideChevronLeft,
   LucideChevronRight,
@@ -17,11 +18,16 @@ import {
   LucidePlus,
   LucideShoppingBag,
 } from '@lucide/angular';
-import type { ActiveInstallment, Card, StatementDetail, StatementSummary } from '@platin/contracts';
+import type {
+  Card,
+  InstallmentStatement,
+  StatementDetail,
+  StatementPlanInstallment,
+  StatementSummary,
+} from '@platin/contracts';
 import {
   addMonths,
   compareDates,
-  formatMoney,
   Money,
   parseLocalDate,
   parsePeriod,
@@ -44,11 +50,13 @@ import {
 } from '@platin/web-ui';
 import { API } from '../../core/api';
 import { RefreshBus, reloadOn } from '../../core/data/refresh-bus';
+import { Today } from '../../core/today';
 import { CardFormSheet } from './card-form-sheet';
 import { CardVisual } from './card-visual';
 import { ChargeFormData, ChargeFormSheet } from './charge-form-sheet';
 import { CardsStore } from './cards.store';
 import { CARDS_TEXTS } from './cards.texts';
+import { CHART_PAGE, clampStart, nextToPayIndex, pageStartFor } from './installments-tab';
 import { CloseStatementSheet } from './close-statement-sheet';
 import { PayStatementSheet } from './pay-statement-sheet';
 import { StatementDetailData, StatementDetailSheet } from './statement-detail-sheet';
@@ -326,78 +334,169 @@ const MONTHS_LONG = [
           </ul>
         }
         @case ('installments') {
-          <section class="flex flex-col gap-4 rounded-tile bg-surface p-4">
-            <div class="flex items-baseline justify-between gap-2">
+          @if (summaryResource.error()) {
+            <pl-error-state
+              [message]="texts.installmentsTab.loadError"
+              (retry)="summaryResource.reload()"
+            />
+          } @else if (summaryResource.hasValue() && summary().length === 0) {
+            <pl-empty-state icon="credit-card" [heading]="texts.installmentsTab.none" />
+          } @else {
+            <section class="flex flex-col gap-3 rounded-tile bg-surface p-4">
               <h2 class="text-[17px] font-semibold">{{ texts.installmentsByStatement }}</h2>
-              @if (releases(); as r) {
-                <span class="text-sm font-semibold text-brand-strong">{{ r }}</span>
-              }
-            </div>
-            <div class="flex h-36 items-end gap-2" role="group" [attr.aria-label]="chartLabel()">
-              @for (bar of bars(); track bar.period; let first = $first) {
-                <div
-                  class="flex h-full flex-1 flex-col items-center justify-end gap-1 rounded-xl"
-                  [plChartPoint]="bar.name"
-                  [amount]="bar.amount"
+              <div class="flex items-end gap-1">
+                <button
+                  type="button"
+                  class="inline-flex size-11 shrink-0 items-center justify-center self-center rounded-full text-ink hover:bg-field disabled:opacity-30"
+                  [attr.aria-label]="texts.installmentsTab.previous"
+                  [disabled]="pageStart() === 0"
+                  (click)="movePage(-1)"
                 >
-                  <span class="font-amount text-xs">{{
-                    hideAmounts.hidden() ? '•••' : bar.label
-                  }}</span>
-                  <div
-                    class="w-full rounded-xl"
-                    [class.bg-card]="first"
-                    [class.bg-card-muted]="!first"
-                    [style.height.px]="bar.height"
-                  ></div>
-                  <span class="text-xs text-muted">{{ bar.month }}</span>
-                </div>
-              }
-            </div>
-          </section>
-          <section class="rounded-tile bg-surface px-4">
-            @for (plan of plans(); track plan.chargeId) {
-              <div class="flex flex-col gap-2 border-b border-line-soft py-4 last:border-b-0">
-                <div class="flex items-baseline justify-between gap-2">
-                  <span class="truncate text-[17px] font-semibold">{{ plan.description }}</span>
-                  <span class="font-amount whitespace-nowrap">
-                    <pl-money [amount]="plan.installmentAmount" [currency]="plan.currency" /><span
-                      class="text-sm text-muted"
-                      >{{ texts.perMonth }}</span
+                  <svg lucideChevronLeft [size]="20" aria-hidden="true"></svg>
+                </button>
+                <div class="flex h-36 min-w-0 flex-1 items-end gap-1.5">
+                  @for (bar of bars(); track bar.period) {
+                    <button
+                      type="button"
+                      class="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1 rounded-xl"
+                      [attr.aria-pressed]="bar.period === selectedPeriod()"
+                      [plChartPoint]="bar.label"
+                      [amount]="bar.amount"
+                      (click)="select(bar.period)"
                     >
-                  </span>
+                      <span
+                        class="font-amount text-xs"
+                        [class.font-semibold]="bar.period === selectedPeriod()"
+                        aria-hidden="true"
+                        >{{ hideAmounts.hidden() ? '•••' : bar.short }}</span
+                      >
+                      <span
+                        class="w-full rounded-xl"
+                        [class.bg-card]="bar.period === selectedPeriod()"
+                        [class.bg-card-muted]="bar.period !== selectedPeriod()"
+                        [style.height.px]="bar.height"
+                        aria-hidden="true"
+                      ></span>
+                      <span
+                        class="text-xs"
+                        [class.font-semibold]="bar.period === selectedPeriod()"
+                        [class.text-muted]="bar.period !== selectedPeriod()"
+                        aria-hidden="true"
+                        >{{ bar.month }}</span
+                      >
+                    </button>
+                  }
                 </div>
-                <div
-                  class="rounded-full py-2"
-                  [plChartPoint]="plan.description"
-                  [value]="texts.installmentOf(plan.current, plan.count)"
+                <button
+                  type="button"
+                  class="inline-flex size-11 shrink-0 items-center justify-center self-center rounded-full text-ink hover:bg-field disabled:opacity-30"
+                  [attr.aria-label]="texts.installmentsTab.next"
+                  [disabled]="pageStart() + chartPage >= summary().length"
+                  (click)="movePage(1)"
                 >
-                  <div
-                    class="h-2 overflow-hidden rounded-full bg-card-soft"
-                    role="progressbar"
-                    [attr.aria-valuenow]="plan.current"
-                    aria-valuemin="0"
-                    [attr.aria-valuemax]="plan.count"
-                  >
-                    <div
-                      class="h-full rounded-full bg-card"
-                      [style.width.%]="(plan.current / plan.count) * 100"
-                    ></div>
-                  </div>
-                </div>
-                <div class="flex justify-between text-sm text-muted">
-                  <span class="font-amount"
-                    >{{ plan.current }} {{ texts.of }} {{ plan.count }}</span
-                  >
-                  <span
-                    >{{ texts.remaining }}
-                    <pl-money [amount]="plan.remainingAmount" [currency]="plan.currency"
-                  /></span>
-                </div>
+                  <svg lucideChevronRight [size]="20" aria-hidden="true"></svg>
+                </button>
               </div>
-            } @empty {
-              <pl-empty-state icon="credit-card" [heading]="texts.noInstallments" />
+            </section>
+            @if (selected(); as chosen) {
+              <section class="rounded-tile bg-surface px-4" aria-live="polite">
+                <div class="flex flex-col gap-1 border-b border-line-soft py-4">
+                  <div class="flex items-center justify-between gap-2">
+                    <h3 class="text-[17px] font-semibold">
+                      {{ monthName(chosen.period) }} ·
+                      <pl-money [amount]="chosen.installmentsTotal.ARS" currency="ARS" />
+                      @if (hasUsd(chosen.installmentsTotal)) {
+                        + <pl-money [amount]="chosen.installmentsTotal.USD" currency="USD" />
+                      }
+                      <span class="font-normal text-muted">{{
+                        texts.installmentsTab.inCount(chosen.installmentsCount)
+                      }}</span>
+                    </h3>
+                    @if (chosen.status === 'PAID') {
+                      <span
+                        class="shrink-0 rounded-full bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand-strong"
+                        >{{ texts.installmentsTab.paid }}</span
+                      >
+                    }
+                  </div>
+                  @if (hasArs(chosen.releases) || hasUsd(chosen.releases)) {
+                    <p class="text-sm font-semibold text-brand-strong">
+                      {{ texts.installmentsTab.releasesFrom }}
+                      @if (hasArs(chosen.releases)) {
+                        <pl-money [amount]="chosen.releases.ARS" currency="ARS" />
+                      }
+                      @if (hasArs(chosen.releases) && hasUsd(chosen.releases)) {
+                        +
+                      }
+                      @if (hasUsd(chosen.releases)) {
+                        <pl-money [amount]="chosen.releases.USD" currency="USD" />
+                      }
+                      {{ texts.installmentsTab.from(nextMonthName(chosen.period)) }}
+                    </p>
+                  }
+                </div>
+                @if (itemsResource.error()) {
+                  <pl-error-state
+                    [message]="texts.installmentsTab.loadError"
+                    (retry)="itemsResource.reload()"
+                  />
+                } @else if (!itemsResource.hasValue()) {
+                  <pl-skeleton class="my-4 block h-16" />
+                } @else {
+                  @for (item of items(); track item.chargeId) {
+                    <div class="flex flex-col gap-2 border-b border-line-soft py-4 last:border-b-0">
+                      <div class="flex items-baseline justify-between gap-2">
+                        <span class="truncate text-[17px] font-semibold">{{ item.description }}</span>
+                        <pl-money
+                          class="whitespace-nowrap"
+                          [amount]="item.amount"
+                          [currency]="item.currency"
+                        />
+                      </div>
+                      @if (item.count > 1) {
+                        <div
+                          class="rounded-full py-2"
+                          [plChartPoint]="item.description"
+                          [value]="texts.installmentsTab.installment(item.number, item.count)"
+                        >
+                          <div
+                            class="h-2 overflow-hidden rounded-full bg-card-soft"
+                            role="progressbar"
+                            [attr.aria-label]="item.description"
+                            [attr.aria-valuenow]="item.paidThrough"
+                            aria-valuemin="0"
+                            [attr.aria-valuemax]="item.count"
+                            [attr.aria-valuetext]="
+                              texts.installmentsTab.installment(item.number, item.count)
+                            "
+                          >
+                            <div
+                              class="h-full rounded-full bg-card"
+                              [style.width.%]="(item.paidThrough / item.count) * 100"
+                            ></div>
+                          </div>
+                        </div>
+                        <div class="flex justify-between gap-2 text-sm text-muted">
+                          <span class="font-amount whitespace-nowrap">{{
+                            texts.installmentsTab.installment(item.number, item.count)
+                          }}</span>
+                          <span class="text-right"
+                            >{{ texts.installmentsTab.remainingAfter }}
+                            <pl-money [amount]="item.remainingAfter" [currency]="item.currency" />
+                            {{ texts.installmentsTab.after(monthName(chosen.period, true)) }}</span
+                          >
+                        </div>
+                      } @else {
+                        <span class="text-sm text-muted">{{ texts.installmentsTab.onePayment }}</span>
+                      }
+                    </div>
+                  } @empty {
+                    <p class="py-6 text-center text-muted">{{ texts.installmentsTab.empty }}</p>
+                  }
+                }
+              </section>
             }
-          </section>
+          }
         }
       }
     }
@@ -405,6 +504,8 @@ const MONTHS_LONG = [
 })
 export class CardDetailPage {
   readonly id = input.required<string>();
+  /** `?period=2026-12`: the statement chosen in the "Cuotas" tab, kept on reload and "back". */
+  readonly period = input<string>();
 
   protected readonly texts = CARDS_TEXTS;
   protected readonly hideAmounts = inject(HideAmounts);
@@ -418,14 +519,15 @@ export class CardDetailPage {
     { value: 'upcoming', label: CARDS_TEXTS.tabs.upcoming },
     { value: 'installments', label: CARDS_TEXTS.tabs.installments },
   ];
-  protected readonly tab = signal<Tab>('summary');
+  /** Opens on "Cuotas" when the URL brings a chosen statement. */
+  protected readonly tab = linkedSignal<Tab>(() => (this.period() ? 'installments' : 'summary'));
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly today = inject(Today);
 
   protected readonly cardResource = httpResource<Card>(() => `${API}/cards/${this.id()}`);
   private readonly statementsResource = httpResource<StatementSummary[]>(
     () => `${API}/cards/${this.id()}/statements`,
-  );
-  private readonly plansResource = httpResource<ActiveInstallment[]>(
-    () => `${API}/cards/${this.id()}/installments?active=true`,
   );
   private readonly openDetailResource = httpResource<StatementDetail>(() => {
     const open = this.card()?.openStatement;
@@ -434,7 +536,6 @@ export class CardDetailPage {
 
   protected readonly card = computed(() => this.cardResource.value());
   protected readonly openDetail = computed(() => this.openDetailResource.value());
-  protected readonly plans = computed(() => this.plansResource.value() ?? []);
   private readonly statements = computed(() => this.statementsResource.value() ?? []);
 
   protected readonly toPay = computed(() =>
@@ -454,48 +555,84 @@ export class CardDetailPage {
     return Math.min(100, Math.max(0, ratio.toDecimalPlaces(0).toNumber()));
   });
 
-  /** Next 6 statements (from the open one) for the "Cuotas por resumen" chart. */
+  /** The "Cuotas" tab (TAR-05, iteration 9): every statement with installments. */
+  protected readonly summaryResource = httpResource<InstallmentStatement[]>(() =>
+    this.tab() === 'installments' ? `${API}/cards/${this.id()}/statements/summary` : undefined,
+  );
+  protected readonly summary = computed(() => this.summaryResource.value() ?? []);
+  protected readonly chartPage = CHART_PAGE;
+
+  /** The statement chosen: the one in the URL if it is in the list, else the next to pay. */
+  protected readonly selectedIndex = computed(() => {
+    const list = this.summary();
+    const fromUrl = list.findIndex((s) => s.period === this.period());
+    return fromUrl >= 0 ? fromUrl : nextToPayIndex(list);
+  });
+  protected readonly selected = computed(() => this.summary()[this.selectedIndex()]);
+  protected readonly selectedPeriod = computed(() => this.selected()?.period ?? null);
+  /** First statement of the chart page; follows the chosen one until the arrows move it. */
+  protected readonly pageStart = linkedSignal(() =>
+    pageStartFor(this.selectedIndex(), this.summary().length),
+  );
+
+  protected readonly itemsResource = httpResource<StatementPlanInstallment[]>(() => {
+    const period = this.selectedPeriod();
+    return period ? `${API}/cards/${this.id()}/installments?period=${period}` : undefined;
+  });
+  protected readonly items = computed(() => this.itemsResource.value() ?? []);
+
   protected readonly bars = computed(() => {
-    const open = this.card()?.openStatement?.period;
-    const series = this.statements()
-      .filter((s) => open && compareDates(parsePeriod(s.period), parsePeriod(open)) >= 0)
-      .slice(0, 6);
-    const max = series.reduce((m, s) => Math.max(m, Number.parseFloat(s.totals.ARS)), 0);
-    return series.map((s) => {
-      const value = Number.parseFloat(s.totals.ARS);
+    const page = this.summary().slice(this.pageStart(), this.pageStart() + CHART_PAGE);
+    const max = page.reduce((m, s) => Math.max(m, Number.parseFloat(s.installmentsTotal.ARS)), 0);
+    return page.map((s) => {
+      const value = Number.parseFloat(s.installmentsTotal.ARS);
+      const name = formatPeriod(parsePeriod(s.period));
       return {
         period: s.period,
         month: MONTHS_SHORT[Number(s.period.slice(5, 7)) - 1],
-        label: value >= 1000 ? `${Math.round(value / 1000)}k` : String(Math.round(value)),
-        name: formatPeriod(parsePeriod(s.period)),
-        amount: s.totals.ARS,
+        short: value >= 1000 ? `${Math.round(value / 1000)}k` : String(Math.round(value)),
+        label: this.texts.installmentsTab.bar(name, s.installmentsCount),
+        amount: s.installmentsTotal.ARS,
         // Pixel heights for the chart only; amounts themselves stay decimal strings.
         height: max > 0 ? Math.max(6, Math.round((value / max) * 96)) : 6,
       };
     });
   });
-  protected readonly chartLabel = computed(() =>
-    this.bars()
-      .map((b) => `${b.month}: ${b.label}`)
-      .join(', '),
-  );
 
-  /** COM-03 preview: the first month a plan ends, and how much it frees. */
-  protected readonly releases = computed(() => {
-    const plans = this.plans().filter((p) => p.currency === 'ARS' && p.lastPeriod);
-    if (plans.length === 0) return null;
-    const first = plans.reduce(
-      (min, p) => (p.lastPeriod < min ? p.lastPeriod : min),
-      plans[0].lastPeriod,
+  protected select(period: string): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { period },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  protected movePage(direction: -1 | 1): void {
+    this.pageStart.set(
+      clampStart(this.pageStart() + direction * CHART_PAGE, this.summary().length),
     );
-    const freed = Money.sum(
-      plans.filter((p) => p.lastPeriod === first).map((p) => Money.of(p.installmentAmount, 'ARS')),
-      'ARS',
-    );
-    const month = addMonths(parsePeriod(first), 1);
-    const amount = formatMoney(freed, { decimals: 'auto' });
-    return this.texts.releases(MONTHS_LONG[Number(month.slice(5, 7)) - 1], amount);
-  });
+  }
+
+  /** "Diciembre", with the year when it is not this year's ("Enero 2027"). */
+  protected monthName(period: string, lower = false): string {
+    const name = MONTHS_LONG[Number(period.slice(5, 7)) - 1];
+    const year = period.slice(0, 4);
+    const text = year === this.today.period().slice(0, 4) ? name : `${name} ${year}`;
+    return lower ? text.toLowerCase() : text;
+  }
+
+  protected nextMonthName(period: string): string {
+    return this.monthName(addMonths(parsePeriod(period), 1), true);
+  }
+
+  protected hasArs(amounts: { ARS: string }): boolean {
+    return Money.of(amounts.ARS, 'ARS').isPositive();
+  }
+
+  protected hasUsd(amounts: { USD: string }): boolean {
+    return Money.of(amounts.USD, 'USD').isPositive();
+  }
 
   protected readonly history = signal<StatementSummary[]>([]);
   /** Period of the last statement shown, while there may be more. */
@@ -511,7 +648,8 @@ export class CardDetailPage {
     reloadOn(this.bus, ['cards'], () => {
       this.cardResource.reload();
       this.statementsResource.reload();
-      this.plansResource.reload();
+      this.summaryResource.reload();
+      this.itemsResource.reload();
       this.openDetailResource.reload();
       void this.loadHistory(true);
     });
