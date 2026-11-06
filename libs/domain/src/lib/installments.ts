@@ -99,6 +99,24 @@ export function installmentProgress(
 }
 
 /**
+ * "Cuotas más usadas" (TAR-02): the two most frequent installment counts of a card's recent
+ * purchases (1 payment counts as 1). Ties go to the lower count; with fewer than two, `defaults`
+ * fill in without repeating. Returned from lower to higher, as the picker shows them (ADR 0030).
+ */
+export function topInstallmentCounts(
+  counts: readonly number[],
+  defaults: readonly [number, number] = [1, 3],
+): [number, number] {
+  const frequency = new Map<number, number>();
+  for (const count of counts) frequency.set(count, (frequency.get(count) ?? 0) + 1);
+  const ranked = [...frequency.entries()]
+    .sort(([a, fa], [b, fb]) => fb - fa || a - b)
+    .map(([count]) => count);
+  const top = [...new Set([...ranked.slice(0, 2), ...defaults])].slice(0, 2);
+  return [Math.min(top[0], top[1]), Math.max(top[0], top[1])];
+}
+
+/**
  * Installments that can be regenerated when a charge is edited:
  * only the ones whose statement is still open.
  */

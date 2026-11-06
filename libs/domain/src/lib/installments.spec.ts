@@ -4,6 +4,7 @@ import {
   regenerableInstallments,
   scheduleInstallments,
   splitInstallments,
+  topInstallmentCounts,
   totalFromInstallment,
 } from './installments';
 import { Money } from './money';
@@ -142,5 +143,30 @@ describe('installmentProgress', () => {
     expect(regenerableInstallments(states).map((i) => i.number)).toEqual([
       3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
     ]);
+  });
+});
+
+describe('topInstallmentCounts (regla "Cuotas más usadas")', () => {
+  it('spec example: 6 × 1, 4 × 3, 4 × 6, 1 × 12 → [1, 3] (3 and 6 tie, the lower wins)', () => {
+    const counts = [...Array(6).fill(1), ...Array(4).fill(3), ...Array(4).fill(6), 12];
+    expect(topInstallmentCounts(counts)).toEqual([1, 3]);
+  });
+
+  it('a new card shows 1 payment and 3 installments', () => {
+    expect(topInstallmentCounts([])).toEqual([1, 3]);
+  });
+
+  it('one count used fills in with the defaults without repeating', () => {
+    expect(topInstallmentCounts([6, 6])).toEqual([1, 6]);
+    expect(topInstallmentCounts([3])).toEqual([1, 3]);
+    expect(topInstallmentCounts([1, 1])).toEqual([1, 3]);
+  });
+
+  it('the two most used, from lower to higher, even without 1 payment', () => {
+    expect(topInstallmentCounts([12, 12, 12, 6, 6, 1])).toEqual([6, 12]);
+  });
+
+  it('ties go to the lower count', () => {
+    expect(topInstallmentCounts([18, 9, 12])).toEqual([9, 12]);
   });
 });

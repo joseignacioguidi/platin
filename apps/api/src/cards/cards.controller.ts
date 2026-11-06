@@ -9,9 +9,12 @@ import {
   createCardRequestSchema,
   createChargeRequestSchema,
   idParamSchema,
+  installmentsQuerySchema,
+  installmentStatementSchema,
   payStatementRequestSchema,
   statementDetailSchema,
   statementsQuerySchema,
+  statementPlanInstallmentSchema,
   statementSummarySchema,
   updateCardRequestSchema,
   updateChargeRequestSchema,
@@ -19,6 +22,8 @@ import {
   type Card,
   type Charge,
   type ChargesPage,
+  type InstallmentStatement,
+  type StatementPlanInstallment,
   type StatementDetail,
   type StatementSummary,
 } from '@platin/contracts';
@@ -38,7 +43,6 @@ class StatementsQueryDto extends createZodDto(statementsQuerySchema) {}
 class ChargeDto extends createZodDto(chargeSchema) {}
 class CreateChargeDto extends createZodDto(createChargeRequestSchema) {}
 class UpdateChargeDto extends createZodDto(updateChargeRequestSchema) {}
-class ActiveInstallmentDto extends createZodDto(activeInstallmentSchema) {}
 class ChargesQueryDto extends createZodDto(chargesQuerySchema) {}
 class ChargesPageDto extends createZodDto(chargesPageSchema) {}
 class CloseStatementDto extends createZodDto(closeStatementRequestSchema) {}
@@ -47,9 +51,13 @@ class IdParamDto extends createZodDto(idParamSchema) {}
 class ArchivedQueryDto extends createZodDto(
   z.object({ archived: z.enum(['true', 'false']).optional() }),
 ) {}
-class InstallmentsQueryDto extends createZodDto(
-  z.object({ active: z.enum(['true', 'false']).optional() }),
-) {}
+class InstallmentsQueryDto extends createZodDto(installmentsQuerySchema) {}
+class InstallmentStatementDto extends createZodDto(installmentStatementSchema) {}
+/** Without `period`: the plans (TAR-05); with it, the installments of that statement. */
+const installmentsResponseSchema = z.union([
+  z.array(activeInstallmentSchema),
+  z.array(statementPlanInstallmentSchema),
+]);
 
 @Controller('cards')
 export class CardsController {
@@ -100,14 +108,26 @@ export class CardsController {
     return this.cards.statementsOf(user.id, params.id, query);
   }
 
+  /** TAR-05 / COM-03 (iteration 9): the statements of the "Cuotas por resumen" chart. */
+  @Get(':id/statements/summary')
+  @ZodSerializerDto([InstallmentStatementDto])
+  statementsSummary(
+    @CurrentUser() user: AuthUser,
+    @Param() params: IdParamDto,
+  ): Promise<InstallmentStatement[]> {
+    return this.cards.installmentStatements(user.id, params.id);
+  }
+
   @Get(':id/installments')
-  @ZodSerializerDto([ActiveInstallmentDto])
+  @ZodSerializerDto(installmentsResponseSchema)
   installments(
     @CurrentUser() user: AuthUser,
     @Param() params: IdParamDto,
     @Query() query: InstallmentsQueryDto,
-  ): Promise<ActiveInstallment[]> {
-    return this.cards.activeInstallments(user.id, params.id, query.active !== 'false');
+  ): Promise<ActiveInstallment[] | StatementPlanInstallment[]> {
+    return query.period
+      ? this.cards.statementInstallments(user.id, params.id, query.period)
+      : this.cards.activeInstallments(user.id, params.id, query.active !== 'false');
   }
 
   @Post(':id/charges')
