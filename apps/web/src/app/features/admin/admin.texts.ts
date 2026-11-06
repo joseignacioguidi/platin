@@ -29,7 +29,13 @@ export const ADMIN_TEXTS = {
       fixed: 'Fijos',
       investments: 'Inversiones',
       savingsPockets: 'Reservas de ahorro',
+      telegram: 'Bot de Telegram',
     },
+    botSummary: (messages: number, unparsed: number | null) =>
+      `Bot: ${messages} ${messages === 1 ? 'mensaje' : 'mensajes'} en las últimas 4 semanas` +
+      (unparsed === null
+        ? '.'
+        : `; ${String(unparsed).replace('.', ',')} % sin entender en 30 días.`),
     plans: 'Usuarios por plan',
   },
   users: {

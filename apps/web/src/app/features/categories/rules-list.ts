@@ -1,4 +1,12 @@
-import { booleanAttribute, ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import {
+  booleanAttribute,
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
 import { LucidePlus, LucideSearch } from '@lucide/angular';
 import type { MerchantRule } from '@platin/contracts';
 import { normalizeText } from '@platin/domain';
@@ -54,7 +62,11 @@ import { RuleFormData, RuleFormSheet } from './rule-form-sheet';
         <p class="text-sm text-muted">{{ r.noneForCategory }}</p>
       }
     } @else {
-      <ul class="rounded-tile bg-surface px-4" [class.border]="!searchable()" [class.border-line]="!searchable()">
+      <ul
+        class="rounded-tile bg-surface px-4"
+        [class.border]="!searchable()"
+        [class.border-line]="!searchable()"
+      >
         @for (row of rows(); track row.rule.id) {
           <li class="border-b border-line-soft last:border-b-0">
             <button

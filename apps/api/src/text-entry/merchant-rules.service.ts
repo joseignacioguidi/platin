@@ -55,10 +55,16 @@ export class MerchantRulesService {
   }
 
   /** From the bot (BOT-03): creates the rule or points the existing one to the new category. */
-  async upsert(userId: string, pattern: string, categoryId: string, via: ChannelValue) {
+  async upsertIn(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    pattern: string,
+    categoryId: string,
+    via: ChannelValue,
+  ): Promise<MerchantRule> {
     await this.assertCategory(userId, categoryId);
     const normalized = normalizePattern(pattern);
-    const row = await this.prisma.merchantRule.upsert({
+    const row = await tx.merchantRule.upsert({
       where: { userId_pattern: { userId, pattern: normalized } },
       create: { userId, pattern: normalized, categoryId, createdVia: via },
       update: { categoryId },

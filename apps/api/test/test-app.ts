@@ -5,6 +5,7 @@ import { configureApp } from '../src/app/configure-app';
 import { OAUTH_PROVIDERS, OAuthProvider } from '../src/auth/oauth/oauth-provider';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { RateProvider } from '../src/rates/rate-provider';
+import { TelegramClient } from '../src/telegram/telegram-client';
 import { FakeRateProvider } from './fake-rates';
 import { loadTestEnv } from './test-env';
 
@@ -18,6 +19,8 @@ export interface TestContext {
 export interface TestAppOptions {
   /** Sign-in providers to use instead of the ones built from the environment (never Google). */
   oauthProviders?: OAuthProvider[];
+  /** A fake Telegram API (the real one is never called in tests). */
+  telegramClient?: TelegramClient;
 }
 
 /** Boots the real AppModule against the test database. */
@@ -31,6 +34,9 @@ export async function createTestApp(
   let builder = Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(RateProvider)
     .useValue(rates);
+  if (options.telegramClient) {
+    builder = builder.overrideProvider(TelegramClient).useValue(options.telegramClient);
+  }
   if (options.oauthProviders) {
     builder = builder.overrideProvider(OAUTH_PROVIDERS).useValue(options.oauthProviders);
   }

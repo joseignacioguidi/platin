@@ -76,7 +76,10 @@ export class MerchantRulesController {
 
   @Post()
   @ZodSerializerDto(MerchantRuleDto)
-  create(@CurrentUser() user: AuthUser, @Body() body: CreateMerchantRuleDto): Promise<MerchantRule> {
+  create(
+    @CurrentUser() user: AuthUser,
+    @Body() body: CreateMerchantRuleDto,
+  ): Promise<MerchantRule> {
     return this.rules.create(user.id, body);
   }
 

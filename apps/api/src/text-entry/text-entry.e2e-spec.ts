@@ -41,7 +41,10 @@ describe('text entry (TXT-01 to 04)', () => {
         .send({ aliases: ['MP', ' Mercado ', 'mp', 'Mércado Pago'] })
         .expect(200);
       expect(put.body).toEqual({ aliases: ['mercado', 'mercadopago', 'mp'] });
-      await api().put(`/api/v1/cards/${visa.id}/aliases`).send({ aliases: ['visa'] }).expect(200);
+      await api()
+        .put(`/api/v1/cards/${visa.id}/aliases`)
+        .send({ aliases: ['visa'] })
+        .expect(200);
 
       const account = (await api().get(`/api/v1/accounts/${mp.id}`).expect(200)).body as Account;
       expect(account.aliases).toEqual(['mercado', 'mercadopago', 'mp']);
@@ -49,14 +52,20 @@ describe('text entry (TXT-01 to 04)', () => {
       expect(cards[0].aliases).toEqual(['visa']);
 
       // Replacing removes the old ones.
-      await api().put(`/api/v1/accounts/${mp.id}/aliases`).send({ aliases: ['mp'] }).expect(200);
+      await api()
+        .put(`/api/v1/accounts/${mp.id}/aliases`)
+        .send({ aliases: ['mp'] })
+        .expect(200);
       expect((await api().get(`/api/v1/accounts/${mp.id}`)).body.aliases).toEqual(['mp']);
     });
 
     it('an alias is unique per user: ALIAS_TAKEN', async () => {
       const mp = await createAccount(ctx.app, user, { name: 'Mercado Pago' });
       const visa = await card();
-      await api().put(`/api/v1/accounts/${mp.id}/aliases`).send({ aliases: ['mp'] }).expect(200);
+      await api()
+        .put(`/api/v1/accounts/${mp.id}/aliases`)
+        .send({ aliases: ['mp'] })
+        .expect(200);
       const taken = await api()
         .put(`/api/v1/cards/${visa.id}/aliases`)
         .send({ aliases: ['visa', 'MP'] })
@@ -75,15 +84,24 @@ describe('text entry (TXT-01 to 04)', () => {
     it('rejects words the parser reads as something else, numbers and symbols', async () => {
       const mp = await createAccount(ctx.app, user);
       for (const alias of ['usd', 'hoy', '3c', 'mil', '123', 'a/b', '']) {
-        await api().put(`/api/v1/accounts/${mp.id}/aliases`).send({ aliases: [alias] }).expect(400);
+        await api()
+          .put(`/api/v1/accounts/${mp.id}/aliases`)
+          .send({ aliases: [alias] })
+          .expect(400);
       }
     });
 
     it('isolation: aliases of another user account or card are 404', async () => {
       const theirs = await createAccount(ctx.app, other);
       const theirCard = await card(other);
-      await api().put(`/api/v1/accounts/${theirs.id}/aliases`).send({ aliases: ['otra'] }).expect(404);
-      await api().put(`/api/v1/cards/${theirCard.id}/aliases`).send({ aliases: ['otra'] }).expect(404);
+      await api()
+        .put(`/api/v1/accounts/${theirs.id}/aliases`)
+        .send({ aliases: ['otra'] })
+        .expect(404);
+      await api()
+        .put(`/api/v1/cards/${theirCard.id}/aliases`)
+        .send({ aliases: ['otra'] })
+        .expect(404);
       expect(await ctx.prisma.sourceAlias.count()).toBe(0);
     });
   });
@@ -179,9 +197,15 @@ describe('text entry (TXT-01 to 04)', () => {
       const old = await createAccount(ctx.app, user, { name: 'Vieja' });
       const visa = await card();
       const supermarket = await category(ctx.app, user, 'Supermercado');
-      await api().put(`/api/v1/accounts/${mp.id}/aliases`).send({ aliases: ['mp'] });
-      await api().put(`/api/v1/accounts/${old.id}/aliases`).send({ aliases: ['vieja'] });
-      await api().put(`/api/v1/cards/${visa.id}/aliases`).send({ aliases: ['visa'] });
+      await api()
+        .put(`/api/v1/accounts/${mp.id}/aliases`)
+        .send({ aliases: ['mp'] });
+      await api()
+        .put(`/api/v1/accounts/${old.id}/aliases`)
+        .send({ aliases: ['vieja'] });
+      await api()
+        .put(`/api/v1/cards/${visa.id}/aliases`)
+        .send({ aliases: ['visa'] });
       await api().patch(`/api/v1/accounts/${old.id}`).send({ archived: true }).expect(200);
       await api()
         .post('/api/v1/merchant-rules')
@@ -248,7 +272,14 @@ describe('text entry (TXT-01 to 04)', () => {
 
       const dup = await api(admin)
         .put('/api/v1/admin/settings/merchant-rules')
-        .send({ value: { rules: [{ pattern: 'a b', categoryName: 'X' }, { pattern: 'A  B', categoryName: 'Y' }] } })
+        .send({
+          value: {
+            rules: [
+              { pattern: 'a b', categoryName: 'X' },
+              { pattern: 'A  B', categoryName: 'Y' },
+            ],
+          },
+        })
         .expect(400);
       expect(dup.body.code).toBe('VALIDATION_FAILED');
       await api().get('/api/v1/admin/settings/merchant-rules').expect(403);

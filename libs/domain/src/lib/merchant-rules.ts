@@ -22,15 +22,7 @@ export const DEFAULT_MERCHANT_RULES: readonly TextEntryGlobalRule[] = [
   ...group('Delivery', ['rappi', 'pedidosya']),
   ...group('Nafta', ['ypf', 'shell', 'axion', 'puma']),
   ...group('Transporte', ['uber', 'cabify', 'didi', 'sube']),
-  ...group('Suscripciones', [
-    'netflix',
-    'spotify',
-    'disney',
-    'max',
-    'prime',
-    'youtube',
-    'icloud',
-  ]),
+  ...group('Suscripciones', ['netflix', 'spotify', 'disney', 'max', 'prime', 'youtube', 'icloud']),
   ...group('Servicios', [
     'edenor',
     'edesur',

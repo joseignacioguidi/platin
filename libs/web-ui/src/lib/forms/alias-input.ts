@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, forwardRef, input, model, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  forwardRef,
+  input,
+  model,
+  signal,
+} from '@angular/core';
 import { NG_VALUE_ACCESSOR } from '@angular/forms';
 import { LucideX } from '@lucide/angular';
 import { normalizeAlias } from '@platin/domain';

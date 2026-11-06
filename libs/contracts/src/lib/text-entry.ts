@@ -164,4 +164,3 @@ export const AMBIGUOUS_DATE_TEXTS = {
 export function plainMessage(message: string): string {
   return message.replace(/\*([^*]+)\*/g, '$1');
 }
-

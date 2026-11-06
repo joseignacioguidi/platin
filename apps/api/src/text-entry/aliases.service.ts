@@ -10,7 +10,11 @@ type Target = { accountId: string } | { cardId: string };
 export class AliasesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async putForAccount(userId: string, accountId: string, aliases: string[]): Promise<AliasesResponse> {
+  async putForAccount(
+    userId: string,
+    accountId: string,
+    aliases: string[],
+  ): Promise<AliasesResponse> {
     const account = await this.prisma.account.findFirst({ where: { id: accountId, userId } });
     if (!account) throw AppException.notFound('Account not found');
     return this.replace(userId, { accountId }, aliases);
@@ -23,7 +27,11 @@ export class AliasesService {
   }
 
   /** Replaces every alias of the target in one transaction; ALIAS_TAKEN if another one has it. */
-  private async replace(userId: string, target: Target, aliases: string[]): Promise<AliasesResponse> {
+  private async replace(
+    userId: string,
+    target: Target,
+    aliases: string[],
+  ): Promise<AliasesResponse> {
     await this.prisma.$transaction(async (tx) => {
       if (aliases.length > 0) {
         const existing = await tx.sourceAlias.findMany({

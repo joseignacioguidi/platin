@@ -95,4 +95,27 @@ export const SETTINGS_TEXTS = {
   },
   currencies: { ARS: 'Pesos (ARS)', USD: 'Dólares (USD)' },
   rates: { OFICIAL: 'Oficial', MEP: 'MEP', BLUE: 'Blue' },
+  // BOT-01, BOT-06
+  telegram: {
+    title: 'Telegram',
+    intro:
+      'Cargá gastos mandándole un mensaje al bot de platin, como “super 45k visa 3c”. Antes de guardar te muestra lo que entendió.',
+    notLinked: 'Sin vincular',
+    linkedAs: (name: string, date: string) =>
+      name ? `Vinculado con ${name} desde el ${date}` : `Vinculado desde el ${date}`,
+    link: 'Vincular',
+    relink: 'Vincular otro Telegram',
+    relinkHint: 'Reemplaza al que tenés vinculado ahora.',
+    open: 'Abrir el bot en Telegram',
+    orSend: 'O, desde otro dispositivo, mandale al bot:',
+    expiresIn: (time: string) => `El código vence en ${time} y sirve una sola vez.`,
+    expired: 'El código venció.',
+    newCode: 'Generar otro código',
+    unlink: 'Desvincular',
+    unparsedTitle: 'Mensajes que el bot no entendió',
+    unparsedHint: 'Los guardamos 90 días para mejorar el bot. Solo los ves vos.',
+    unparsedEmpty: 'No hay mensajes sin entender.',
+    removeOne: (text: string) => `Borrar el mensaje “${text}”`,
+    removeAll: 'Borrar todos',
+  },
 } as const;

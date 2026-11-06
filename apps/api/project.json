@@ -43,6 +43,13 @@
         "cwd": "apps/api"
       }
     },
+    "telegram-setup": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node scripts/telegram-setup.mjs",
+        "cwd": "apps/api"
+      }
+    },
     "prisma-deploy": {
       "executor": "nx:run-commands",
       "options": {

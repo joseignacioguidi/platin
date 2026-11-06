@@ -151,11 +151,17 @@ describe('start over (AUTH-09)', () => {
         ctx.prisma.telegramLink.count({ where: { userId: user.id } }),
       ]);
 
-    await reset(user, { confirmEmail: user.email, password: PASSWORD, keepCategories: true })
-      .expect(200);
+    await reset(user, {
+      confirmEmail: user.email,
+      password: PASSWORD,
+      keepCategories: true,
+    }).expect(200);
     expect(await count()).toEqual([0, 1, 0, 1]);
-    await reset(user, { confirmEmail: user.email, password: PASSWORD, keepCategories: false })
-      .expect(200);
+    await reset(user, {
+      confirmEmail: user.email,
+      password: PASSWORD,
+      keepCategories: false,
+    }).expect(200);
     expect(await count()).toEqual([0, 0, 0, 1]);
   });
 

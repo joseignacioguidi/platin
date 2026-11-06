@@ -95,6 +95,15 @@ export const adminMetricsSchema = z.object({
     fixed: z.number().int(),
     investments: z.number().int(),
     savingsPockets: z.number().int(),
+    telegram: z.number().int(),
+  }),
+  /**
+   * The bot, only counts: messages per week (movements entered by Telegram plus messages it
+   * did not understand) for the last 12 weeks, and the share not understood in the last 30 days.
+   */
+  bot: z.object({
+    messagesByWeek: z.array(z.object({ weekStart: localDateSchema, count: z.number().int() })),
+    unparsedShareLast30Days: z.number().nullable(),
   }),
   usersByPlan: z.array(z.object({ planId: uuidSchema, name: z.string(), count: z.number().int() })),
 });

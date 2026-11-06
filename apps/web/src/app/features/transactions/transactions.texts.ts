@@ -1,4 +1,5 @@
 export const TRANSACTIONS_TEXTS = {
+  viaTelegram: 'Telegram',
   title: 'Movimientos',
   search: 'Buscar',
   searchPlaceholder: 'Buscar por descripción o categoría',

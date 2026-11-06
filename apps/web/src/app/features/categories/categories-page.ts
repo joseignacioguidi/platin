@@ -61,91 +61,91 @@ interface Row {
     @if (view() === 'RULES') {
       <pl-rules-list searchable />
     } @else {
-    <p class="text-[15px] text-muted">{{ texts.intro }}</p>
-    <pl-segmented tone="surface" [label]="texts.kindLabel" [options]="kinds" [(value)]="kind" />
+      <p class="text-[15px] text-muted">{{ texts.intro }}</p>
+      <pl-segmented tone="surface" [label]="texts.kindLabel" [options]="kinds" [(value)]="kind" />
 
-    @if (resource.error() && !resource.hasValue()) {
-      <pl-error-state (retry)="resource.reload()" />
-    } @else if (!resource.hasValue()) {
-      <pl-skeleton [heights]="[68, 68, 68, 68, 68]" />
-    } @else {
-      <ul class="rounded-tile bg-surface px-4">
-        @for (row of rows(); track row.category.id) {
-          <li class="border-b border-line-soft last:border-b-0" [class.pl-8]="row.child">
-            @if (row.category.systemKey) {
-              <pl-list-item
-                [heading]="row.category.name"
-                [subtitle]="texts.system"
-                [icon]="row.category.icon"
-                [tone]="row.category.color"
-              >
-                <svg lucideLock [size]="16" class="text-muted" aria-hidden="true"></svg>
-              </pl-list-item>
-            } @else {
-              <button
-                type="button"
-                class="w-full rounded-xl text-left"
-                [attr.aria-label]="texts.editLabel(row.category.name)"
-                (click)="open(row.category)"
-              >
+      @if (resource.error() && !resource.hasValue()) {
+        <pl-error-state (retry)="resource.reload()" />
+      } @else if (!resource.hasValue()) {
+        <pl-skeleton [heights]="[68, 68, 68, 68, 68]" />
+      } @else {
+        <ul class="rounded-tile bg-surface px-4">
+          @for (row of rows(); track row.category.id) {
+            <li class="border-b border-line-soft last:border-b-0" [class.pl-8]="row.child">
+              @if (row.category.systemKey) {
                 <pl-list-item
                   [heading]="row.category.name"
-                  [subtitle]="texts.uses(row.category.usageCount ?? 0)"
+                  [subtitle]="texts.system"
                   [icon]="row.category.icon"
                   [tone]="row.category.color"
-                />
-              </button>
-            }
-          </li>
-        }
-      </ul>
-      @if (hasSystem()) {
-        <p class="px-2 text-sm text-muted">{{ texts.systemHint }}</p>
-      }
-
-      <section class="flex flex-col gap-2">
-        <button
-          type="button"
-          class="flex min-h-11 items-center gap-2 self-start rounded-full px-2 text-[15px] font-semibold text-muted hover:bg-field"
-          [attr.aria-expanded]="showArchived()"
-          (click)="showArchived.set(!showArchived())"
-        >
-          {{ texts.archived(archived().length) }}
-          <svg
-            lucideChevronDown
-            [size]="18"
-            class="transition-transform"
-            [class.rotate-180]="showArchived()"
-            aria-hidden="true"
-          ></svg>
-        </button>
-        @if (showArchived()) {
-          @if (archived().length === 0) {
-            <p class="px-2 text-sm text-muted">{{ texts.emptyArchived }}</p>
-          } @else {
-            <ul class="rounded-tile bg-surface px-4 opacity-80">
-              @for (category of archived(); track category.id) {
-                <li class="border-b border-line-soft last:border-b-0">
-                  <button
-                    type="button"
-                    class="w-full rounded-xl text-left"
-                    [attr.aria-label]="texts.editLabel(category.name)"
-                    (click)="open(category)"
-                  >
-                    <pl-list-item
-                      [heading]="category.name"
-                      [subtitle]="texts.uses(category.usageCount ?? 0)"
-                      [icon]="category.icon"
-                      tone="muted"
-                    />
-                  </button>
-                </li>
+                >
+                  <svg lucideLock [size]="16" class="text-muted" aria-hidden="true"></svg>
+                </pl-list-item>
+              } @else {
+                <button
+                  type="button"
+                  class="w-full rounded-xl text-left"
+                  [attr.aria-label]="texts.editLabel(row.category.name)"
+                  (click)="open(row.category)"
+                >
+                  <pl-list-item
+                    [heading]="row.category.name"
+                    [subtitle]="texts.uses(row.category.usageCount ?? 0)"
+                    [icon]="row.category.icon"
+                    [tone]="row.category.color"
+                  />
+                </button>
               }
-            </ul>
+            </li>
           }
+        </ul>
+        @if (hasSystem()) {
+          <p class="px-2 text-sm text-muted">{{ texts.systemHint }}</p>
         }
-      </section>
-    }
+
+        <section class="flex flex-col gap-2">
+          <button
+            type="button"
+            class="flex min-h-11 items-center gap-2 self-start rounded-full px-2 text-[15px] font-semibold text-muted hover:bg-field"
+            [attr.aria-expanded]="showArchived()"
+            (click)="showArchived.set(!showArchived())"
+          >
+            {{ texts.archived(archived().length) }}
+            <svg
+              lucideChevronDown
+              [size]="18"
+              class="transition-transform"
+              [class.rotate-180]="showArchived()"
+              aria-hidden="true"
+            ></svg>
+          </button>
+          @if (showArchived()) {
+            @if (archived().length === 0) {
+              <p class="px-2 text-sm text-muted">{{ texts.emptyArchived }}</p>
+            } @else {
+              <ul class="rounded-tile bg-surface px-4 opacity-80">
+                @for (category of archived(); track category.id) {
+                  <li class="border-b border-line-soft last:border-b-0">
+                    <button
+                      type="button"
+                      class="w-full rounded-xl text-left"
+                      [attr.aria-label]="texts.editLabel(category.name)"
+                      (click)="open(category)"
+                    >
+                      <pl-list-item
+                        [heading]="category.name"
+                        [subtitle]="texts.uses(category.usageCount ?? 0)"
+                        [icon]="category.icon"
+                        tone="muted"
+                      />
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          }
+        </section>
+      }
     }
   `,
 })

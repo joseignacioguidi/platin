@@ -127,9 +127,9 @@ export function normalizePattern(value: string): string {
 
 const CURRENCY_WORDS: Record<string, Currency> = {
   usd: 'USD',
-  'u$s': 'USD',
-  'u$d': 'USD',
-  'us$': 'USD',
+  u$s: 'USD',
+  u$d: 'USD',
+  us$: 'USD',
   dolar: 'USD',
   dolares: 'USD',
   verdes: 'USD',
@@ -160,18 +160,7 @@ const MULTIPLIER_WORDS: Record<string, string> = {
 const NUMBER = /(\d{1,3}(?:\.\d{3})+|\d+)(?:([.,])(\d+))?/.source;
 const AMOUNT_RE = new RegExp(`^(?:${GLUED_CURRENCY}|\\$)?${NUMBER}(k|m)?${GLUED_CURRENCY}?$`);
 const INCOME_WORDS = new Set(['cobre', 'cobro', 'sueldo', 'ingreso', 'aguinaldo']);
-const FILLER_WORDS = new Set([
-  'en',
-  'con',
-  'de',
-  'la',
-  'el',
-  'por',
-  'a',
-  'que',
-  'pague',
-  'gaste',
-]);
+const FILLER_WORDS = new Set(['en', 'con', 'de', 'la', 'el', 'por', 'a', 'que', 'pague', 'gaste']);
 
 const DATE_WORDS = new Set(['hoy', 'ayer', 'anteayer', 'manana', 'pasado', 'proximo']);
 
@@ -301,7 +290,8 @@ function resolveDate(spec: DateSpec, today: LocalDate, onCard: boolean): Resolve
       const past = safeDate(Number(prevPeriod.slice(0, 4)), Number(prevPeriod.slice(5)), spec.day);
       if (onCard) return past ? { ok: true, date: past } : { ok: false, error: 'INVALID_DATE' };
       // Only one of the two exists ("el 31" in November): that one, there is nothing to ask.
-      if (past && thisMonth) return { ok: false, error: 'AMBIGUOUS_DATE', options: [past, thisMonth] };
+      if (past && thisMonth)
+        return { ok: false, error: 'AMBIGUOUS_DATE', options: [past, thisMonth] };
       if (past) return { ok: true, date: past };
       if (thisMonth) return { ok: true, date: thisMonth };
       return { ok: false, error: 'INVALID_DATE' };
@@ -529,7 +519,8 @@ export function parseTextEntry(text: string, context: TextEntryContext): TextEnt
 
     // An alias is one word; "mercado pago" also matches the alias "mercadopago".
     const pair = tokens[i + 1] && !tokens[i + 1].used ? token.norm + tokens[i + 1].norm : null;
-    const alias = (pair && aliases.get(normalizeAlias(pair))) || aliases.get(normalizeAlias(token.norm));
+    const alias =
+      (pair && aliases.get(normalizeAlias(pair))) || aliases.get(normalizeAlias(token.norm));
     if (alias) {
       if (!sources.some((source) => sameSource(source, alias.source))) sources.push(alias.source);
       take(i, pair && aliases.get(normalizeAlias(pair)) ? 2 : 1);

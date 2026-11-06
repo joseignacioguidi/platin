@@ -70,6 +70,23 @@ const baseEnvSchema = z.object({
   // Google sign-in (AUTH-06) is enabled only when both are set.
   GOOGLE_CLIENT_ID: optionalString,
   GOOGLE_CLIENT_SECRET: optionalString,
+  // Telegram bot (BOT-01 to 06): off without the token. Token and username from @BotFather.
+  TELEGRAM_BOT_TOKEN: optionalString,
+  TELEGRAM_BOT_USERNAME: optionalString.pipe(
+    z
+      .string()
+      .regex(/^[A-Za-z0-9_]{5,32}$/)
+      .optional(),
+  ),
+  // The webhook's secret_token: A-Z, a-z, 0-9, _ and -; 32 characters or more.
+  TELEGRAM_WEBHOOK_SECRET: optionalString.pipe(
+    z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{32,256}$/)
+      .optional(),
+  ),
+  // Pepper of the link codes' hash. Generate with: openssl rand -base64 48
+  TELEGRAM_CODE_PEPPER: optionalString.pipe(z.string().min(32).optional()),
 });
 
 /** Values that must never sign anything in production (.env.example placeholders and the like). */
@@ -117,6 +134,17 @@ export const envSchema = baseEnvSchema.superRefine((env, ctx) => {
       path: ['GOOGLE_CLIENT_SECRET'],
       message: 'GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET go together',
     });
+  }
+  if (env.TELEGRAM_BOT_TOKEN) {
+    for (const key of [
+      'TELEGRAM_BOT_USERNAME',
+      'TELEGRAM_WEBHOOK_SECRET',
+      'TELEGRAM_CODE_PEPPER',
+    ] as const) {
+      if (!env[key]) {
+        ctx.addIssue({ code: 'custom', path: [key], message: 'Required with TELEGRAM_BOT_TOKEN' });
+      }
+    }
   }
   if (env.GOOGLE_CLIENT_ID) {
     for (const key of ['PUBLIC_APP_URL', 'OAUTH_COOKIE_SECRET'] as const) {

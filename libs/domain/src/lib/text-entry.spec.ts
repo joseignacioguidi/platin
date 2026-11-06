@@ -227,12 +227,16 @@ describe('parseTextEntry: currency', () => {
 });
 
 describe('parseTextEntry: type', () => {
-  it.each(['+ 5000 freelance', '+5000', 'cobré 5000', 'cobro 5000', 'ingreso 5000', 'aguinaldo 5000'])(
-    '%s is an income',
-    (text) => {
-      expect(draft(text).type).toBe('INCOME');
-    },
-  );
+  it.each([
+    '+ 5000 freelance',
+    '+5000',
+    'cobré 5000',
+    'cobro 5000',
+    'ingreso 5000',
+    'aguinaldo 5000',
+  ])('%s is an income', (text) => {
+    expect(draft(text).type).toBe('INCOME');
+  });
 
   it('the income word stays in the reason, the + does not', () => {
     expect(draft('cobré 5000 alquiler').description).toBe('cobré alquiler');
@@ -251,9 +255,11 @@ describe('parseTextEntry: account or card', () => {
   it('by alias, ignoring case and accents', () => {
     expect(draft('pan 1200 MP').source).toEqual(MP);
     expect(draft('pan 1200 Mercado').source).toEqual(MP);
-    expect(draft('pan 1200 mercado pago', {
-      aliases: [{ alias: 'mercadopago', source: MP }],
-    }).source).toEqual(MP);
+    expect(
+      draft('pan 1200 mercado pago', {
+        aliases: [{ alias: 'mercadopago', source: MP }],
+      }).source,
+    ).toEqual(MP);
   });
 
   it('two aliases of the same account are not several sources', () => {
@@ -279,12 +285,15 @@ describe('parseTextEntry: account or card', () => {
 });
 
 describe('parseTextEntry: installments', () => {
-  it.each(['3c', 'x3', '3cuotas', '3 cuotas', 'en 3 cuotas'])('"tele 300000 visa %s" is 3', (word) => {
-    expect(draft(`tele 300000 visa ${word}`)).toMatchObject({
-      installments: 3,
-      description: 'tele',
-    });
-  });
+  it.each(['3c', 'x3', '3cuotas', '3 cuotas', 'en 3 cuotas'])(
+    '"tele 300000 visa %s" is 3',
+    (word) => {
+      expect(draft(`tele 300000 visa ${word}`)).toMatchObject({
+        installments: 3,
+        description: 'tele',
+      });
+    },
+  );
 
   it('from 1 to 60', () => {
     expect(draft('tele 300000 visa 1c').installments).toBe(1);

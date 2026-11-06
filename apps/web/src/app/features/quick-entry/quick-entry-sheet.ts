@@ -353,7 +353,11 @@ type Direction = 'INVEST' | 'REDEEM';
               </button>
             </div>
             @if (ambiguous(); as options) {
-              <div role="group" [attr.aria-label]="texts.ambiguousLabel" class="flex flex-col gap-2">
+              <div
+                role="group"
+                [attr.aria-label]="texts.ambiguousLabel"
+                class="flex flex-col gap-2"
+              >
                 <p class="text-center text-sm font-medium">{{ ambiguousQuestion() }}</p>
                 <div class="grid grid-cols-2 gap-2">
                   <button plButton="secondary" type="button" (click)="chooseOption(options[0])">

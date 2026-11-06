@@ -78,7 +78,10 @@ export class TextEntryService {
   async check(
     userId: string,
     draft: TextEntryDraft,
-  ): Promise<({ ok: false } & TextEntryDataError) | { ok: true; draft: TextEntryDraft; pocketId: string | null }> {
+  ): Promise<
+    | ({ ok: false } & TextEntryDataError)
+    | { ok: true; draft: TextEntryDraft; pocketId: string | null }
+  > {
     const [user, accounts, cards] = await Promise.all([
       this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { currencies: true } }),
       this.prisma.account.findMany({

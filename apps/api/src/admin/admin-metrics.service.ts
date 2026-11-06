@@ -33,6 +33,10 @@ export class AdminMetricsService {
       fixed,
       investments,
       savings,
+      telegram,
+      botTransactions,
+      botCharges,
+      unparsed,
     ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.user.count({ where: { status: 'SUSPENDED' } }),
@@ -50,7 +54,26 @@ export class AdminMetricsService {
         where: { kind: 'INVESTMENT', archivedAt: null },
       }),
       this.prisma.pocket.groupBy({ by: ['userId'], where: { kind: 'SAVINGS', archivedAt: null } }),
+      this.prisma.telegramLink.count(),
+      this.prisma.transaction.findMany({
+        where: { channel: 'TELEGRAM', createdAt: { gte: since } },
+        select: { createdAt: true },
+      }),
+      this.prisma.cardCharge.findMany({
+        where: { channel: 'TELEGRAM', createdAt: { gte: since } },
+        select: { createdAt: true },
+      }),
+      this.prisma.unparsedMessage.findMany({
+        where: { createdAt: { gte: since } },
+        select: { createdAt: true },
+      }),
     ]);
+    const understood = [...botTransactions, ...botCharges].map((row) => row.createdAt);
+    const notUnderstood = unparsed.map((row) => row.createdAt);
+    const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const recentUnderstood = understood.filter((at) => at >= monthAgo).length;
+    const recentUnparsed = notUnderstood.filter((at) => at >= monthAgo).length;
+    const recentTotal = recentUnderstood + recentUnparsed;
 
     const plans = await this.plans.list();
     return {
@@ -72,6 +95,16 @@ export class AdminMetricsService {
         fixed: fixed.length,
         investments: investments.length,
         savingsPockets: savings.length,
+        telegram,
+      },
+      bot: {
+        messagesByWeek: countByWeek(
+          [...understood, ...notUnderstood].map((at) => localDateAt(at)),
+          today,
+          SIGNUP_WEEKS,
+        ),
+        unparsedShareLast30Days:
+          recentTotal === 0 ? null : Math.round((recentUnparsed / recentTotal) * 1000) / 10,
       },
     };
   }

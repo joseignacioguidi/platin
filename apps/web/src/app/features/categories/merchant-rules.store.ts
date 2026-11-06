@@ -28,7 +28,9 @@ export class MerchantRulesStore {
   }
 
   async create(request: CreateMerchantRuleRequest): Promise<MerchantRule> {
-    const rule = await firstValueFrom(this.http.post<MerchantRule>(`${API}/merchant-rules`, request));
+    const rule = await firstValueFrom(
+      this.http.post<MerchantRule>(`${API}/merchant-rules`, request),
+    );
     this.bus.invalidate('text-entry');
     return rule;
   }
