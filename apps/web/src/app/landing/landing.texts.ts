@@ -44,11 +44,10 @@ export const LANDING_TEXTS = {
   questionsTitle: 'Preguntale a tu plata. platin te contesta con números.',
   free: {
     title: '¿Cuánto me queda libre este mes?',
-    body: 'Lo que hay en tus cuentas y lo que vas a cobrar, menos lo que ya está comprometido en tarjetas, cuotas y fijos. Un solo número, sin planillas.',
+    body: 'Lo que hay en tus cuentas y lo que vas a cobrar, menos lo que tenés que pagar este mes: resúmenes de tarjeta, cuotas y fijos. Un solo número, sin planillas.',
     amount: '$ 412.300',
-    barAria: 'A pagar este mes 41 %, tarjeta de los meses siguientes 36 %, libre 23 %',
+    barAria: 'A pagar este mes 60 %, libre 40 %',
     spent: 'A pagar',
-    committed: 'Tarjeta',
     left: 'Libre',
   },
   installments: {

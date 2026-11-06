@@ -1,6 +1,5 @@
 import {
   accountCoverage,
-  cardLater,
   daysLeftIn,
   freePerDay,
   freeThisMonth,
@@ -21,36 +20,23 @@ describe('Libre este mes (spec example)', () => {
 
   it('free = $ 796.731,73', () => {
     expect(inAccounts.toString()).toBe('1176150.00');
-    expect(freeThisMonth({ inAccounts, toCollect: zero, toPay, cardLater: zero }).toString()).toBe(
-      '796731.73',
-    );
+    expect(freeThisMonth({ inAccounts, toCollect: zero, toPay }).toString()).toBe('796731.73');
   });
 
-  // On the 20th, $ 90.000 in 3 installments due in December, January and February.
-  const purchase = splitInstallments(ars('90000'), 3).map(({ amount: value }, i) => ({
-    chargeDate: d('2026-11-20'),
-    dueDate: [d('2026-12-10'), d('2027-01-10'), d('2027-02-10')][i],
-    value,
-  }));
-
-  it('after a card purchase in 3 installments: free = $ 706.731,73', () => {
-    const later = cardLater(purchase, p('2026-11'), 'ARS');
-    expect(later.toString()).toBe('90000.00');
-    expect(freeThisMonth({ inAccounts, toCollect: zero, toPay, cardLater: later }).toString()).toBe(
-      '706731.73',
-    );
+  // On the 20th, $ 90.000 in 3 installments due in December, January and February: nothing is
+  // due this month, so "to pay" and the free amount stay the same.
+  it('after a card purchase in 3 installments due later: free = $ 796.731,73', () => {
+    expect(freeThisMonth({ inAccounts, toCollect: zero, toPay }).toString()).toBe('796731.73');
   });
 
-  it('then $ 200.000 from the balance to Auto (savings): free = $ 506.731,73', () => {
-    const later = cardLater(purchase, p('2026-11'), 'ARS');
+  it('then $ 200.000 from the balance to Auto (savings): free = $ 596.731,73', () => {
     expect(
       freeThisMonth({
         inAccounts: inAccounts.subtract(ars('200000')),
         toCollect: zero,
         toPay,
-        cardLater: later,
       }).toString(),
-    ).toBe('506731.73');
+    ).toBe('596731.73');
   });
 });
 
@@ -60,50 +46,23 @@ describe('freeThisMonth', () => {
       freeThisMonth({
         inAccounts: ars('100'),
         toCollect: ars('50'),
-        toPay: ars('120'),
-        cardLater: ars('60'),
+        toPay: ars('180'),
       }).toString(),
     ).toBe('-30.00');
   });
 
-  it('a purchase due partly this month and partly later counts once', () => {
+  it('a purchase due partly this month only counts the installment due this month', () => {
     // $ 30.000 in 3: the first installment is in the statement due on Nov 28 (in "to pay").
-    const [first, ...rest] = splitInstallments(ars('30000'), 3).map((i) => i.amount);
-    const installments = [
-      { chargeDate: d('2026-11-03'), dueDate: d('2026-11-28'), value: first },
-      { chargeDate: d('2026-11-03'), dueDate: d('2026-12-28'), value: rest[0] },
-      { chargeDate: d('2026-11-03'), dueDate: d('2027-01-28'), value: rest[1] },
-    ];
-    const later = cardLater(installments, p('2026-11'), 'ARS');
-    expect(later.toString()).toBe('20000.00');
+    const [first] = splitInstallments(ars('30000'), 3).map((i) => i.amount);
     expect(
-      freeThisMonth({
-        inAccounts: ars('100000'),
-        toCollect: zero,
-        toPay: first,
-        cardLater: later,
-      }).toString(),
-    ).toBe('70000.00');
+      freeThisMonth({ inAccounts: ars('100000'), toCollect: zero, toPay: first }).toString(),
+    ).toBe('90000.00');
   });
 
   it('a previous month is what was left in the accounts on its last day', () => {
     expect(
-      freeThisMonth({
-        inAccounts: ars('412300'),
-        toCollect: zero,
-        toPay: zero,
-        cardLater: zero,
-      }).toString(),
+      freeThisMonth({ inAccounts: ars('412300'), toCollect: zero, toPay: zero }).toString(),
     ).toBe('412300.00');
-  });
-});
-
-describe('cardLater', () => {
-  it('ignores purchases of other months', () => {
-    const installments = [
-      { chargeDate: d('2026-10-31'), dueDate: d('2027-01-10'), value: ars('1000') },
-    ];
-    expect(cardLater(installments, p('2026-11'), 'ARS').isZero()).toBe(true);
   });
 });
 

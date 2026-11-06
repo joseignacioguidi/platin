@@ -196,13 +196,11 @@ const ROW =
                 >{{ t.free.amount }}</span
               >
               <div role="img" [attr.aria-label]="t.free.barAria" class="flex h-[18px] gap-1">
-                <div class="w-[41%] rounded-[9px_3px_3px_9px] border-2 border-ink bg-expense"></div>
-                <div class="w-[36%] rounded-[3px] border-2 border-ink bg-card"></div>
-                <div class="w-[23%] rounded-[3px_9px_9px_3px] border-2 border-ink bg-brand"></div>
+                <div class="w-[60%] rounded-[9px_3px_3px_9px] border-2 border-ink bg-expense"></div>
+                <div class="w-[40%] rounded-[3px_9px_9px_3px] border-2 border-ink bg-brand"></div>
               </div>
               <div class="flex flex-wrap gap-4 text-[15px]" aria-hidden="true">
                 <span>{{ t.free.spent }}</span>
-                <span>{{ t.free.committed }}</span>
                 <span class="font-bold">{{ t.free.left }}</span>
               </div>
             </div>

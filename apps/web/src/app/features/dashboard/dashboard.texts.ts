@@ -2,7 +2,6 @@ export const DASHBOARD_TEXTS = {
   /** What each part of the free card means (its help tooltip). */
   help: {
     toPay: 'Plata que sale de tus cuentas antes de fin de mes.',
-    cardNext: 'Lo que ya gastaste con tarjeta este mes y pagás en los meses que vienen.',
     free: 'Lo que te queda de verdad.',
   },
   helpLabel: (term: string) => `Qué es "${term}"`,
@@ -21,7 +20,6 @@ export const DASHBOARD_TEXTS = {
   splitPrefix: 'Tus',
   splitSuffix: 'en cuentas se reparten así',
   toPayMonth: 'Para pagar este mes',
-  cardNext: 'Tarjeta, meses siguientes',
   /** DAS-07, the to-pay sheet. */
   toPayTitle: 'Para pagar este mes',
   toPayEmpty: 'No te queda nada por pagar este mes.',

@@ -18,43 +18,15 @@ export interface FreeInput {
   toCollect: Money;
   /** What is still to pay this month (commitmentsByMonth). */
   toPay: Money;
-  /** Installments of this month's card purchases that fall in statements due after the month. */
-  cardLater: Money;
 }
 
 /**
- * "Libre este mes" (DAS-05, iteration 6): in your accounts + to collect − to pay this month −
- * card in the following months, in base currency. Can be negative.
+ * "Libre este mes" (DAS-05): in your accounts + to collect − to pay this month, in base currency.
+ * Card installments due after the month are paid with later months' money (ADR 0029). Can be
+ * negative.
  */
 export function freeThisMonth(input: FreeInput): Money {
-  return input.inAccounts.add(input.toCollect).subtract(input.toPay).subtract(input.cardLater);
-}
-
-export interface CardInstallment {
-  /** Date of the purchase. */
-  chargeDate: LocalDate;
-  /** Due date of the statement the installment falls in. */
-  dueDate: LocalDate;
-  /** Value in base currency. */
-  value: Money;
-}
-
-/**
- * DAS-05: installments of the card purchases made in `period` that fall in statements due after
- * it. What is due within the month is already in "to pay", so nothing counts twice.
- */
-export function cardLater(
-  installments: readonly CardInstallment[],
-  period: Period,
-  base: Currency,
-): Money {
-  const end = lastDayOf(period);
-  return Money.sum(
-    installments
-      .filter((i) => i.chargeDate.startsWith(period) && compareDates(i.dueDate, end) > 0)
-      .map((i) => i.value),
-    base,
-  );
+  return input.inAccounts.add(input.toCollect).subtract(input.toPay);
 }
 
 /**

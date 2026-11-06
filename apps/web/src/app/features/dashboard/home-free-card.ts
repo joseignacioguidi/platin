@@ -98,23 +98,6 @@ import { HomeToPay, ToPayData } from './home-to-pay';
               ></svg>
             </div>
             <div class="flex min-h-11 items-center gap-2.5 border-t border-line-soft">
-              <span class="size-2.5 shrink-0 rounded-full bg-card" aria-hidden="true"></span>
-              <span class="min-w-0 flex-1 py-1 text-[15px] leading-snug"
-                >{{ texts.cardNext
-                }}<ng-container
-                  *ngTemplateOutlet="
-                    help;
-                    context: { term: texts.cardNext, text: texts.help.cardNext }
-                  "
-              /></span>
-              <pl-money
-                class="mr-7 text-[15px]"
-                [amount]="d.cardLater"
-                [currency]="d.currency"
-                [decimals]="false"
-              />
-            </div>
-            <div class="flex min-h-11 items-center gap-2.5 border-t border-line-soft">
               <span class="size-2.5 shrink-0 rounded-full bg-brand" aria-hidden="true"></span>
               <span class="min-w-0 flex-1 text-[15px] font-bold"
                 >{{ texts.freeShort
@@ -181,7 +164,6 @@ export class HomeFreeCard {
     const d = this.dashboard();
     return [
       { label: this.texts.toPayMonth, amount: d.toPay, tone: 'pending' },
-      { label: this.texts.cardNext, amount: d.cardLater, tone: 'card' },
       { label: this.texts.freeShort, amount: d.free, tone: 'brand' },
     ];
   });

@@ -155,9 +155,9 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 - **LAN-02** Páginas de login y registro con la misma identidad visual.
 
 * **DAS-04** Accesos rápidos en el inicio a las demás funciones (cuentas, tarjetas, fijos, compromisos, ahorros, inversiones, categorías, presupuestos cuando existan). Cada usuario elige cuáles ver y en qué orden; hay un conjunto por defecto.
-* **DAS-05** "Libre este mes" se calcula desde los saldos (regla "Libre este mes"). Debajo del número, cómo se llega a él: en tus cuentas, por cobrar, a pagar este mes y tarjeta de los meses siguientes. Aparte, como dato, lo gastado y lo ahorrado o invertido en el mes.
+* **DAS-05** "Libre este mes" se calcula desde los saldos (regla "Libre este mes"). Debajo del número, cómo se llega a él: en tus cuentas, por cobrar y a pagar este mes. Aparte, como dato, lo gastado y lo ahorrado o invertido en el mes.
 * **DAS-07** Inicio práctico (iteración 7), igual a `docs/mockups/inicio-v2/`. En celular, una columna en este orden:
-  1. **Lo que te queda**: "Te quedan para gastar este mes", el libre, y "≈ $ X por día hasta el 30/11". La barra muestra en qué se reparte lo que hay: para pagar este mes, tarjeta de los meses siguientes y libre, cada parte con su nombre y monto. "Para pagar este mes" se abre y lista lo que hay que pagar, con su cuenta de pago.
+  1. **Lo que te queda**: "Te quedan para gastar este mes", el libre, y "≈ $ X por día hasta el 30/11". La barra muestra en qué se reparte lo que hay: para pagar este mes y libre, cada parte con su nombre y monto. "Para pagar este mes" se abre y lista lo que hay que pagar, con su cuenta de pago.
   2. **Avisos**, una línea cada uno y solo si aplican: movimientos para confirmar, cotización desactualizada, valores de inversión para actualizar.
   3. **Últimos movimientos**: los 5 más recientes; tocar uno abre su edición; "Ver todos".
   4. **Accesos** (DAS-04) en una grilla de 4, sin tarjetas ni colores: cada uno es un ícono de línea en tinta dentro de un círculo de borde fino, con el nombre debajo, sobre el fondo de la pantalla.
@@ -314,19 +314,19 @@ La misma regla vale en Compromisos y en el inicio; lo que una pantalla muestra p
 
 Desde la iteración 6, el libre sale de lo que hay, no de lo que se movió en el mes:
 
-Libre = en tus cuentas + por cobrar − a pagar este mes − tarjeta de los meses siguientes, en moneda base y con la cotización de hoy. Puede ser negativo.
+Libre = en tus cuentas + por cobrar − a pagar este mes, en moneda base y con la cotización de hoy. Puede ser negativo.
 
 - **En tus cuentas**: saldo de hoy de los saldos de cuenta y de las reservas para gastar. Las reservas de ahorro e inversión no cuentan.
 - **Por cobrar**: ingresos fijos del mes sin confirmar (con su monto vigente) e ingresos programados del mes sin confirmar.
 - **A pagar este mes**: el comprometido del mes (regla "Compromisos de un mes"): la parte pendiente de los resúmenes que vencen en el mes, los fijos de gasto sin confirmar y los gastos programados sin confirmar.
-- **Tarjeta de los meses siguientes**: las cuotas de las compras con tarjeta hechas en el mes que caen en resúmenes que vencen después de este mes. Lo que vence este mes ya está en "a pagar", así que nada se cuenta dos veces.
+- **Las cuotas que vencen después de este mes no se restan** (ADR 0029): se pagan con la plata de los meses en que vencen. Una compra con tarjeta del mes solo baja el libre por la parte que vence este mes, que ya está en "a pagar".
 - Pasar plata del saldo de una cuenta a una reserva de ahorro o inversión baja el libre (baja "en tus cuentas"); retirarla lo sube. Pasarla a una reserva para gastar no lo cambia.
 - Los rendimientos y los ajustes de reservas de ahorro e inversión no cambian el libre; los ajustes del saldo de una cuenta o de una reserva para gastar sí, porque cambian lo que hay.
 - **Meses anteriores**: el libre es lo que quedó en tus cuentas el último día del mes, sin por cobrar ni a pagar.
 - **Por día**: libre ÷ días que faltan del mes, contando hoy, redondeado a pesos hacia abajo. El 5/11 con un libre de $ 106.061,83 faltan 26 días: $ 4.079 por día. Si el libre es 0 o negativo no hay por día: el inicio dice "No te queda libre este mes" y, si es negativo, cuánto falta para cubrir lo de este mes. En meses anteriores tampoco hay por día.
 - **Lo que tiene cada cuenta para gastar**: su saldo más sus reservas para gastar. **Lo que paga este mes** una cuenta: lo que falta pagar este mes cuya cuenta de pago es esa (COM-04). **Le alcanza** si lo primero es mayor o igual que lo segundo; si no, el inicio dice cuánto le falta. Lo que no tiene cuenta de pago se muestra aparte, como "Sin cuenta asignada".
 
-Ejemplo: en tus cuentas $ 726.150 de saldo y $ 450.000 en reservas para gastar (Gastos Previstos $ 220.000, Cuotas $ 120.000, Extras $ 110.000); por cobrar $ 0; a pagar este mes $ 379.418,27; ninguna compra con tarjeta del mes cae en meses siguientes. Libre = 1.176.150 − 379.418,27 = $ 796.731,73. Si el 20 compro con tarjeta $ 90.000 en 3 cuotas que vencen en diciembre, enero y febrero, Libre = $ 706.731,73. Si después paso $ 200.000 del saldo a la reserva Auto (ahorro), Libre = $ 506.731,73.
+Ejemplo: en tus cuentas $ 726.150 de saldo y $ 450.000 en reservas para gastar (Gastos Previstos $ 220.000, Cuotas $ 120.000, Extras $ 110.000); por cobrar $ 0; a pagar este mes $ 379.418,27; Libre = 1.176.150 − 379.418,27 = $ 796.731,73. Si el 20 compro con tarjeta $ 90.000 en 3 cuotas que vencen en diciembre, enero y febrero, nada vence este mes: el libre sigue en $ 796.731,73. Si después paso $ 200.000 del saldo a la reserva Auto (ahorro), Libre = $ 596.731,73.
 
 ### Presupuestos
 
@@ -530,6 +530,7 @@ Fuera de alcance por ahora:
 - App móvil nativa o modo offline; la web es responsive.
 - Cobro real de suscripciones: los planes funcionan sin cobrar; la pasarela (Mercado Pago) se suma más adelante.
 - Migración de datos desde la versión actual: se cargan a mano.
+- Una pantalla con lo ya comprometido en cuotas para los meses que vienen (lo que antes restaba "tarjeta de los meses siguientes" en el libre, ADR 0029). Por ahora se ve en Compromisos.
 
 ### Iteración 2 (octubre 2026)
 
@@ -577,7 +578,7 @@ Que todo cierre: cada peso está en un solo lugar y los números de una pantalla
 Cuentas más simples y un libre que coincide con lo que hay en el banco.
 
 - Cuentas con su saldo y reservas, como en Mercado Pago. La plata entra y sale de las reservas solo por transferencias, con Ingresar y Retirar (CTA-02 a 06, MOV-01, 02).
-- "Libre este mes" calculado desde los saldos, con las compras con tarjeta de los meses siguientes y sin contar nada dos veces (DAS-05).
+- "Libre este mes" calculado desde los saldos, con las compras con tarjeta de los meses siguientes y sin contar nada dos veces (DAS-05). Después, ADR 0029 sacó del libre las cuotas que vencen en los meses siguientes.
 - Carga rápida sin scroll y con el motivo siempre visible (MOV-09); "Guardar" al editar un programado (MOV-04); Compromisos con la cuenta de pago de cada línea (COM-04).
 
 ### Iteración 7 (noviembre 2026)
@@ -623,7 +624,7 @@ Coral pasa de acento a color funcional porque las finanzas necesitan un "negativ
 
 ### Propuesta de interfaz
 
-1. **Inicio = "Libre este mes"**: un número grande (lo que hay en tus cuentas + por cobrar − a pagar este mes − tarjeta de los meses siguientes) con una barra que muestra cómo se reparte. Debajo, los próximos 30 días como línea de tiempo: vencimientos de tarjeta, cuotas y fijos.
+1. **Inicio = "Libre este mes"**: un número grande (lo que hay en tus cuentas + por cobrar − a pagar este mes) con una barra que muestra cómo se reparte. Debajo, los próximos 30 días como línea de tiempo: vencimientos de tarjeta, cuotas y fijos.
 2. **Carga rápida en 3 toques**: botón + siempre visible que abre una hoja inferior que entra sin scroll. Primero el teclado numérico con el monto y el motivo debajo, después las categorías recientes como chips en una fila; la cuenta usada la última vez viene preseleccionada. En escritorio, también con Ctrl+K.
 3. **Bandeja "Para confirmar"**: los pendientes de fijos aparecen como una lista tipo inbox; se confirman deslizando o en lote.
 4. **Tarjetas como tarjetas**: cada una se ve como una tarjeta física en violeta con el resumen abierto, días al cierre y total en pesos y dólares. Dentro, las cuotas activas con una barra "4 de 12".
