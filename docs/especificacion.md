@@ -95,10 +95,14 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 ### 4. Tarjetas de crédito
 
 - **TAR-01** Alta de tarjeta con día de cierre, día de vencimiento y límite.
-- **TAR-02** Cargar un consumo en 1 o N cuotas, indicando el monto total o el valor de cada cuota (como figura en el resumen del banco); la app reparte las cuotas en los resúmenes que correspondan y muestra el otro valor calculado.
+- **TAR-02** Cargar un consumo en 1 o N cuotas, indicando el monto total o el valor de cada cuota (como figura en el resumen del banco); la app reparte las cuotas en los resúmenes que correspondan y muestra el otro valor calculado. Desde la iteración 9, la cantidad se elige con tres opciones en una fila: las dos que más usás en esa tarjeta y "Otra", que abre un campo para escribir de 2 a 60 (regla "Cuotas más usadas"). Vale en la carga rápida y en el formulario de consumo, en celular y en escritorio, sin scroll.
 - **TAR-03** Cargar un consumo en cuotas ya empezado ("voy por la 4 de 12"), para migrar compras existentes. Si el banco ya cerró el resumen anterior y todavía no venció, se elige en qué resumen está esa cuota: en el abierto o en el que cerró y falta pagar.
 - **TAR-04** Ver el resumen actual (abierto) y los próximos, con el detalle de cuotas y consumos de cada uno.
-- **TAR-05** Ver las cuotas activas: qué compra, cuál cuota va, cuántas faltan y cuánto resta pagar.
+- **TAR-05** Ver las cuotas activas: qué compra, cuál cuota va, cuántas faltan y cuánto resta pagar. Desde la iteración 9, en la pestaña Cuotas de una tarjeta:
+  - El gráfico "Cuotas por resumen" muestra 6 resúmenes por vez, con flechas para ir a los anteriores (hasta el primero con cuotas) y a los siguientes (hasta el último con cuotas). Cada barra es un botón.
+  - El resumen elegido se ve resaltado y **la lista de abajo muestra las cuotas de ese resumen**: compra, "cuota 4 de 12", el monto de ese mes, la barra de avance hasta ese mes y "restan $ X después de diciembre". En un resumen pagado, la marca "Pagado".
+  - Arriba de la lista: "Diciembre · $ 65.951,73 en 3 cuotas" y, si en ese resumen termina algún plan, "libera $ 49.634 desde enero" (COM-03).
+  - Al entrar, está elegido el próximo resumen a pagar. Un resumen sin cuotas dice "No hay cuotas en este resumen."
 - **TAR-06** Ajustar fechas de cierre y vencimiento de un resumen puntual (el banco las corre por feriados).
 - **TAR-07** Cerrar un resumen y comparar el total calculado contra el del banco; la diferencia se carga como ajuste (intereses, impuestos, sellos).
 - **TAR-08** Pagar un resumen total o parcialmente desde una cuenta, en pesos y en dólares por separado. Un pago no puede superar lo pendiente de esa moneda.
@@ -287,6 +291,13 @@ Varias monedas:
 
 * Carga por valor de cuota: con cuota C y N cuotas, el total es C × N y todas las cuotas valen exactamente C (no hay diferencia de redondeo). Es la forma de cargar compras con interés, donde el banco informa la cuota y no el precio.
 * Un plan de cuotas "terminó" cuando su última cuota está en un resumen cerrado.
+
+### Cuotas más usadas
+
+- Por tarjeta, se cuentan las cantidades de cuotas de los consumos de los últimos 12 meses (1 pago cuenta como 1) y se toman las dos más frecuentes. Con empate gana la menor.
+- Si hay menos de dos, se completa con 1 pago y 3 cuotas, sin repetir. Una tarjeta nueva muestra [1 pago] [3 cuotas] [Otra].
+- "Otra" acepta de 2 a 60. Si se elige una que no es ninguna de las dos (o la trae el modo "Escribir", como "5c"), la tercera opción se ve como "5 cuotas" y se puede tocar para cambiarla.
+- Ejemplo: en la Visa, en el último año, 6 consumos en 1 pago, 4 en 3 cuotas, 4 en 6 cuotas y 1 en 12. Las opciones son [1 pago] [3 cuotas] [Otra]: 3 y 6 empatan y gana la menor.
 
 ### Fijos y movimientos pendientes
 
@@ -592,6 +603,11 @@ Cargar escribiendo: en la app y desde Telegram, con un parser con reglas y sin I
 - Carga por texto en la web, alias de cuentas y tarjetas, reglas de comercio del usuario y globales (TXT-01 a 04).
 - Bot de Telegram con vinculación, borradores con confirmación, corrección que aprende y comandos (BOT-01 a 06).
 - La IA de respaldo queda para una fase aparte (BOT-07).
+
+### Iteración 9 (noviembre 2026)
+
+- Elegir las cuotas sin scroll, con las dos más usadas de la tarjeta y "Otra" (TAR-02).
+- La pestaña Cuotas muestra las cuotas del resumen elegido en el gráfico, con meses anteriores y siguientes (TAR-05, COM-03).
 
 ## Identidad visual y UX
 

@@ -1174,6 +1174,49 @@ Forma de trabajo:
 
 Se diseña cuando el bot lleve un tiempo en uso. Alcance tentativo: interpretar con IA lo que el parser no entiende (texto libre, varios gastos en un mensaje, fotos de tickets, audios), siempre como borrador para confirmar, opcional, del plan Pro y con límite diario. Antes de escribirla: revisar los mensajes no entendidos para ver qué falta y si unas reglas más alcanzan.
 
+## Iteración 9: cuotas más claras
+
+Una fase con dos arreglos de tarjetas que salieron del uso.
+
+| Fase | Qué se construye | Casos de uso | Terminado cuando |
+| --- | --- | --- | --- |
+| 35 | Cuotas sin scroll y pestaña Cuotas por resumen | TAR-02, TAR-05, COM-03 | Elijo las cuotas con tres opciones y, en la pestaña Cuotas, toco enero y la lista muestra las cuotas de enero |
+
+## Fase 35 — Cuotas más claras
+
+Elegir la cantidad de cuotas sin scrollear y que la pestaña Cuotas muestre lo que dice su gráfico.
+
+**Terminado cuando:**
+- al cargar con tarjeta, en celular y en escritorio, veo [1 pago] [3 cuotas] [Otra] (o las dos que más uso en esa tarjeta) en una fila, sin scroll; "Otra" me deja escribir 18 y la opción pasa a decir "18 cuotas";
+- el ejemplo de la regla "Cuotas más usadas" es un test literal;
+- "zapatillas 90000 visa 5c" en el modo "Escribir" deja elegido "5 cuotas";
+- en la pestaña Cuotas, al entrar, está resaltado el próximo resumen a pagar y la lista muestra sus cuotas; toco enero y la lista cambia a enero, con "cuota 2 de 12" donde corresponde;
+- con la flecha izquierda llego a los resúmenes anteriores, y uno pagado muestra "Pagado";
+- arriba de la lista dice el total del resumen elegido y lo que libera, y un resumen sin cuotas dice "No hay cuotas en este resumen.";
+- recargo la página y sigue elegido el mismo resumen.
+
+```
+Leé CLAUDE.md; TAR-02, TAR-05 y COM-03 y la regla "Cuotas más usadas" de docs/especificacion.md; y "Iteración 9: cuotas" en docs/arquitectura.md.
+
+Vamos a hacer la Fase 35 de docs/plan.md.
+
+Cuotas al cargar (TAR-02):
+1. topInstallmentCounts en libs/domain con el ejemplo de la regla como test literal, más tarjeta nueva, una sola cantidad usada y empates.
+2. topInstallments en GET /cards y GET /cards/:id, con los consumos de los últimos 12 meses. Test e2e con aislamiento entre usuarios.
+3. pl-installments-picker en libs/web-ui: tres opciones en una fila, "Otra" con un campo de 2 a 60 que, al confirmar, reemplaza el texto de la tercera opción ("18 cuotas"). Usalo en quick-entry-sheet y en charge-form-sheet en lugar de las listas actuales. Respetá lo que trae el modo "Escribir".
+4. Medí con Playwright que la carga con tarjeta entra sin scroll en 360 × 640, 390 × 844 y en escritorio (1280 × 800).
+
+Pestaña Cuotas (TAR-05, COM-03):
+5. GET /cards/:id/statements/summary y GET /cards/:id/installments?period=YYYY-MM según la arquitectura. Tests e2e: un plan de 12 cuotas visto en el primer, el sexto y el último resumen; un resumen pagado; un período sin cuotas; aislamiento entre usuarios.
+6. El gráfico pagina de a 6 resúmenes con flechas (botones con aria-label), cada barra es un botón con su monto y el elegido se resalta. Al entrar, el próximo resumen a pagar. El período elegido va en la URL.
+7. La lista muestra las cuotas del resumen elegido como dice TAR-05, con "Pagado" en los resúmenes pagados y el texto de vacío.
+8. Textos en el archivo de textos de tarjetas.
+
+Forma de trabajo:
+- Plan primero, esperame.
+- Rama feat/fase-35-cuotas. Todo en verde antes del PR, con capturas de la carga con tarjeta (celular y escritorio) y de la pestaña Cuotas en el resumen actual, uno siguiente y uno anterior pagado.
+```
+
 ## Después del MVP
 
 La segunda tanda de la especificación, en fases chicas que se pueden hacer en cualquier orden. Los prompts siguen el mismo molde que las fases anteriores: leer `CLAUDE.md` y la sección de la especificación, plan primero, rama propia, PR con todo en verde.
