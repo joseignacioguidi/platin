@@ -61,3 +61,6 @@ apps/api/src/generated
 vitest.config.*.timestamp*
 .vitest
 apps/web/src/env.generated.ts
+
+# database dumps (real data)
+/dump.*
