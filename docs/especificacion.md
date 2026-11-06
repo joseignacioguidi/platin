@@ -66,6 +66,16 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 * **AUTH-07** Ver en el perfil las formas de ingreso de la cuenta (contraseña y proveedores), vincular un proveedor nuevo y desvincular uno, siempre que quede al menos una forma de ingresar.
 * **AUTH-08** Una cuenta creada con un proveedor puede definir una contraseña después, para tener una segunda forma de ingresar.
 * **AUTH-09** Empezar de cero: desde el perfil, borrar todos los datos financieros propios y quedar como un usuario recién registrado, conservando la cuenta de platin, sus formas de ingreso, el plan y las preferencias. Una casilla "Mantener mis categorías", marcada por defecto, decide si se conservan las categorías.
+* **AUTH-10** **Perfil y ajustes** (iteración 10), igual a `docs/mockups/perfil/`. Agrupa en tarjetas:
+  1. **Vos**: nombre y email como texto, con un lápiz para editar el nombre en el mismo lugar ("Guardar" y "Cancelar"). El email no se edita.
+  2. **Monedas y cotización**: moneda base, cotización para valuar dólares y con qué monedas trabajás. Todo se guarda al tocarlo, sin botón.
+  3. **Personalización**: Categorías (cuántas de gastos y de ingresos) y Reglas, cada una abre su pantalla.
+  4. **Telegram** (BOT-01 a 06): estado del vínculo con "Cambiar de Telegram" y "Desvincular" en la misma fila, y los mensajes no entendidos.
+  5. **Tu plan** (PLN-03) en un renglón: nombre del plan, "Cambiar de plan" y una frase con el uso ("Usás 4 cuentas, 13 reservas…"; con límites, "3 de 5 cuentas").
+  6. **Ingreso y seguridad** (AUTH-07, AUTH-08): Google y Contraseña, cada una en una fila; "Definir" abre el campo de la contraseña. Al final, "Cerrar sesión".
+  7. **Zona peligrosa** (AUTH-09), separada y al final.
+
+  En escritorio, la tarjeta del nombre a todo el ancho y debajo dos columnas: Monedas y cotización, Personalización y Telegram a la izquierda; plan, ingreso y seguridad y zona peligrosa a la derecha. En celular, una columna con el título de cada grupo fuera de su tarjeta. El modo oscuro no está en el perfil: es un botón de ícono al pie de la barra lateral y un interruptor en "Más".
 
 ### 2. Cuentas y apartados
 
@@ -127,6 +137,11 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 - **COM-02** Ver el total comprometido de un mes y el **margen** del mes (ingresos esperados − comprometido). Incluye los fijos en tarjeta y los gastos programados (MOV-08). Se llama margen y no libre para no confundirlo con "Libre este mes" del inicio, que parte de los saldos.
 - **COM-03** Ver cuándo termina cada plan de cuotas y cuánto se libera ese mes.
 - **COM-04** Cada línea de Compromisos muestra desde qué cuenta se paga: un resumen, desde la cuenta de pago de su tarjeta; un fijo o un programado, desde su cuenta. Si una tarjeta no tiene cuenta de pago, "Sin cuenta asignada" con un atajo para elegirla. Las líneas no llevan ícono.
+- **COM-05** Compromisos tiene tres pestañas (iteración 10), igual a `docs/mockups/navegacion/`:
+  - **Próximos meses** (COM-01 a 04). En celular, como hoy: cada mes se despliega. En escritorio, la lista de meses a la izquierda y el detalle del mes elegido a la derecha, con ingresos esperados, comprometido y margen arriba, y cada línea con su desglose de cuotas. Si no hay ingresos fijos, una línea avisa que el margen no cuenta el sueldo y lleva a cargarlo. Arriba, si hay pendientes, el aviso "N fijos esperan que los confirmes".
+  - **Fijos** (FIJ-01 a 04): lo mismo que la pantalla de hoy; en escritorio, gastos fijos e ingresos fijos en dos columnas. "+ Nuevo fijo" va en esta pestaña.
+  - **Para confirmar** (MOV-05): lo mismo que la pantalla de hoy; en escritorio, una fila por pendiente con casilla, monto real y "Confirmar", y "Confirmar N movimientos" abajo a la derecha.
+  - La pestaña Para confirmar y el ítem Compromisos de la navegación muestran cuántos hay para confirmar.
 
 ### 7. Presupuestos
 
@@ -149,6 +164,10 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 - **INV-03** Actualizar valores: una pantalla lista todos los apartados de inversión con su último valor y permite cargar el actual de todos en una sola pasada. Pensada para hacerse a principio de mes; el inicio la sugiere si pasó más de un mes desde la última.
 - **INV-04** Cada actualización registra un movimiento de rendimiento por la diferencia entre el valor cargado y el saldo calculado, positivo o negativo.
 - **INV-05** Ver por apartado y en total: invertido neto, valor actual, rendimiento acumulado y rendimiento del último período, en la moneda de cada uno y valuado en moneda base.
+- **INV-06** **Ahorros e inversiones** es una sola sección con dos pestañas (iteración 10), igual a `docs/mockups/navegacion/`:
+  - **Metas y ahorros**: total ahorrado (incluye lo invertido) con su reparto en pesos y dólares; al lado, una tarjeta "De eso, invertido" con el valor actual y el rendimiento, que lleva a la otra pestaña; debajo, las metas y las **reservas de ahorro** (sin las de inversión).
+  - **Inversiones** (INV-03 a 05): valor actual y composición, "Valores cargados a mano" con "Actualizar valores", y las posiciones agrupadas por cuenta; en escritorio, dos cuentas por fila.
+  - La pestaña Inversiones conserva la marca de plan: fuera del plan, abre la hoja del plan como hoy.
 
 ### 10. Dashboard, reportes y landing
 
@@ -171,6 +190,9 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 
   En escritorio, con la barra lateral, en dos filas: arriba la tarjeta de lo que te queda (dos tercios) y al lado los avisos y los accesos; abajo tres columnas: últimos movimientos (8), cuentas y sus pagos, y ahorros y metas con el mes debajo. A menos ancho las columnas se apilan.
 * **DAS-06** Todos los gráficos muestran el valor exacto y su etiqueta (mes, categoría, apartado) al pasar el mouse, al enfocar con teclado o al tocar.
+* **NAV-01** **Barra lateral de escritorio** (iteración 10): "+ Cargar movimiento" y seis secciones, Inicio, Movimientos, Cuentas, Tarjetas, Compromisos (con el contador de pendientes) y Ahorros e inversiones. Al pie, separados por una línea: Administración (solo administradores), el nombre del usuario con "Perfil y ajustes" debajo, y dos botones de ícono, ocultar montos y modo oscuro.
+* **NAV-02** **"Más" en celular**: arriba, la fila del perfil (avatar, nombre y "Perfil y ajustes · categorías · plan"); después Cuentas, Compromisos (con el contador) y Ahorros e inversiones, cada una con una línea de qué tiene; después los interruptores de ocultar montos y modo oscuro; al final, Administración. La barra inferior no cambia.
+* **NAV-03** Las rutas viejas de Fijos, Para confirmar e Inversiones llevan a su pestaña, así los enlaces guardados, los accesos del inicio y los avisos siguen funcionando.
 
 ### 11. Categorías
 
@@ -610,6 +632,15 @@ Cargar escribiendo: en la app y desde Telegram, con un parser con reglas y sin I
 - Elegir las cuotas sin scroll, con las dos más usadas de la tarjeta y "Otra" (TAR-02).
 - La pestaña Cuotas muestra las cuotas del resumen elegido en el gráfico, con meses anteriores y siguientes (TAR-05, COM-03).
 
+### Iteración 10 (noviembre 2026)
+
+Menos secciones y mejor agrupadas, y pantallas que usan el ancho del escritorio.
+
+- La barra lateral pasa de 12 secciones a 6, y "Más" de 8 a 3 más el perfil (NAV-01 a 03).
+- Compromisos junta Próximos meses, Fijos y Para confirmar en pestañas (COM-05).
+- Ahorros e inversiones junta las dos pantallas en pestañas (INV-06).
+- Perfil y ajustes reagrupado, con Categorías y Reglas adentro (AUTH-10).
+
 ## Identidad visual y UX
 
 La app usa la paleta y la tipografía de Hecho, con los colores reasignados a significados financieros. La interfaz se diseña de cero, mobile-first, alrededor de una pregunta: cuánto puedo gastar este mes.
@@ -645,7 +676,7 @@ Coral pasa de acento a color funcional porque las finanzas necesitan un "negativ
 3. **Bandeja "Para confirmar"**: los pendientes de fijos aparecen como una lista tipo inbox; se confirman deslizando o en lote.
 4. **Tarjetas como tarjetas**: cada una se ve como una tarjeta física en violeta con el resumen abierto, días al cierre y total en pesos y dólares. Dentro, las cuotas activas con una barra "4 de 12".
 5. **Metas con anillo de progreso**: acumulado, faltante, aporte mensual necesario en grande y una etiqueta de ritmo (adelantado o atrasado).
-6. **Navegación**: en celular, barra inferior con Inicio, Movimientos, + , Tarjetas y Más; en escritorio, barra lateral.
+6. **Navegación**: en celular, barra inferior con Inicio, Movimientos, + , Tarjetas y Más; en escritorio, barra lateral con seis secciones (NAV-01).
 7. **Modo oscuro** sobre Tinta desde el primer día.
 8. **Ocultar montos** con un toque (ícono de ojo), para usar la app en público.
 9. **Estados vacíos con guía**: cada pantalla sin datos explica qué cargar primero, ya que todo se carga a mano.
