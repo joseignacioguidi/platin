@@ -1203,7 +1203,7 @@ Vamos a hacer la Fase 35 de docs/plan.md.
 Cuotas al cargar (TAR-02):
 1. topInstallmentCounts en libs/domain con el ejemplo de la regla como test literal, más tarjeta nueva, una sola cantidad usada y empates.
 2. topInstallments en GET /cards y GET /cards/:id, con los consumos de los últimos 12 meses. Test e2e con aislamiento entre usuarios.
-3. pl-installments-picker en libs/web-ui: tres opciones en una fila, "Otra" con un campo de 2 a 60 que, al confirmar, reemplaza el texto de la tercera opción ("18 cuotas"). Usalo en quick-entry-sheet y en charge-form-sheet en lugar de las listas actuales. Respetá lo que trae el modo "Escribir".
+3. pl-installments-picker en libs/web-ui: tres opciones en una fila, "Otra" con un campo de 1 a 60 que, al confirmar, reemplaza el texto de la tercera opción ("18 cuotas"). Usalo en quick-entry-sheet y en charge-form-sheet en lugar de las listas actuales. Respetá lo que trae el modo "Escribir".
 4. Medí con Playwright que la carga con tarjeta entra sin scroll en 360 × 640, 390 × 844 y en escritorio (1280 × 800).
 
 Pestaña Cuotas (TAR-05, COM-03):

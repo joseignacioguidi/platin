@@ -542,7 +542,7 @@ Sin cambios de esquema.
 - `GET /cards` y `GET /cards/:id` suman `topInstallments: [number, number]`, calculado con los consumos de los últimos 12 meses de esa tarjeta.
 - `GET /cards/:id/statements/summary` devuelve, para todos los resúmenes de la tarjeta con cuotas, `{ period, dueDate, status, installmentsTotal (por moneda), installmentsCount, releases (lo que termina en ese resumen) }`, ordenados por período. El gráfico pagina sobre esta lista en el cliente.
 - `GET /cards/:id/installments?period=YYYY-MM`: las cuotas del resumen de ese período, cada una con `{ chargeId, description, number, count, amount, paidThrough (cuántas quedan cubiertas hasta ese resumen), remainingAfter }`. Sin `period` sigue respondiendo como hoy.
-- Web: `pl-installments-picker` (tres opciones en una fila, "Otra" con un campo numérico de 2 a 60) reemplaza la lista de cantidades en la carga rápida y en `charge-form-sheet`. La pestaña Cuotas guarda el período elegido en la URL (`?period=2026-12`), así "atrás" del navegador y recargar la página lo mantienen.
+- Web: `pl-installments-picker` (tres opciones en una fila, "Otra" con un campo numérico de 1 a 60) reemplaza la lista de cantidades en la carga rápida y en `charge-form-sheet`. La pestaña Cuotas guarda el período elegido en la URL (`?period=2026-12`), así "atrás" del navegador y recargar la página lo mantienen.
 
 | Método y ruta | Caso de uso |
 | --- | --- |

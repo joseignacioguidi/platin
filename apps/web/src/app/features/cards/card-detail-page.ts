@@ -360,8 +360,7 @@ const MONTHS_LONG = [
                       type="button"
                       class="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1 rounded-xl"
                       [attr.aria-pressed]="bar.period === selectedPeriod()"
-                      [attr.aria-label]="bar.label"
-                      [plChartPoint]="bar.name"
+                      [plChartPoint]="bar.label"
                       [amount]="bar.amount"
                       (click)="select(bar.period)"
                     >
@@ -478,7 +477,7 @@ const MONTHS_LONG = [
                           </div>
                         </div>
                         <div class="flex justify-between gap-2 text-sm text-muted">
-                          <span class="font-amount">{{
+                          <span class="font-amount whitespace-nowrap">{{
                             texts.installmentsTab.installment(item.number, item.count)
                           }}</span>
                           <span class="text-right"
@@ -592,7 +591,6 @@ export class CardDetailPage {
         period: s.period,
         month: MONTHS_SHORT[Number(s.period.slice(5, 7)) - 1],
         short: value >= 1000 ? `${Math.round(value / 1000)}k` : String(Math.round(value)),
-        name,
         label: this.texts.installmentsTab.bar(name, s.installmentsCount),
         amount: s.installmentsTotal.ARS,
         // Pixel heights for the chart only; amounts themselves stay decimal strings.
