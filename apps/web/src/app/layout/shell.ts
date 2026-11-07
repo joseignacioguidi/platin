@@ -8,19 +8,24 @@ import {
   LucideEyeOff,
   LucideHouse,
   LucideList,
+  LucideMoon,
   LucidePlus,
+  LucideSun,
 } from '@lucide/angular';
 import { HideAmounts } from '@platin/web-ui';
 import { AuthService } from '../core/auth/auth.service';
+import { ThemeService } from '../core/theme/theme.service';
 import { PlanGate } from '../features/plans/plan-gate';
 import { QuickEntryLauncher } from '../features/quick-entry/quick-entry-launcher';
-import { MoreLink, moreLinksFor } from '../features/settings/more-links';
 import { AnnouncementBanner } from './announcement-banner';
 import { LAYOUT_TEXTS } from './layout.texts';
+import { ADMIN_LINK, initials, PROFILE_PATH, SIDEBAR_SECTIONS } from './nav-links';
+import { PENDING_BADGE_CLASS, PendingCount } from './pending-count';
 
 /**
  * App shell: bottom bar on mobile (Inicio, Movimientos, +, Tarjetas, Más) and a sidebar on
- * desktop with every section. The + button (or Ctrl+K) opens the quick entry sheet.
+ * desktop with six sections, the profile and the toggles (NAV-01). The + button (or Ctrl+K)
+ * opens the quick entry sheet.
  */
 @Component({
   selector: 'pl-shell',
@@ -38,13 +43,15 @@ import { LAYOUT_TEXTS } from './layout.texts';
     LucidePlus,
     LucideEye,
     LucideEyeOff,
+    LucideMoon,
+    LucideSun,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block min-h-dvh bg-canvas text-ink' },
   template: `
     <!-- Desktop sidebar -->
     <aside
-      class="fixed inset-y-0 left-0 hidden w-64 flex-col gap-4 overflow-y-auto border-r border-line-soft bg-surface px-4 py-5 lg:flex"
+      class="fixed inset-y-0 left-0 hidden w-68 flex-col gap-4 overflow-y-auto border-r border-line-soft bg-surface px-4 py-5 lg:flex"
     >
       <a routerLink="/app" class="flex items-center gap-3 px-2">
         <img src="favicon.svg" alt="" width="36" height="36" class="rounded-[10px]" />
@@ -58,13 +65,13 @@ import { LAYOUT_TEXTS } from './layout.texts';
         <svg lucidePlus [size]="20"></svg>
         {{ texts.nav.add }}
       </button>
-      <!-- On a desktop every section is here: nothing hides behind "Más". -->
+      <!-- NAV-01: six sections; the profile and the toggles live at the foot. -->
       <nav [attr.aria-label]="texts.nav.label" class="flex flex-col gap-0.5">
-        @for (item of desktopItems(); track item.path) {
+        @for (item of sections; track item.path) {
           <a
             [routerLink]="item.path"
             [plPlanGate]="item.gate ?? []"
-            routerLinkActive="bg-brand-soft text-brand-strong"
+            routerLinkActive="bg-brand-soft font-bold text-brand-strong"
             [routerLinkActiveOptions]="{ exact: item.path === '/app' }"
             #rla="routerLinkActive"
             [attr.aria-current]="rla.isActive ? 'page' : null"
@@ -72,27 +79,83 @@ import { LAYOUT_TEXTS } from './layout.texts';
           >
             <svg [lucideIcon]="item.icon" [size]="20" aria-hidden="true"></svg>
             <span class="flex-1">{{ item.label }}</span>
+            @if (item.pendingCount && pending.label(); as count) {
+              <span [class]="badgeClass" [attr.aria-label]="texts.nav.pending(count)">{{
+                count
+              }}</span>
+            }
           </a>
         }
       </nav>
-      <button
-        type="button"
-        class="mt-auto flex min-h-11 items-center gap-3 rounded-xl px-3 text-muted hover:bg-field"
-        (click)="hideAmounts.toggle()"
-      >
-        @if (hideAmounts.hidden()) {
-          <svg lucideEye [size]="20"></svg> {{ texts.showAmounts }}
-        } @else {
-          <svg lucideEyeOff [size]="20"></svg> {{ texts.hideAmounts }}
+      <div class="mt-auto flex flex-col gap-1.5 border-t border-line-soft pt-3">
+        @if (isAdmin()) {
+          <a
+            [routerLink]="adminLink.path"
+            class="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium text-muted hover:bg-field"
+          >
+            <svg [lucideIcon]="adminLink.icon" [size]="20" aria-hidden="true"></svg>
+            {{ adminLink.label }}
+          </a>
         }
-      </button>
+        <div class="flex items-center gap-1">
+          <a
+            [routerLink]="profilePath"
+            routerLinkActive="bg-brand-soft"
+            #profileRla="routerLinkActive"
+            [attr.aria-current]="profileRla.isActive ? 'page' : null"
+            class="flex min-h-[52px] min-w-0 flex-1 items-center gap-2.5 rounded-xl px-2 hover:bg-field"
+          >
+            <span
+              class="flex size-[34px] shrink-0 items-center justify-center rounded-full bg-brand-soft text-[13px] font-extrabold text-brand-strong"
+              aria-hidden="true"
+              >{{ initials() }}</span
+            >
+            <span class="flex min-w-0 flex-col">
+              <span class="truncate text-sm font-bold">{{ displayName() }}</span>
+              <span class="text-xs text-muted">{{ texts.nav.profile }}</span>
+            </span>
+          </a>
+          <button
+            type="button"
+            class="flex size-11 shrink-0 items-center justify-center rounded-full text-muted hover:bg-field"
+            [attr.aria-label]="hideAmounts.hidden() ? texts.showAmounts : texts.hideAmounts"
+            [attr.title]="hideAmounts.hidden() ? texts.showAmounts : texts.hideAmounts"
+            [attr.aria-pressed]="hideAmounts.hidden()"
+            (click)="hideAmounts.toggle()"
+          >
+            @if (hideAmounts.hidden()) {
+              <svg lucideEye [size]="20" aria-hidden="true"></svg>
+            } @else {
+              <svg lucideEyeOff [size]="20" aria-hidden="true"></svg>
+            }
+          </button>
+          <button
+            type="button"
+            class="flex size-11 shrink-0 items-center justify-center rounded-full text-muted hover:bg-field"
+            [attr.aria-label]="theme.theme() === 'dark' ? texts.toLight : texts.toDark"
+            [attr.title]="texts.darkMode"
+            (click)="theme.toggle()"
+          >
+            @if (theme.theme() === 'dark') {
+              <svg lucideSun [size]="20" aria-hidden="true"></svg>
+            } @else {
+              <svg lucideMoon [size]="20" aria-hidden="true"></svg>
+            }
+          </button>
+        </div>
+      </div>
     </aside>
 
     <main
       class="mx-auto w-full max-w-3xl px-5 pb-32 pt-4 lg:pl-72 lg:pr-8 lg:pb-12 lg:pt-8 lg:max-w-none"
     >
-      <!-- The home uses the desktop's width in columns (DAS-07); the rest keeps one column. -->
-      <div class="mx-auto w-full max-w-3xl xl:has-[>pl-dashboard-page]:max-w-6xl">
+      <!--
+        The home (DAS-07), Compromisos, Ahorros e inversiones and the profile use the desktop's
+        width in columns; the rest keeps one column.
+      -->
+      <div
+        class="mx-auto w-full max-w-3xl xl:has-[>pl-dashboard-page]:max-w-6xl lg:has-[>pl-commitments-section]:max-w-6xl lg:has-[>pl-savings-section]:max-w-6xl lg:has-[>pl-profile-page]:max-w-6xl"
+      >
         <pl-announcement-banner />
         <router-outlet />
       </div>
@@ -152,20 +215,23 @@ export class Shell {
   protected readonly hideAmounts = inject(HideAmounts);
   protected readonly quickEntry = inject(QuickEntryLauncher);
 
+  protected readonly theme = inject(ThemeService);
+  protected readonly pending = inject(PendingCount);
   private readonly auth = inject(AuthService);
 
-  /** Desktop sidebar: the bottom bar's sections plus everything in "Más", in one list. */
-  protected readonly desktopItems = computed<readonly MoreLink[]>(() => {
-    const more = moreLinksFor(this.auth.user()?.role);
-    const [accounts, ...rest] = more;
-    return [
-      { path: '/app', label: LAYOUT_TEXTS.nav.home, icon: 'house' },
-      { path: '/app/movimientos', label: LAYOUT_TEXTS.nav.transactions, icon: 'list' },
-      accounts,
-      { path: '/app/tarjetas', label: LAYOUT_TEXTS.nav.cards, icon: 'credit-card' },
-      ...rest,
-    ];
+  protected readonly sections = SIDEBAR_SECTIONS;
+  protected readonly adminLink = ADMIN_LINK;
+  protected readonly profilePath = PROFILE_PATH;
+  protected readonly badgeClass = PENDING_BADGE_CLASS;
+  /** The admin panel shows up only for administrators; the API checks it again. */
+  protected readonly isAdmin = computed(() => this.auth.user()?.role === 'ADMIN');
+  protected readonly displayName = computed(() => {
+    const user = this.auth.user();
+    return user?.name || user?.email || '';
   });
+  protected readonly initials = computed(() =>
+    initials(this.auth.user()?.name, this.auth.user()?.email),
+  );
 
   protected readonly navItems = [
     { path: '/app', label: LAYOUT_TEXTS.nav.home, icon: 'home', exact: true },
