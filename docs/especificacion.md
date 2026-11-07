@@ -178,17 +178,23 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 - **LAN-02** Páginas de login y registro con la misma identidad visual.
 
 * **DAS-04** Accesos rápidos en el inicio a las demás funciones (cuentas, tarjetas, fijos, compromisos, ahorros, inversiones, categorías, presupuestos cuando existan). Cada usuario elige cuáles ver y en qué orden; hay un conjunto por defecto.
-* **DAS-05** "Libre este mes" se calcula desde los saldos (regla "Libre este mes"). Debajo del número, cómo se llega a él: en tus cuentas, por cobrar y a pagar este mes. Aparte, como dato, lo gastado y lo ahorrado o invertido en el mes.
+* **DAS-05** "Libre este mes" se calcula desde los saldos (regla "Libre este mes"). Desde la iteración 11, la tarjeta cuenta el mes de punta a punta (regla "Cómo se llega al libre"):
+  - La barra mide todo lo que tuviste para el mes (lo que tenías al empezar más los ingresos) y se reparte en ya pagaste, reservaste, para pagar este mes y libre.
+  - Si el libre es negativo, la barra se pasa de largo: lo que sobra se dibuja a rayas en rojo, después de una marca donde terminaba lo que tenías, con "Te pasaste $ X".
+  - Filas: "Tenías al empezar el mes" (solo si no es 0), "Ingresos del mes" ›, "Ya pagaste", "Reservaste", "Para pagar este mes" ›, "Otros" (solo si no es 0) y "Libre" ›.
+  - "Ingresos del mes" abre los ingresos cobrados y los que faltan cobrar, con fecha, cuenta y monto.
+  - "Libre" abre el **resumen del mes**: de dónde vino la plata y a dónde fue, con lo pagado por categoría y por tarjeta y lo reservado por reserva.
 * **DAS-07** Inicio práctico (iteración 7), igual a `docs/mockups/inicio-v2/`. En celular, una columna en este orden:
   1. **Lo que te queda**: "Te quedan para gastar este mes", el libre, y "≈ $ X por día hasta el 30/11". La barra muestra en qué se reparte lo que hay: para pagar este mes y libre, cada parte con su nombre y monto. "Para pagar este mes" se abre y lista lo que hay que pagar, con su cuenta de pago.
   2. **Avisos**, una línea cada uno y solo si aplican: movimientos para confirmar, cotización desactualizada, valores de inversión para actualizar.
   3. **Últimos movimientos**: los 5 más recientes; tocar uno abre su edición; "Ver todos".
   4. **Accesos** (DAS-04) en una grilla de 4, sin tarjetas ni colores: cada uno es un ícono de línea en tinta dentro de un círculo de borde fino, con el nombre debajo, sobre el fondo de la pantalla.
-  5. **Tus cuentas y sus pagos**: por cuenta, lo que tiene para gastar, cuánto paga este mes y si le alcanza, y sus próximos 3 pagos del mes; "Ver los N pagos de noviembre".
+  5. **Tus cuentas y sus pagos**, en una sola tarjeta con una sección por cuenta separada por una línea: lo que tiene para gastar, cuánto paga este mes y si le alcanza, y sus próximos 3 pagos del mes. Al pie de la tarjeta, "Ver los N pagos de noviembre".
   6. **Ahorros y metas**: cada meta activa con lo ahorrado, su avance y su ritmo.
-  7. **El mes hasta hoy**: entraron, gastaste y separaste para ahorro e inversión.
 
-  En escritorio, con la barra lateral, en dos filas: arriba la tarjeta de lo que te queda (dos tercios) y al lado los avisos y los accesos; abajo tres columnas: últimos movimientos (8), cuentas y sus pagos, y ahorros y metas con el mes debajo. A menos ancho las columnas se apilan.
+  Desde la iteración 11, "El mes hasta hoy" sale del inicio: lo que mostraba está en la tarjeta del libre y en el resumen del mes.
+
+  En escritorio, con la barra lateral, en dos filas: arriba la tarjeta de lo que te queda (dos tercios) y al lado los avisos y los accesos; abajo tres columnas: últimos movimientos (8), cuentas y sus pagos, y ahorros y metas. A menos ancho las columnas se apilan.
 * **DAS-06** Todos los gráficos muestran el valor exacto y su etiqueta (mes, categoría, apartado) al pasar el mouse, al enfocar con teclado o al tocar.
 * **NAV-01** **Barra lateral de escritorio** (iteración 10): "+ Cargar movimiento" y seis secciones, Inicio, Movimientos, Cuentas, Tarjetas, Compromisos (con el contador de pendientes) y Ahorros e inversiones. Al pie, separados por una línea: Administración (solo administradores), el nombre del usuario con "Perfil y ajustes" debajo, y dos botones de ícono, ocultar montos y modo oscuro.
 * **NAV-02** **"Más" en celular**: arriba, la fila del perfil (avatar, nombre y "Perfil y ajustes · categorías · plan"); después Cuentas, Compromisos (con el contador) y Ahorros e inversiones, cada una con una línea de qué tiene; después los interruptores de ocultar montos y modo oscuro; al final, Administración. La barra inferior no cambia.
@@ -360,6 +366,33 @@ Libre = en tus cuentas + por cobrar − a pagar este mes, en moneda base y con l
 - **Lo que tiene cada cuenta para gastar**: su saldo más sus reservas para gastar. **Lo que paga este mes** una cuenta: lo que falta pagar este mes cuya cuenta de pago es esa (COM-04). **Le alcanza** si lo primero es mayor o igual que lo segundo; si no, el inicio dice cuánto le falta. Lo que no tiene cuenta de pago se muestra aparte, como "Sin cuenta asignada".
 
 Ejemplo: en tus cuentas $ 726.150 de saldo y $ 450.000 en reservas para gastar (Gastos Previstos $ 220.000, Cuotas $ 120.000, Extras $ 110.000); por cobrar $ 0; a pagar este mes $ 379.418,27; Libre = 1.176.150 − 379.418,27 = $ 796.731,73. Si el 20 compro con tarjeta $ 90.000 en 3 cuotas que vencen en diciembre, enero y febrero, nada vence este mes: el libre sigue en $ 796.731,73. Si después paso $ 200.000 del saldo a la reserva Auto (ahorro), Libre = $ 596.731,73.
+
+### Cómo se llega al libre
+
+La tarjeta del libre cuenta el mes como una cuenta corriente que cierra exacta. Todo se calcula por moneda y se valúa con la cotización de hoy, igual que "en tus cuentas"; así las partes suman exactamente el total.
+
+Lo que tuviste para el mes:
+- **Tenías al empezar el mes**: saldo de las cuentas y de las reservas para gastar al cierre del último día del mes anterior.
+- **Ingresos del mes**: los cobrados (ingresos confirmados con fecha en el mes) más los que faltan cobrar ("por cobrar").
+
+A dónde fue:
+- **Ya pagaste**: lo que salió de tus cuentas y reservas para gastar en el mes: gastos confirmados y pagos de resúmenes de tarjeta. Un consumo con tarjeta cuenta recién cuando pagás su resumen.
+- **Reservaste**: lo que pasaste a reservas de ahorro o inversión, menos lo que retiraste de ellas.
+- **Para pagar este mes**: lo mismo que "a pagar este mes" del libre.
+- **Libre**: lo que queda. Es el mismo número de siempre: en tus cuentas + por cobrar − a pagar este mes.
+- **Otros**: ajustes de saldo de cuentas y reservas para gastar, y la diferencia que deja cambiar plata de moneda dentro de tus cuentas. Se suma a lo que tuviste si es positivo y a lo que fue si es negativo. Solo aparece si no es 0.
+
+Identidad que tiene que cerrar siempre: al empezar + ingresos ± otros = ya pagaste + reservaste + para pagar + libre. Si el libre es negativo, lo que fue supera lo que tuviste por exactamente ese monto.
+
+En meses anteriores no hay por cobrar ni para pagar: el libre es lo que quedó al último día.
+
+**El resumen del mes** (al tocar "Libre"):
+- Arriba, lo que tuviste: al empezar y cada ingreso agrupado por categoría.
+- Después, ya pagaste agrupado por categoría (las 6 más grandes y "Otras") y los pagos de tarjeta como "Resumen Visa Santander", con el período de compras que cubre.
+- Reservaste por reserva, para pagar (lleva a la lista) y el libre.
+- Cada grupo se abre y muestra sus movimientos.
+
+Ejemplo (tests literales): tenías al empezar $ 300.000; cobraste $ 1.600.000 y faltan cobrar $ 400.000 (ingresos $ 2.000.000); ya pagaste $ 650.000; reservaste $ 904.000; para pagar $ 397.218; otros $ 0. En tus cuentas = 300.000 + 1.600.000 − 650.000 − 904.000 = $ 346.000. Libre = 346.000 + 400.000 − 397.218 = $ 348.782. La barra mide $ 2.300.000 = 650.000 + 904.000 + 397.218 + 348.782. Si en lugar de $ 904.000 reservaste $ 1.300.000, en tus cuentas = −$ 50.000 y Libre = −$ 47.218: la barra se pasa $ 47.218 y dice "Te pasaste $ 47.218".
 
 ### Presupuestos
 
@@ -640,6 +673,11 @@ Menos secciones y mejor agrupadas, y pantallas que usan el ancho del escritorio.
 - Compromisos junta Próximos meses, Fijos y Para confirmar en pestañas (COM-05).
 - Ahorros e inversiones junta las dos pantallas en pestañas (INV-06).
 - Perfil y ajustes reagrupado, con Categorías y Reglas adentro (AUTH-10).
+
+### Iteración 11 (noviembre 2026)
+
+- La tarjeta del libre cuenta el mes de punta a punta: lo que tenías, lo que entró, lo que pagaste, lo que reservaste y lo que falta, con el resumen del mes y el exceso a la vista (DAS-05).
+- Tus cuentas y sus pagos en una sola tarjeta (DAS-07).
 
 ## Identidad visual y UX
 
