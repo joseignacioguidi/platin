@@ -2,7 +2,10 @@
   "name": "@platin/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "db:dump": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/neon-dump.ps1",
+    "db:dump:schedule": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/register-dump-task.ps1"
+  },
   "private": true,
   "dependencies": {
     "@angular/cdk": "~22.2.4",

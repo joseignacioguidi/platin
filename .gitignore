@@ -64,3 +64,4 @@ apps/web/src/env.generated.ts
 
 # database dumps (real data)
 /dump.*
+/dumps/
