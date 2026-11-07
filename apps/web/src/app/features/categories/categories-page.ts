@@ -1,5 +1,13 @@
 import { httpResource } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  linkedSignal,
+  signal,
+} from '@angular/core';
 import { LucideChevronDown, LucideLock, LucidePlus } from '@lucide/angular';
 import type { Category } from '@platin/contracts';
 import type { CategoryKind } from '@platin/domain';
@@ -17,6 +25,7 @@ import { RefreshBus, reloadOn } from '../../core/data/refresh-bus';
 import { CATEGORIES_TEXTS } from './categories.texts';
 import { CategoryFormData, CategoryFormSheet } from './category-form-sheet';
 import { RulesList } from './rules-list';
+import { RULES_VIEW_PARAM } from './rules-view';
 
 type View = 'CATEGORIES' | 'RULES';
 
@@ -162,7 +171,11 @@ export class CategoriesPage {
     { value: 'CATEGORIES', label: CATEGORIES_TEXTS.views.CATEGORIES },
     { value: 'RULES', label: CATEGORIES_TEXTS.views.RULES },
   ];
-  protected readonly view = signal<View>('CATEGORIES');
+  /** `?vista=reglas` opens on the Rules tab (from Perfil › Personalización, AUTH-10). */
+  readonly vista = input<string>();
+  protected readonly view = linkedSignal<View>(() =>
+    this.vista() === RULES_VIEW_PARAM ? 'RULES' : 'CATEGORIES',
+  );
   protected readonly kind = signal<CategoryKind>('EXPENSE');
   protected readonly showArchived = signal(false);
 

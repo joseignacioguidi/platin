@@ -22,7 +22,7 @@ export const hasAlerts = (d: Dashboard) =>
   template: `
     @let d = dashboard();
     @if (d.pending.count > 0) {
-      <a routerLink="/app/pendientes" [class]="line">
+      <a routerLink="/app/compromisos/para-confirmar" [class]="line">
         <span class="flex min-w-0 flex-1 flex-col">
           <span>{{ texts.pendingCount(d.pending.count) }}</span>
           <span class="truncate text-[13px] font-normal">{{

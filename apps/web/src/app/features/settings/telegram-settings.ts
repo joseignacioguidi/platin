@@ -20,6 +20,7 @@ import { formatDate, PlButton } from '@platin/web-ui';
 import { firstValueFrom } from 'rxjs';
 import { API } from '../../core/api';
 import { errorMessage } from '../../core/errors';
+import { PROFILE_GROUP } from './profile-group';
 import { SETTINGS_TEXTS } from './settings.texts';
 
 /**
@@ -32,102 +33,119 @@ import { SETTINGS_TEXTS } from './settings.texts';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (status.value()?.enabled) {
-      <section
-        class="flex flex-col gap-4 rounded-card bg-surface p-5"
-        aria-labelledby="telegram-title"
-      >
-        <div class="flex items-center gap-3">
-          <span
-            class="inline-flex size-10 items-center justify-center rounded-full bg-transfer-soft text-transfer"
-            aria-hidden="true"
-          >
-            <svg lucideSend [size]="20"></svg>
-          </span>
-          <div class="flex-1">
-            <h2 id="telegram-title" class="text-lg font-bold">{{ t.title }}</h2>
-            <p class="text-sm text-muted">{{ statusText() }}</p>
-          </div>
-        </div>
-        <p class="text-[15px] text-muted">{{ t.intro }}</p>
-
-        @if (error()) {
-          <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">{{ error() }}</p>
-        }
-
-        @if (code(); as code) {
-          <div class="flex flex-col gap-3 rounded-2xl border border-line p-4">
-            <a plButton size="lg" [href]="code.url" target="_blank" rel="noopener">
-              {{ t.open }}
-            </a>
-            <p class="text-sm text-muted">{{ t.orSend }}</p>
-            <p class="font-amount text-center text-xl font-semibold whitespace-nowrap">
-              /vincular {{ code.code }}
-            </p>
-            <p class="text-center text-sm text-muted" role="timer" aria-live="off">
-              {{ remaining() > 0 ? t.expiresIn(remainingText()) : t.expired }}
-            </p>
-            @if (remaining() === 0) {
-              <button plButton="secondary" type="button" (click)="createCode()">
-                {{ t.newCode }}
-              </button>
-            }
-          </div>
-        } @else if (!linked()) {
-          <button plButton size="lg" type="button" [disabled]="busy()" (click)="createCode()">
-            {{ t.link }}
-          </button>
-        }
-
-        @if (linked()) {
-          @if (!code()) {
-            <button plButton="secondary" type="button" [disabled]="busy()" (click)="createCode()">
-              {{ t.relink }}
-            </button>
-            <p class="-mt-2 text-xs text-muted">{{ t.relinkHint }}</p>
-          }
-          <button plButton="danger" type="button" [disabled]="busy()" (click)="unlink()">
-            {{ t.unlink }}
-          </button>
-
-          <div class="flex flex-col gap-2">
-            <h3 class="text-sm font-semibold">{{ t.unparsedTitle }}</h3>
-            <p class="text-sm text-muted">{{ t.unparsedHint }}</p>
-            @if ((unparsed.value() ?? []).length === 0) {
-              <p class="text-sm text-muted">{{ t.unparsedEmpty }}</p>
-            } @else {
-              <ul class="flex flex-col divide-y divide-line-soft">
-                @for (item of unparsed.value(); track item.id) {
-                  <li class="flex min-h-14 items-center gap-2 py-2">
-                    <div class="min-w-0 flex-1">
-                      <p class="truncate text-[15px]">{{ item.text }}</p>
-                      <p class="text-xs text-muted">
-                        {{ when(item.createdAt) }} · {{ reason(item.error) }}
-                      </p>
-                    </div>
-                    <button
-                      plButton="ghost"
-                      size="icon"
-                      type="button"
-                      [attr.aria-label]="t.removeOne(item.text)"
-                      (click)="removeOne(item)"
-                    >
-                      <svg lucideTrash2 [size]="18" aria-hidden="true"></svg>
-                    </button>
-                  </li>
+      <section [class]="group.section" aria-labelledby="telegram-title">
+        <h2 id="telegram-title" [class]="group.title">{{ t.title }}</h2>
+        <div [class]="group.body">
+          <!-- AUTH-10: the state with its actions in the same row. -->
+          <div class="flex flex-wrap items-center gap-3">
+            <span
+              class="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-transfer-soft text-transfer"
+              aria-hidden="true"
+            >
+              <svg lucideSend [size]="20"></svg>
+            </span>
+            <p class="min-w-0 flex-[1_1_12rem] text-sm text-muted">{{ statusText() }}</p>
+            @if (linked()) {
+              <div class="flex w-full gap-2 sm:w-auto">
+                @if (!code()) {
+                  <button
+                    plButton="secondary"
+                    size="sm"
+                    type="button"
+                    class="flex-1 sm:flex-none"
+                    aria-describedby="telegram-relink-hint"
+                    [disabled]="busy()"
+                    (click)="createCode()"
+                  >
+                    {{ t.relink }}
+                  </button>
+                  <span id="telegram-relink-hint" class="sr-only">{{ t.relinkHint }}</span>
                 }
-              </ul>
-              <button plButton="secondary" type="button" class="self-start" (click)="removeAll()">
-                {{ t.removeAll }}
+                <button
+                  plButton="secondary"
+                  size="sm"
+                  type="button"
+                  class="flex-1 text-expense-ink! sm:flex-none"
+                  [disabled]="busy()"
+                  (click)="unlink()"
+                >
+                  {{ t.unlink }}
+                </button>
+              </div>
+            } @else if (!code()) {
+              <button plButton size="sm" type="button" [disabled]="busy()" (click)="createCode()">
+                {{ t.link }}
               </button>
             }
           </div>
-        }
+          <p class="text-[15px] text-muted">{{ t.intro }}</p>
+
+          @if (error()) {
+            <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">{{ error() }}</p>
+          }
+
+          @if (code(); as code) {
+            <div class="flex flex-col gap-3 rounded-2xl border border-line p-4">
+              <a plButton size="lg" [href]="code.url" target="_blank" rel="noopener">
+                {{ t.open }}
+              </a>
+              <p class="text-sm text-muted">{{ t.orSend }}</p>
+              <p class="font-amount text-center text-xl font-semibold whitespace-nowrap">
+                /vincular {{ code.code }}
+              </p>
+              <p class="text-center text-sm text-muted" role="timer" aria-live="off">
+                {{ remaining() > 0 ? t.expiresIn(remainingText()) : t.expired }}
+              </p>
+              @if (remaining() === 0) {
+                <button plButton="secondary" type="button" (click)="createCode()">
+                  {{ t.newCode }}
+                </button>
+              }
+            </div>
+          }
+
+          @if (linked()) {
+            <div class="flex flex-col gap-2 border-t border-line-soft pt-4">
+              <h3 class="text-[15px] font-bold">{{ t.unparsedTitle }}</h3>
+              @if ((unparsed.value() ?? []).length === 0) {
+                <p class="text-[13px] text-muted">{{ t.unparsedHint }} {{ t.unparsedEmpty }}</p>
+              } @else {
+                <p class="text-[13px] text-muted">{{ t.unparsedHint }}</p>
+                <ul class="flex flex-col divide-y divide-line-soft">
+                  @for (item of unparsed.value(); track item.id) {
+                    <li class="flex min-h-14 items-center gap-2 py-2">
+                      <div class="min-w-0 flex-1">
+                        <p class="truncate text-[15px]">{{ item.text }}</p>
+                        <p class="text-xs text-muted">
+                          {{ when(item.createdAt) }} · {{ reason(item.error) }}
+                        </p>
+                      </div>
+                      <button
+                        plButton="ghost"
+                        size="icon"
+                        type="button"
+                        [attr.aria-label]="t.removeOne(item.text)"
+                        (click)="removeOne(item)"
+                      >
+                        <svg lucideTrash2 [size]="18" aria-hidden="true"></svg>
+                      </button>
+                    </li>
+                  }
+                </ul>
+                <button plButton="secondary" type="button" class="self-start" (click)="removeAll()">
+                  {{ t.removeAll }}
+                </button>
+              }
+            </div>
+          }
+        </div>
       </section>
     }
   `,
 })
 export class TelegramSettings {
   protected readonly t = SETTINGS_TEXTS.telegram;
+  protected readonly group = PROFILE_GROUP;
   private readonly http = inject(HttpClient);
 
   protected readonly status = httpResource<TelegramStatus>(() => `${API}/telegram/link`);

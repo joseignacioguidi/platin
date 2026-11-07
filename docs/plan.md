@@ -1217,6 +1217,61 @@ Forma de trabajo:
 - Rama feat/fase-35-cuotas. Todo en verde antes del PR, con capturas de la carga con tarjeta (celular y escritorio) y de la pestaña Cuotas en el resumen actual, uno siguiente y uno anterior pagado.
 ```
 
+## Iteración 10: navegación reagrupada
+
+Una fase: menos secciones en la navegación, Compromisos y Ahorros e inversiones con pestañas, y el perfil reagrupado, todo pensado también para el ancho del escritorio. Las referencias están en `docs/mockups/navegacion/` y `docs/mockups/perfil/`.
+
+| Fase | Qué se construye | Casos de uso | Terminado cuando |
+| --- | --- | --- | --- |
+| 36 | Barra de 6 secciones, pestañas y perfil reagrupado | NAV-01 a 03, COM-05, INV-06, AUTH-10 | La barra lateral tiene 6 secciones, entro a Compromisos y paso por sus tres pestañas, y el perfil se ve en dos columnas en escritorio |
+
+## Fase 36 — Navegación reagrupada y perfil
+
+Fijos y Para confirmar pasan a ser pestañas de Compromisos, Inversiones una pestaña de Ahorros, y Categorías entra al perfil. La barra lateral baja de 12 secciones a 6 y "Más" de 8 a 3 más el perfil. Sin cambios de esquema ni de API.
+
+**Terminado cuando:**
+- en escritorio (1440 px) la barra lateral se ve como en `docs/mockups/navegacion/Compromisos.dc.html`: seis secciones y, al pie, Administración (solo administradores), mi nombre con "Perfil y ajustes" y los botones de ocultar montos y modo oscuro;
+- con 2 movimientos para confirmar, Compromisos muestra "2" en la barra, en "Más" y en su pestaña; al confirmarlos, el contador desaparece sin recargar;
+- `/app/compromisos` abre Próximos meses; en escritorio, la lista de meses a la izquierda y el detalle del mes elegido a la derecha, con el desglose de cuotas de cada resumen; a menos de `lg`, el acordeón de hoy;
+- sin ingresos fijos, Próximos meses avisa que el margen no cuenta el sueldo y lleva a cargarlo;
+- las pestañas Fijos y Para confirmar hacen lo mismo que las pantallas de hoy, se ven como sus mockups en escritorio y "+ Nuevo fijo" está en la pestaña Fijos;
+- `/app/ahorros` muestra solo las reservas de ahorro y la tarjeta "De eso, invertido"; la pestaña Inversiones se ve como su mockup, sin flecha para volver, y fuera del plan abre la hoja del plan;
+- `/app/fijos`, `/app/pendientes` e `/app/inversiones` llevan a su pestaña; `/app/inversiones/actualizar` sigue abriendo "Actualizar valores"; los accesos y avisos del inicio apuntan a las rutas nuevas;
+- en celular, "Más" se ve como `docs/mockups/navegacion/Mas.dc.html`, con los interruptores de ocultar montos y modo oscuro, y la barra inferior no cambia;
+- el perfil se ve como `docs/mockups/perfil/Escritorio.dc.html` en escritorio y como `Celular.dc.html` en celular;
+- edito el nombre con el lápiz, Enter guarda y Escape cancela; cambio la moneda base o la cotización y se guarda sin botón, con el mensaje de listo;
+- "Definir" abre el campo de la contraseña; Categorías y Reglas se abren desde Personalización;
+- `/app/perfil?vinculado=google` sigue mostrando el mensaje de cuenta vinculada;
+- a 1024 px las columnas se apilan sin scroll horizontal, y todo funciona en modo oscuro.
+
+```
+Leé CLAUDE.md; NAV-01 a 03, COM-05, INV-06 y AUTH-10 y la iteración 10 de docs/especificacion.md; en docs/arquitectura.md "Iteración 10: navegación reagrupada", "Rutas y renderizado" y "Componentes y patrones de la iteración 10"; docs/adr/0031-navegacion-reagrupada.md; y los mockups de docs/mockups/navegacion/ y docs/mockups/perfil/ (leé sus README).
+
+Vamos a hacer la Fase 36 de docs/plan.md. No cambia el esquema ni la API.
+
+Navegación:
+1. NAV_LINKS en lugar de MORE_LINKS: Cuentas, Compromisos y Ahorros e inversiones (más Inicio, Movimientos y Tarjetas en la barra lateral). Al pie de la barra lateral, Administración, el acceso al perfil y los botones de ocultar montos y modo oscuro, como en el mockup.
+2. PendingCount: servicio de raíz con GET /movements?status=PENDING&until=<hoy>&limit=100, recargado con la clave movements del RefreshBus; "99+" desde 100. Contador en la barra lateral, en "Más" y en la pestaña.
+3. "Más" en celular según NAV-02.
+
+Rutas y secciones:
+4. CommitmentsSection y SavingsSection con pl-section-tabs (en layout/, enlaces con routerLinkActive y aria-current, contador y plPlanGate) y las rutas hijas de la arquitectura. Redirecciones con pathMatch 'full' de /app/fijos, /app/pendientes e /app/inversiones. Apuntá los accesos (home-shortcuts), avisos (home-alerts), home-to-pay, los links de inversiones y las metas a las rutas nuevas.
+5. Las páginas hijas pierden su h1 (queda el de la sección) y conservan sus acciones. Investments sin la flecha de volver.
+
+Pantallas:
+6. Próximos meses en escritorio: lista de meses y detalle del elegido desde lg, con el desglose de cuotas y el aviso de sin ingresos fijos. Por debajo de lg, el acordeón de hoy.
+7. Fijos y Para confirmar en escritorio como sus mockups (dos columnas en Fijos; una fila por pendiente en Para confirmar).
+8. Metas y ahorros: reservas de ahorro solamente (kind SAVINGS) y la tarjeta "De eso, invertido" con GET /investments. Inversiones: posiciones por cuenta en dos columnas desde lg.
+9. Perfil y ajustes según AUTH-10: encabezado con el nombre y edición en el lugar; Monedas y cotización juntas, con moneda base y cotización guardadas al cambiar (sin "Guardar cambios"); Personalización con los conteos de categorías por tipo; PlanSummary en un renglón; SignInMethods con "Definir"; TelegramSettings con las acciones en la fila del estado; "Cerrar sesión" dentro de Ingreso y seguridad; sin la tarjeta Apariencia. Dos columnas desde lg. El título pasa a "Perfil y ajustes" en la página y en el title de la ruta.
+10. El main del shell se abre a max-w-6xl para el inicio, Compromisos, Ahorros e inversiones y el perfil.
+11. Texto rojo chico con expense-ink (zona peligrosa y "Desvincular"); expense queda para bordes. No hace falta un token nuevo.
+12. Textos en el archivo de textos de cada feature (layout, settings, commitments, savings).
+
+Forma de trabajo:
+- Plan primero, esperame.
+- Rama feat/fase-36-navegacion-y-perfil. Todo en verde antes del PR, con capturas en escritorio (1440 px, claro y oscuro) de la barra, las tres pestañas de Compromisos, las dos de Ahorros e inversiones y el perfil, y en celular de "Más" y del perfil.
+```
+
 ## Después del MVP
 
 La segunda tanda de la especificación, en fases chicas que se pueden hacer en cualquier orden. Los prompts siguen el mismo molde que las fases anteriores: leer `CLAUDE.md` y la sección de la especificación, plan primero, rama propia, PR con todo en verde.

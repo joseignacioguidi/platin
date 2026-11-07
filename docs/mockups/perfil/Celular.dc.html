@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Perfil y ajustes, celular</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#007A65}a:hover{color:#005c4c}
+</style>
+</helmet>
+<div style="width: 390px; height: 2300px; box-sizing: border-box; background: #F4F4F1; font-family: 'Hanken Grotesk', system-ui, sans-serif; color: #181818; padding: 20px 16px 40px; display: flex; flex-direction: column; gap: 10px">
+
+  <!-- Encabezado -->
+  <h1 style="margin: 0 4px; font-size: 22px; font-weight: 800">Perfil y ajustes</h1>
+  <section aria-label="Tus datos" style="background: #FFFFFF; border-radius: 24px; padding: 16px; display: flex; align-items: center; gap: 16px">
+        <span aria-hidden="true" style="width: 48px; height: 48px; border-radius: 24px; background: #E3F7F3; color: #007A65; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; flex: none">JI</span>
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+          <p style="margin: 0; font-size: 18px; font-weight: 800">Jose Ignacio Guidi</p>
+          <p style="margin: 0; font-size: 14px; color: #6D6D6D; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">joseignacioguidi@gmail.com</p>
+        </div>
+        <button type="button" aria-label="Editar nombre" title="Editar nombre" style="width: 44px; height: 44px; flex: none; border: 1px solid #E2E2DC; border-radius: 22px; background: #FFFFFF; color: #181818; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg></button>
+      </section>
+
+  <!-- Monedas -->
+  <h2 style="margin: 16px 8px 0; font-size: 13px; font-weight: 700; color: #6D6D6D; text-transform: uppercase; letter-spacing: 0.06em">Monedas y cotización</h2>
+  <section aria-label="Monedas y cotización" style="background: #FFFFFF; border-radius: 24px; padding: 16px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <span style="font-size: 14px; font-weight: 600">Moneda base</span>
+      <div style="display: flex; background: #F4F4F1; border-radius: 14px; padding: 4px; gap: 4px">
+        <button type="button" aria-pressed="true" style="flex: 1; min-height: 40px; border: 0; border-radius: 11px; background: #181818; color: #FFFFFF; font: inherit; font-size: 14px; font-weight: 700">Pesos (ARS)</button>
+        <button type="button" aria-pressed="false" style="flex: 1; min-height: 40px; border: 0; border-radius: 11px; background: transparent; color: #181818; font: inherit; font-size: 14px; font-weight: 600">Dólares (USD)</button>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <span style="font-size: 14px; font-weight: 600">Dólar para valuar</span>
+      <div style="display: flex; background: #F4F4F1; border-radius: 14px; padding: 4px; gap: 4px">
+        <button type="button" aria-pressed="false" style="flex: 1; min-height: 40px; border: 0; border-radius: 11px; background: transparent; color: #181818; font: inherit; font-size: 14px; font-weight: 600">Oficial</button>
+        <button type="button" aria-pressed="true" style="flex: 1; min-height: 40px; border: 0; border-radius: 11px; background: #181818; color: #FFFFFF; font: inherit; font-size: 14px; font-weight: 700">MEP</button>
+        <button type="button" aria-pressed="false" style="flex: 1; min-height: 40px; border: 0; border-radius: 11px; background: transparent; color: #181818; font: inherit; font-size: 14px; font-weight: 600">Blue</button>
+      </div>
+      <p style="margin: 0; font-size: 13px; color: #6D6D6D">Precio de venta del día. Se guarda solo.</p>
+    </div>
+    <div style="border-top: 1px solid #EEEEEA; padding-top: 12px; display: flex; flex-direction: column">
+      <h3 style="margin: 0 0 4px; font-size: 15px; font-weight: 700">Con qué monedas trabajás</h3>
+      <label style="min-height: 52px; display: flex; align-items: center; gap: 12px"><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; color: #6D6D6D; width: 38px">ARS</span><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px">Pesos</span><span style="font-size: 12px; color: #6D6D6D">Siempre activada</span></span><input type="checkbox" checked disabled style="width: 20px; height: 20px; accent-color: #00B99A"></label>
+      <label style="min-height: 52px; display: flex; align-items: center; gap: 12px; border-top: 1px solid #EEEEEA"><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; color: #6D6D6D; width: 38px">USD</span><span style="flex: 1; display: flex; flex-direction: column"><span style="font-size: 15px">Dólares</span><span style="font-size: 12px; color: #6D6D6D">La usa una cuenta activa</span></span><input type="checkbox" checked disabled style="width: 20px; height: 20px; accent-color: #00B99A"></label>
+      <label style="min-height: 52px; display: flex; align-items: center; gap: 12px; border-top: 1px solid #EEEEEA"><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; color: #6D6D6D; width: 38px">EUR</span><span style="flex: 1; font-size: 15px">Euros</span><input type="checkbox" style="width: 20px; height: 20px; accent-color: #00B99A"></label>
+      <label style="min-height: 52px; display: flex; align-items: center; gap: 12px; border-top: 1px solid #EEEEEA"><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; color: #6D6D6D; width: 38px">BRL</span><span style="flex: 1; font-size: 15px">Reales</span><input type="checkbox" style="width: 20px; height: 20px; accent-color: #00B99A"></label>
+      <label style="min-height: 52px; display: flex; align-items: center; gap: 12px; border-top: 1px solid #EEEEEA"><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; color: #6D6D6D; width: 38px">CLP</span><span style="flex: 1; font-size: 15px">Pesos chilenos</span><input type="checkbox" style="width: 20px; height: 20px; accent-color: #00B99A"></label>
+      <label style="min-height: 52px; display: flex; align-items: center; gap: 12px; border-top: 1px solid #EEEEEA"><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; color: #6D6D6D; width: 38px">UYU</span><span style="flex: 1; font-size: 15px">Pesos uruguayos</span><input type="checkbox" style="width: 20px; height: 20px; accent-color: #00B99A"></label>
+    </div>
+  </section>
+
+  <!-- Personalización -->
+  <h2 style="margin: 16px 8px 0; font-size: 13px; font-weight: 700; color: #6D6D6D; text-transform: uppercase; letter-spacing: 0.06em">Personalización</h2>
+  <section aria-label="Personalización" style="background: #FFFFFF; border-radius: 24px; padding: 4px 16px; display: flex; flex-direction: column">
+    <a href="#" style="min-height: 60px; display: flex; align-items: center; gap: 14px; text-decoration: none; color: #181818"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"></path><path d="M7 7h.01"></path></svg><span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 600">Categorías</span><span style="font-size: 13px; color: #6D6D6D">[N] de gastos y [N] de ingresos</span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6D6D6D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg></a>
+    <a href="#" style="min-height: 60px; display: flex; align-items: center; gap: 14px; text-decoration: none; color: #181818; border-top: 1px solid #EEEEEA"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h6"></path></svg><span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 600">Reglas</span><span style="font-size: 13px; color: #6D6D6D">Qué categoría usar según lo que escribís</span></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6D6D6D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg></a>
+  </section>
+
+  <!-- Ingreso y seguridad -->
+  <h2 style="margin: 16px 8px 0; font-size: 13px; font-weight: 700; color: #6D6D6D; text-transform: uppercase; letter-spacing: 0.06em">Ingreso y seguridad</h2>
+  <section aria-label="Ingreso y seguridad" style="background: #FFFFFF; border-radius: 24px; padding: 4px 16px; display: flex; flex-direction: column">
+    <div style="min-height: 64px; display: flex; align-items: center; gap: 12px">
+      <span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 600">Google</span><span style="font-size: 13px; color: #6D6D6D">Tu única forma de ingresar</span></span>
+    </div>
+    <div style="min-height: 64px; display: flex; align-items: center; gap: 12px; border-top: 1px solid #EEEEEA">
+      <span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 600">Contraseña</span><span style="font-size: 13px; color: #6D6D6D">Todavía no definiste una</span></span>
+      <button type="button" style="min-height: 44px; padding: 0 16px; border: 1px solid #E2E2DC; border-radius: 999px; background: #FFFFFF; font: inherit; font-size: 14px; font-weight: 600; color: #181818">Definir</button>
+    </div>
+    <button type="button" style="min-height: 56px; border-top: 1px solid #EEEEEA; border-right: 0; border-bottom: 0; border-left: 0; background: transparent; display: flex; align-items: center; gap: 10px; padding: 0; font: inherit; font-size: 15px; font-weight: 600; color: #181818; text-align: left">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6D6D6D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="M16 17l5-5-5-5"></path><path d="M21 12H9"></path></svg>
+      Cerrar sesión
+    </button>
+  </section>
+
+  <!-- Telegram -->
+  <h2 style="margin: 16px 8px 0; font-size: 13px; font-weight: 700; color: #6D6D6D; text-transform: uppercase; letter-spacing: 0.06em">Telegram</h2>
+  <section aria-label="Telegram" style="background: #FFFFFF; border-radius: 24px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+    <div style="display: flex; flex-direction: column; gap: 2px">
+      <span style="font-size: 15px; font-weight: 600">Vinculado con Jose</span>
+      <span style="font-size: 13px; color: #6D6D6D">Desde el 06/11/2026</span>
+    </div>
+    <p style="margin: 0; font-size: 14px; color: #6D6D6D">Cargá gastos mandándole un mensaje al bot, como “super 45k visa 3c”.</p>
+    <div style="display: flex; gap: 8px">
+      <button type="button" style="flex: 1; min-height: 44px; border: 1px solid #E2E2DC; border-radius: 999px; background: #FFFFFF; font: inherit; font-size: 14px; font-weight: 600; color: #181818">Cambiar</button>
+      <button type="button" style="flex: 1; min-height: 44px; border: 1px solid #E2E2DC; border-radius: 999px; background: #FFFFFF; font: inherit; font-size: 14px; font-weight: 600; color: #B23A1E">Desvincular</button>
+    </div>
+    <div style="border-top: 1px solid #EEEEEA; padding-top: 12px; display: flex; flex-direction: column; gap: 4px">
+      <h3 style="margin: 0; font-size: 15px; font-weight: 700">Mensajes que el bot no entendió</h3>
+      <p style="margin: 0; font-size: 13px; color: #6D6D6D">Se guardan 90 días. Ahora no hay ninguno.</p>
+    </div>
+  </section>
+
+  <!-- Plan -->
+  <section aria-labelledby="plan-x" style="margin-top: 16px; background: #FFFFFF; border-radius: 24px; padding: 12px 16px; display: flex; flex-direction: column; gap: 6px">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px">
+              <h2 id="plan-x" style="margin: 0; font-size: 16px; font-weight: 800">Tu plan</h2>
+              <span style="background: #E3F7F3; color: #007A65; font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 999px">Pro</span>
+              <span style="flex: 1"></span>
+              <a href="#" style="min-height: 44px; display: flex; align-items: center; font-size: 14px; font-weight: 600">Cambiar de plan</a>
+            </div>
+            <p style="margin: 0; font-size: 13px; color: #6D6D6D">Sin límites, con inversiones. Usás <span style="font-family: 'JetBrains Mono', monospace; color: #181818">4</span> cuentas, <span style="font-family: 'JetBrains Mono', monospace; color: #181818">13</span> reservas, <span style="font-family: 'JetBrains Mono', monospace; color: #181818">2</span> tarjetas, <span style="font-family: 'JetBrains Mono', monospace; color: #181818">2</span> metas y <span style="font-family: 'JetBrains Mono', monospace; color: #181818">6</span> fijos.</p>
+          </section>
+
+  <!-- Zona peligrosa -->
+  <section aria-labelledby="peligro-c" style="margin-top: 28px; background: #FFFFFF; border: 1px solid #FE8363; border-radius: 24px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+    <h2 id="peligro-c" style="margin: 0; font-size: 17px; font-weight: 800; color: #B23A1E">Zona peligrosa</h2>
+    <p style="margin: 0; font-size: 14px; color: #6D6D6D">Borrá todos tus datos y empezá como si recién te hubieras registrado. Tu usuario, tu plan y tus preferencias se conservan.</p>
+    <button type="button" style="min-height: 44px; border: 1px solid #FE8363; border-radius: 999px; background: #FFFFFF; font: inherit; font-size: 14px; font-weight: 700; color: #B23A1E">Empezar de cero</button>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":2300}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      usage: [
+        { n: '4', label: 'cuentas' },
+        { n: '13', label: 'reservas' },
+        { n: '2', label: 'tarjetas' },
+        { n: '2', label: 'metas' },
+        { n: '6', label: 'fijos' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

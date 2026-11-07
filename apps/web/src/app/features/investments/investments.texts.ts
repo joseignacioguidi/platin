@@ -1,6 +1,6 @@
 export const INVESTMENTS_TEXTS = {
   title: 'Inversiones',
-  back: 'Ahorros',
+  addPocket: '+ Reserva de inversión',
   value: 'Valor actual',
   over: (amount: string) => `sobre ${amount} invertidos`,
   composition: 'Composición por instrumento',

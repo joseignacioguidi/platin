@@ -54,32 +54,53 @@ export const appAreaRoutes: Route[] = [
     loadComponent: () => import('./features/cards/card-detail-page').then((m) => m.CardDetailPage),
   },
   {
-    path: 'fijos',
-    title: 'Fijos · platin',
-    loadComponent: () => import('./features/fixed/fixed-page').then((m) => m.FixedPage),
-  },
-  {
-    path: 'pendientes',
-    title: 'Para confirmar · platin',
-    loadComponent: () => import('./features/pending/pending-page').then((m) => m.PendingPage),
-  },
-  {
+    // COM-05: each tab is a child route of the section.
     path: 'compromisos',
-    title: 'Compromisos · platin',
     loadComponent: () =>
-      import('./features/commitments/commitments-page').then((m) => m.CommitmentsPage),
+      import('./features/commitments/commitments-section').then((m) => m.CommitmentsSection),
+    children: [
+      {
+        path: '',
+        pathMatch: 'full',
+        title: 'Compromisos · platin',
+        loadComponent: () =>
+          import('./features/commitments/commitments-page').then((m) => m.CommitmentsPage),
+      },
+      {
+        path: 'fijos',
+        title: 'Fijos · platin',
+        loadComponent: () => import('./features/fixed/fixed-page').then((m) => m.FixedPage),
+      },
+      {
+        path: 'para-confirmar',
+        title: 'Para confirmar · platin',
+        loadComponent: () => import('./features/pending/pending-page').then((m) => m.PendingPage),
+      },
+    ],
   },
   {
+    // INV-06
     path: 'ahorros',
-    title: 'Ahorros · platin',
-    loadComponent: () => import('./features/savings/savings-page').then((m) => m.SavingsPage),
+    loadComponent: () => import('./features/savings/savings-section').then((m) => m.SavingsSection),
+    children: [
+      {
+        path: '',
+        pathMatch: 'full',
+        title: 'Ahorros e inversiones · platin',
+        loadComponent: () => import('./features/savings/savings-page').then((m) => m.SavingsPage),
+      },
+      {
+        path: 'inversiones',
+        title: 'Inversiones · platin',
+        loadComponent: () =>
+          import('./features/investments/investments-page').then((m) => m.InvestmentsPage),
+      },
+    ],
   },
-  {
-    path: 'inversiones',
-    title: 'Inversiones · platin',
-    loadComponent: () =>
-      import('./features/investments/investments-page').then((m) => m.InvestmentsPage),
-  },
+  // NAV-03: the old routes lead to their tab. 'full' so /app/inversiones/actualizar stays.
+  { path: 'fijos', pathMatch: 'full', redirectTo: 'compromisos/fijos' },
+  { path: 'pendientes', pathMatch: 'full', redirectTo: 'compromisos/para-confirmar' },
+  { path: 'inversiones', pathMatch: 'full', redirectTo: 'ahorros/inversiones' },
   {
     path: 'inversiones/actualizar',
     title: 'Actualizar valores · platin',
@@ -110,7 +131,7 @@ export const appAreaRoutes: Route[] = [
   },
   {
     path: 'perfil',
-    title: 'Perfil · platin',
+    title: 'Perfil y ajustes · platin',
     loadComponent: () => import('./features/settings/profile-page').then((m) => m.ProfilePage),
   },
   { path: '**', redirectTo: '' },

@@ -550,6 +550,17 @@ Sin cambios de esquema.
 | `GET /cards/:id/statements/summary` | TAR-05, COM-03 |
 | `GET /cards/:id/installments?period=YYYY-MM` | TAR-05 |
 
+### Iteración 10: navegación reagrupada
+
+Sin cambios de esquema ni de API; las razones están en `docs/adr/0031-navegacion-reagrupada.md`.
+
+- Rutas nuevas, cada pestaña una ruta hija de un componente de sección:
+  - `/app/compromisos` → `CommitmentsSection` con `''` (Próximos meses, `CommitmentsPage`), `fijos` (`FixedPage`) y `para-confirmar` (`PendingPage`).
+  - `/app/ahorros` → `SavingsSection` con `''` (Metas y ahorros, `SavingsPage`) e `inversiones` (`InvestmentsPage`).
+  - Redirecciones con `pathMatch: 'full'`: `/app/fijos`, `/app/pendientes` e `/app/inversiones`. `/app/inversiones/actualizar`, `/app/metas/:id`, `/app/categorias` y `/app/perfil` no cambian.
+- El contador de pendientes de la navegación sale de `GET /movements?status=PENDING&until=<hoy>&limit=100`, en un servicio de raíz que se recarga con la clave `movements` del `RefreshBus`.
+- Metas y ahorros separa las reservas por `kind` (`SAVINGS` en esta pestaña, `INVESTMENT` en Inversiones) con los datos que ya trae. La tarjeta "De eso, invertido" usa `GET /investments`.
+
 ## Backend
 
 Un módulo de Nest por dominio; los controladores son finos, los servicios orquestan y las reglas viven en `libs/domain`.
@@ -641,9 +652,11 @@ Angular en su última versión estable al iniciar (hoy, la [22](https://www.gitc
 | `/app` | Inicio ("Libre este mes") | Cliente, protegida por guard |
 | `/app/movimientos` | Lista, filtros y búsqueda | Cliente |
 | `/app/tarjetas`, `/app/tarjetas/:id` | Tarjetas, resumen, cuotas | Cliente |
-| `/app/ahorros`, `/app/metas/:id` | Ahorros y detalle de meta | Cliente |
-| `/app/inversiones` | Apartados de inversión, rendimientos y "Actualizar valores" (`/app/inversiones/actualizar`) | Cliente |
-| `/app/compromisos`, `/app/fijos`, `/app/cuentas`, `/app/cuentas/:id`, `/app/apartados/:id`, `/app/categorias`, `/app/perfil` | Resto de las pantallas | Cliente |
+| `/app/ahorros`, `/app/ahorros/inversiones`, `/app/metas/:id` | Ahorros e inversiones (pestañas Metas y ahorros, e Inversiones) y detalle de meta | Cliente |
+| `/app/inversiones/actualizar` | "Actualizar valores" | Cliente |
+| `/app/compromisos`, `/app/compromisos/fijos`, `/app/compromisos/para-confirmar` | Compromisos (pestañas Próximos meses, Fijos y Para confirmar) | Cliente |
+| `/app/cuentas`, `/app/cuentas/:id`, `/app/reservas/:id`, `/app/categorias`, `/app/perfil`, `/app/mas` | Resto de las pantallas | Cliente |
+| `/app/fijos`, `/app/pendientes`, `/app/inversiones` | Redirigen a su pestaña (iteración 10) | — |
 
 La carga rápida no es una ruta: es una hoja inferior global que se abre desde el botón + o con Ctrl+K.
 
@@ -760,6 +773,19 @@ Cada feature tiene sus rutas (carga diferida), sus componentes de página y un s
 | Pestaña "Reglas" en Categorías | Lista de reglas con búsqueda, alta, edición y borrado; en el detalle de una categoría, sus reglas |
 | Perfil › Telegram | Estado del vínculo, "Vincular" (enlace y código con su vencimiento), "Desvincular" y los mensajes no entendidos con borrar uno o todos |
 | Módulo `telegram` de Nest | `TelegramController` (webhook), `TelegramUpdatesService` (idempotencia y ruteo), `BotDraftsService`, `BotCommandsService`, `TelegramClient` (llamadas a la API de Telegram, reemplazable en tests) y los textos del bot en un archivo propio |
+
+### Componentes y patrones de la iteración 10
+
+| Pieza | Uso |
+| --- | --- |
+| Barra lateral (`Shell`) | Seis secciones de `NAV_LINKS` y un pie con Administración, el acceso al perfil (avatar con iniciales, nombre y "Perfil y ajustes") y dos botones de ícono con `aria-label`: ocultar montos y modo oscuro (`ThemeService.toggle`) |
+| `PendingCount` | Servicio de raíz con la cantidad para confirmar; lo usan la barra lateral, "Más" y la pestaña. Se muestra en `pending` con texto `ink`, "99+" desde 100 |
+| `pl-section-tabs` | Pestañas que son enlaces (`routerLink` + `routerLinkActive`, `aria-current="page"`), con el aspecto de `pl-segmented`, contador opcional y marca de plan (`plPlanGate`). Va en `apps/web/src/app/layout/`, porque usa el router y los planes |
+| `CommitmentsSection`, `SavingsSection` | Título, bajada y `pl-section-tabs` arriba de un `router-outlet`. Las páginas hijas pierden su `h1` y conservan sus acciones (por ejemplo "+ Nuevo fijo") |
+| Próximos meses en escritorio | Desde `lg`, lista de meses (un botón por mes, `aria-pressed`) y el detalle del elegido al lado; por debajo de `lg`, el acordeón de hoy |
+| Perfil y ajustes | `ProfileHeader` (nombre con edición en el lugar), Monedas y cotización con guardado al cambiar, `PlanSummary` compacto, Personalización, `SignInMethods` con "Definir" que abre el campo, `TelegramSettings` con las acciones en la fila del estado; en escritorio, dos columnas desde `lg` |
+| Ancho en escritorio | El `main` del shell se abre a `max-w-6xl` para el inicio, Compromisos, Ahorros e inversiones y el perfil; el resto sigue en `max-w-3xl` |
+| Texto rojo chico | `expense-ink` (zona peligrosa, "Desvincular"); `expense` queda para bordes y fondos |
 
 ## Auth y seguridad
 

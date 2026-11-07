@@ -7,6 +7,12 @@ export const FIXED_TEXTS = {
   emptyBody: 'Cargá el alquiler, el sueldo o tus suscripciones y dejá de cargarlos a mano.',
   expenses: 'Gastos fijos',
   incomes: 'Ingresos fijos',
+  noIncomesTitle: 'Todavía no cargaste ingresos fijos',
+  noIncomesBody:
+    'Cargá tu sueldo y va a contar en los ingresos esperados de cada mes, así el margen de Compromisos te da real.',
+  newIncome: '+ Cargar un ingreso fijo',
+  newIncomeLabel: 'Nuevo ingreso fijo',
+  noExpenses: 'Todavía no cargaste gastos fijos.',
   next: (date: string) => `Próximo: ${date}`,
   paused: 'Pausado',
   finished: 'Finalizado',

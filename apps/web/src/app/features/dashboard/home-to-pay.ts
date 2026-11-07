@@ -43,7 +43,7 @@ export async function openToPayItem(
     return;
   }
   if (item.type === 'FIXED') {
-    await router.navigate(['/app/fijos']);
+    await router.navigate(['/app/compromisos/fijos']);
     return;
   }
   // A scheduled movement is pending in its month: find it there and open its edit sheet.

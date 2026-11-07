@@ -41,7 +41,7 @@ import { INVESTMENTS_TEXTS } from './investments.texts';
   template: `
     <header class="flex items-center gap-2">
       <a
-        routerLink="/app/inversiones"
+        routerLink="/app/ahorros/inversiones"
         class="flex size-11 items-center justify-center rounded-full hover:bg-field"
         [attr.aria-label]="back"
       >
@@ -184,7 +184,7 @@ export class UpdateValuesPage {
     this.error.set(null);
     try {
       await this.store.saveValuations({ items });
-      await this.router.navigateByUrl('/app/inversiones');
+      await this.router.navigateByUrl('/app/ahorros/inversiones');
     } catch (error) {
       this.error.set(errorMessage(error));
     } finally {
