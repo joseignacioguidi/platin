@@ -40,10 +40,8 @@ interface Draft {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
   template: `
-    <header class="flex flex-col gap-1">
-      <h1 class="text-3xl font-bold">{{ texts.title }}</h1>
-      <p class="text-[15px] text-muted">{{ texts.intro }}</p>
-    </header>
+    <!-- Compromisos › Para confirmar (COM-05): the section has the title. -->
+    <p class="text-[15px] text-muted">{{ texts.intro }}</p>
 
     @if (list.loaded() && items().length === 0) {
       <pl-empty-state
@@ -63,8 +61,11 @@ interface Draft {
       </label>
       <ul class="flex flex-col gap-2">
         @for (item of items(); track item.id) {
-          <li class="flex flex-col gap-3 rounded-tile bg-surface p-4">
-            <div class="flex items-start gap-3">
+          <!-- From lg, one row per pending: box, name, real amount and "Confirmar". -->
+          <li
+            class="flex flex-col gap-3 rounded-tile bg-surface p-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:items-center lg:gap-x-6"
+          >
+            <div class="flex items-start gap-3 lg:items-center">
               <input
                 type="checkbox"
                 class="mt-1 size-5 accent-brand"
@@ -81,7 +82,7 @@ interface Draft {
                 </span>
               </div>
             </div>
-            <div class="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
+            <div class="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-2 lg:col-start-2">
               <label class="flex min-w-0 flex-col gap-1">
                 <span class="text-xs text-muted">{{ texts.amount }} ({{ item.currency }})</span>
                 <input
@@ -103,7 +104,7 @@ interface Draft {
               </button>
             </div>
             @if (needsRate(item)) {
-              <label class="flex flex-col gap-1">
+              <label class="flex flex-col gap-1 lg:col-start-2">
                 <span class="text-xs text-muted">{{ texts.rate }}</span>
                 <input
                   type="text"
@@ -120,15 +121,18 @@ interface Draft {
       @if (error()) {
         <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">{{ error() }}</p>
       }
-      <button
-        plButton
-        size="lg"
-        type="button"
-        [disabled]="busy() || selected().length === 0"
-        (click)="confirm(selected())"
-      >
-        {{ texts.confirmSelected(selected().length) }}
-      </button>
+      <div class="flex lg:justify-end">
+        <button
+          plButton
+          size="lg"
+          type="button"
+          class="lg:flex-none"
+          [disabled]="busy() || selected().length === 0"
+          (click)="confirm(selected())"
+        >
+          {{ texts.confirmSelected(selected().length) }}
+        </button>
+      </div>
     }
   `,
 })

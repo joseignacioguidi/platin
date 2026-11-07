@@ -1,7 +1,22 @@
 export const COMMITMENTS_TEXTS = {
   title: 'Compromisos',
-  intro:
-    'Lo que ya tenés comprometido los próximos 12 meses: resúmenes de tarjeta, gastos fijos y programados.',
+  intro: 'La plata que ya tiene destino: resúmenes de tarjeta, fijos y pagos programados.',
+  /** COM-05: the three tabs. */
+  tabs: {
+    label: 'Secciones de Compromisos',
+    upcoming: 'Próximos meses',
+    fixed: 'Fijos',
+    pending: 'Para confirmar',
+  },
+  months: 'Los próximos 12 meses',
+  committed: 'Comprometido',
+  showUntil: (month: string) => `Ver hasta ${month}`,
+  pendingNotice: (count: string) =>
+    count === '1' ? '1 fijo espera que lo confirmes' : `${count} fijos esperan que los confirmes`,
+  review: 'Revisar',
+  noFixedIncome: 'No tenés ingresos fijos: el margen no cuenta tu sueldo.',
+  addFixedIncome: 'Cargalo como fijo',
+  newFixedIncome: 'Nuevo ingreso fijo',
   /** COM-02: expected income − committed; not the free amount of the home screen. */
   margin: 'Margen',
   expectedIncome: 'Ingresos esperados',

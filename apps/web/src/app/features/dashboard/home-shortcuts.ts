@@ -37,17 +37,17 @@ interface ShortcutInfo {
 const SHORTCUTS: Record<HomeShortcut, ShortcutInfo> = {
   accounts: { path: '/app/cuentas', icon: 'wallet' },
   cards: { path: '/app/tarjetas', icon: 'credit-card' },
-  fixed: { path: '/app/fijos', icon: 'repeat' },
+  fixed: { path: '/app/compromisos/fijos', icon: 'repeat' },
   commitments: { path: '/app/compromisos', icon: 'calendar' },
   savings: { path: '/app/ahorros', icon: 'piggy-bank' },
   investments: {
-    path: '/app/inversiones',
+    path: '/app/ahorros/inversiones',
     icon: 'trending-up',
     gate: 'investments',
   },
   categories: { path: '/app/categorias', icon: 'tag' },
   movements: { path: '/app/movimientos', icon: 'arrow-left-right' },
-  pending: { path: '/app/pendientes', icon: 'sparkles' },
+  pending: { path: '/app/compromisos/para-confirmar', icon: 'sparkles' },
   profile: { path: '/app/perfil', icon: 'user' },
 };
 

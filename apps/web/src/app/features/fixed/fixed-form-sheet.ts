@@ -48,6 +48,11 @@ function cardOnly(currency: Currency): CardCurrency {
   return isCardCurrency(currency) ? currency : 'ARS';
 }
 
+/** A new fixed item that starts as an income or an expense ("Cargalo como fijo", COM-05). */
+export interface FixedFormPreset {
+  kind: FixedKind;
+}
+
 /** FIJ-01 and FIJ-03: create, edit, pause, finish or delete a fixed item. */
 @Component({
   selector: 'pl-fixed-form-sheet',
@@ -203,7 +208,9 @@ export class FixedFormSheet {
   protected readonly texts = FIXED_TEXTS;
   protected readonly f = FIXED_TEXTS.form;
   protected readonly input = INPUT_CLASS;
-  protected readonly fixed = inject<FixedItem | null>(DIALOG_DATA);
+  private readonly data = inject<FixedItem | FixedFormPreset | null>(DIALOG_DATA);
+  /** The item being edited; null when creating one. */
+  protected readonly fixed = this.data && 'id' in this.data ? this.data : null;
   protected readonly accounts = inject(AccountsStore);
   private readonly cards = inject(CardsStore);
   private readonly hideAmounts = inject(HideAmounts);
@@ -216,7 +223,7 @@ export class FixedFormSheet {
     { value: 'EXPENSE', label: FIXED_TEXTS.form.kinds.EXPENSE },
     { value: 'INCOME', label: FIXED_TEXTS.form.kinds.INCOME },
   ];
-  protected readonly kind = signal<FixedKind>(this.fixed?.kind ?? 'EXPENSE');
+  protected readonly kind = signal<FixedKind>(this.data?.kind ?? 'EXPENSE');
   protected readonly name = signal(this.fixed?.name ?? '');
   protected readonly amount = signal('');
   protected readonly categoryId = signal(this.fixed?.category.id ?? '');
