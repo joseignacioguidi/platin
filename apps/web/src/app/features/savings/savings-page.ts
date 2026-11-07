@@ -1,10 +1,12 @@
+import { httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import type { Goal } from '@platin/contracts';
+import type { Goal, Investments } from '@platin/contracts';
 import {
   type Currency,
   formatMoney,
   Money,
+  parseLocalDate,
   parsePeriod,
   type PocketKind,
   progressPercent,
@@ -12,6 +14,7 @@ import {
 } from '@platin/domain';
 import {
   displayAmount,
+  formatDate,
   formatPeriodShort,
   PlBottomSheet,
   PlButton,
@@ -26,7 +29,11 @@ import {
   PlErrorState,
   PlSkeleton,
 } from '@platin/web-ui';
+import { API } from '../../core/api';
+import { RefreshBus, reloadOn } from '../../core/data/refresh-bus';
 import { PocketFormData, PocketFormSheet } from '../accounts/pocket-form-sheet';
+import { formatRate } from '../investments/investment-format';
+import { PlanStore } from '../plans/plan.store';
 import { PlanGate, PlUsage } from '../plans/plan-gate';
 import { GoalFormSheet } from './goal-form-sheet';
 import { SavingsStore } from './savings.store';
@@ -58,7 +65,10 @@ const PACE_CLASS = {
   AHEAD: 'bg-brand-soft text-brand-strong',
 } as const;
 
-/** /app/ahorros: total saved in USD, goals and savings and investment pockets (mockup "Ahorros"). */
+/**
+ * Ahorros e inversiones › Metas y ahorros (INV-06): total saved, what part is invested, goals
+ * and the savings pockets (mockup "Ahorros").
+ */
 @Component({
   selector: 'pl-savings-page',
   imports: [
@@ -77,179 +87,240 @@ const PACE_CLASS = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
   template: `
-    <header class="flex items-center justify-between gap-3">
-      <h1 class="text-3xl font-bold">{{ texts.title }}</h1>
-      <a plButton="secondary" size="sm" routerLink="/app/inversiones" plPlanGate="investments">
-        {{ texts.investments }}
-      </a>
-    </header>
-
     @if (store.savingsResource.error() && !store.savingsResource.hasValue()) {
       <pl-error-state (retry)="store.savingsResource.reload()" />
     } @else if (!store.savingsResource.hasValue()) {
       <pl-skeleton [heights]="[200, 110, 110]" />
     }
     @if (savings(); as s) {
-      <section
-        class="flex flex-col gap-4 rounded-card bg-ink p-5 text-on-ink"
-        [attr.aria-label]="texts.total"
-      >
-        <div class="flex flex-col gap-1">
-          <span class="text-[15px] opacity-80">{{ texts.total }}</span>
-          <pl-money
-            class="text-4xl font-semibold tracking-tight"
-            [amount]="s.totalUsd"
-            currency="USD"
-            [decimals]="false"
-          />
-          @if (approx()) {
-            <span class="font-amount text-sm opacity-80">{{ approx() }}</span>
-          }
-        </div>
-        <!-- Shares are compared in dollars. -->
-        <pl-stacked-bar [segments]="split()" currency="USD" />
-        <!-- MON-03: what each currency adds, in its own currency. -->
-        <ul class="flex flex-wrap justify-between gap-x-4 gap-y-2 text-[15px]">
-          @for (line of s.byCurrency; track line.currency) {
-            <li class="flex items-center gap-2">
-              <span
-                class="size-2.5 rounded-full"
-                [class]="dotClass(line.currency)"
-                aria-hidden="true"
-              ></span
-              >{{ currencyNames[line.currency] }}
-              <pl-money [amount]="line.amount" [currency]="line.currency" [decimals]="false" />
-            </li>
-          }
-        </ul>
-      </section>
+      <div class="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:gap-5">
+        <section
+          class="flex flex-col gap-4 rounded-card bg-ink p-5 text-on-ink"
+          [attr.aria-label]="texts.total"
+        >
+          <div class="flex flex-col gap-1">
+            <span class="text-[15px] opacity-80">{{ texts.total }}</span>
+            <pl-money
+              class="text-4xl font-semibold tracking-tight"
+              [amount]="s.totalUsd"
+              currency="USD"
+              [decimals]="false"
+            />
+            @if (approx()) {
+              <span class="font-amount text-sm opacity-80">{{ approx() }}</span>
+            }
+          </div>
+          <!-- Shares are compared in dollars. -->
+          <pl-stacked-bar [segments]="split()" currency="USD" />
+          <!-- MON-03: what each currency adds, in its own currency. -->
+          <ul class="flex flex-wrap justify-between gap-x-4 gap-y-2 text-[15px]">
+            @for (line of s.byCurrency; track line.currency) {
+              <li class="flex items-center gap-2">
+                <span
+                  class="size-2.5 rounded-full"
+                  [class]="dotClass(line.currency)"
+                  aria-hidden="true"
+                ></span
+                >{{ currencyNames[line.currency] }}
+                <pl-money [amount]="line.amount" [currency]="line.currency" [decimals]="false" />
+              </li>
+            }
+          </ul>
+        </section>
+        @if (invested(); as inv) {
+          <!-- INV-06: what part of the total is invested, with its yield; opens the other tab. -->
+          <a
+            routerLink="/app/ahorros/inversiones"
+            class="flex flex-col gap-2 rounded-card bg-surface p-5 hover:bg-field"
+          >
+            <span class="text-[15px] text-muted">{{ texts.invested }}</span>
+            <pl-money
+              class="text-3xl font-semibold tracking-tight"
+              [amount]="inv.base.value"
+              [currency]="inv.base.currency"
+              [decimals]="false"
+            />
+            <span
+              class="font-amount self-start rounded-xl px-3 py-1 text-sm font-semibold"
+              [class]="
+                investedPositive() ? 'bg-brand-soft text-brand-strong' : 'bg-expense-soft text-ink'
+              "
+            >
+              {{ investedPositive() ? '+' : '−' }}
+              <pl-money
+                [amount]="investedYield()"
+                [currency]="inv.base.currency"
+                [decimals]="false"
+                sign="never"
+              />
+              @if (inv.base.yieldRate) {
+                · {{ rate(inv.base.yieldRate) }}
+              }
+            </span>
+            <span class="mt-auto text-sm text-muted">
+              {{
+                inv.lastValuationDate
+                  ? texts.lastValues(valuedOn(inv.lastValuationDate))
+                  : texts.noValuesYet
+              }}
+              · <span class="font-semibold text-brand-strong">{{ texts.seeInvestments }}</span>
+            </span>
+          </a>
+        }
+      </div>
     }
 
-    <section class="flex flex-col gap-2">
-      <div class="flex items-baseline justify-between">
-        <h2 class="text-xl font-bold">{{ texts.goals }}</h2>
-        <div class="flex items-center gap-2">
-          <pl-usage resource="goals" />
+    <div class="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-5">
+      <section class="flex flex-col gap-2">
+        <div class="flex items-baseline justify-between">
+          <h2 class="text-xl font-bold">{{ texts.goals }}</h2>
+          <div class="flex items-center gap-2">
+            <pl-usage resource="goals" />
+            <button
+              type="button"
+              class="inline-flex min-h-11 items-center gap-1.5 font-semibold text-brand-strong"
+              plPlanGate="goals"
+              (click)="newGoal()"
+            >
+              {{ texts.newGoal }}
+            </button>
+          </div>
+        </div>
+        @for (goal of store.goals(); track goal.id) {
+          <a
+            [routerLink]="['/app/metas', goal.id]"
+            class="flex flex-col gap-3 rounded-tile bg-surface p-4"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <span class="truncate text-[17px] font-semibold">{{ goal.name }}</span>
+              <span
+                class="shrink-0 rounded-full px-3 py-1 text-xs font-semibold"
+                [class]="badgeClass(goal)"
+              >
+                {{ badge(goal) }}
+              </span>
+            </div>
+            <div
+              class="rounded-full py-1"
+              [plChartPoint]="goal.name"
+              [amount]="goal.projection.accumulated"
+              [currency]="goal.currency"
+            >
+              <pl-progress
+                [value]="percent(goal)"
+                [tone]="goal.currency === 'USD' ? 'savings' : 'brand'"
+                [label]="goal.name"
+              />
+            </div>
+            <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <span class="font-amount text-[15px]">
+                <pl-money
+                  [amount]="goal.projection.accumulated"
+                  [currency]="goal.currency"
+                  [decimals]="false"
+                />
+                <span class="text-muted"> / {{ target(goal) }}</span>
+              </span>
+              <span class="text-sm text-muted">{{ monthlyLine(goal) }}</span>
+            </div>
+          </a>
+        } @empty {
+          <pl-empty-state
+            icon="piggy-bank"
+            [heading]="texts.noGoalsTitle"
+            [description]="texts.noGoalsBody"
+          >
+            <button plButton type="button" plPlanGate="goals" (click)="newGoal()">
+              {{ texts.newGoal }}
+            </button>
+          </pl-empty-state>
+        }
+      </section>
+
+      <section class="flex flex-col gap-2">
+        <h2 class="text-xl font-bold">{{ texts.accounts }}</h2>
+        <ul class="rounded-tile bg-surface px-4">
+          @for (pocket of savingsPockets(); track pocket.id) {
+            <li class="border-b border-line-soft last:border-b-0">
+              <a
+                [routerLink]="['/app/reservas', pocket.id]"
+                class="flex min-h-14 items-center gap-3 rounded-xl"
+              >
+                <span class="size-2.5 rounded-full bg-savings" aria-hidden="true"></span>
+                <span class="flex min-w-0 flex-1 flex-col">
+                  <span class="truncate text-[17px]">{{ pocket.name }}</span>
+                  <span class="truncate text-sm text-muted">{{ pocket.accountName }}</span>
+                </span>
+                <pl-money
+                  class="text-[17px]"
+                  [amount]="pocket.balance"
+                  [currency]="pocket.currency"
+                  [decimals]="false"
+                />
+              </a>
+            </li>
+          } @empty {
+            <li class="py-4 text-sm text-muted">{{ texts.noAccounts }}</li>
+          }
+        </ul>
+        <div class="flex flex-wrap items-center gap-x-4">
           <button
             type="button"
             class="inline-flex min-h-11 items-center gap-1.5 font-semibold text-brand-strong"
-            plPlanGate="goals"
-            (click)="newGoal()"
+            plPlanGate="pockets"
+            (click)="newPocket('SAVINGS')"
           >
-            {{ texts.newGoal }}
+            {{ texts.newSavingsPocket }}
           </button>
+          <pl-usage resource="pockets" />
         </div>
-      </div>
-      @for (goal of store.goals(); track goal.id) {
-        <a
-          [routerLink]="['/app/metas', goal.id]"
-          class="flex flex-col gap-3 rounded-tile bg-surface p-4"
-        >
-          <div class="flex items-center justify-between gap-2">
-            <span class="truncate text-[17px] font-semibold">{{ goal.name }}</span>
-            <span
-              class="shrink-0 rounded-full px-3 py-1 text-xs font-semibold"
-              [class]="badgeClass(goal)"
-            >
-              {{ badge(goal) }}
-            </span>
-          </div>
-          <div
-            class="rounded-full py-1"
-            [plChartPoint]="goal.name"
-            [amount]="goal.projection.accumulated"
-            [currency]="goal.currency"
-          >
-            <pl-progress
-              [value]="percent(goal)"
-              [tone]="goal.currency === 'USD' ? 'savings' : 'brand'"
-              [label]="goal.name"
-            />
-          </div>
-          <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-            <span class="font-amount text-[15px]">
-              <pl-money
-                [amount]="goal.projection.accumulated"
-                [currency]="goal.currency"
-                [decimals]="false"
-              />
-              <span class="text-muted"> / {{ target(goal) }}</span>
-            </span>
-            <span class="text-sm text-muted">{{ monthlyLine(goal) }}</span>
-          </div>
-        </a>
-      } @empty {
-        <pl-empty-state
-          icon="piggy-bank"
-          [heading]="texts.noGoalsTitle"
-          [description]="texts.noGoalsBody"
-        >
-          <button plButton type="button" plPlanGate="goals" (click)="newGoal()">
-            {{ texts.newGoal }}
-          </button>
-        </pl-empty-state>
-      }
-    </section>
-
-    <section class="flex flex-col gap-2">
-      <h2 class="text-xl font-bold">{{ texts.accounts }}</h2>
-      <ul class="rounded-tile bg-surface px-4">
-        @for (pocket of savings()?.pockets ?? []; track pocket.id) {
-          <li class="border-b border-line-soft last:border-b-0">
-            <a
-              [routerLink]="['/app/reservas', pocket.id]"
-              class="flex min-h-14 items-center gap-3 rounded-xl"
-            >
-              <span
-                class="size-2.5 rounded-full"
-                [class.bg-savings]="pocket.kind === 'SAVINGS'"
-                [class.bg-card]="pocket.kind === 'INVESTMENT'"
-                aria-hidden="true"
-              ></span>
-              <span class="flex min-w-0 flex-1 flex-col">
-                <span class="truncate text-[17px]">{{ pocket.name }}</span>
-                <span class="truncate text-sm text-muted">{{ pocket.accountName }}</span>
-              </span>
-              <pl-money
-                class="text-[17px]"
-                [amount]="pocket.balance"
-                [currency]="pocket.currency"
-                [decimals]="false"
-              />
-            </a>
-          </li>
-        } @empty {
-          <li class="py-4 text-sm text-muted">{{ texts.noAccounts }}</li>
+        @if (hasInvestmentPockets()) {
+          <p class="text-sm text-muted">{{ texts.investmentPocketsElsewhere }}</p>
         }
-      </ul>
-      <div class="flex flex-wrap items-center gap-x-4">
-        <button
-          type="button"
-          class="inline-flex min-h-11 items-center gap-1.5 font-semibold text-brand-strong"
-          plPlanGate="pockets"
-          (click)="newPocket('SAVINGS')"
-        >
-          {{ texts.newSavingsPocket }}
-        </button>
-        <button
-          type="button"
-          class="inline-flex min-h-11 items-center gap-1.5 font-semibold text-brand-strong"
-          [plPlanGate]="investmentPocketGate"
-          (click)="newPocket('INVESTMENT')"
-        >
-          {{ texts.newInvestmentPocket }}
-        </button>
-        <pl-usage resource="pockets" />
-      </div>
-    </section>
+      </section>
+    </div>
   `,
 })
 export class SavingsPage {
   protected readonly texts = SAVINGS_TEXTS;
   protected readonly store = inject(SavingsStore);
   private readonly sheet = inject(PlBottomSheet);
+  private readonly plan = inject(PlanStore);
+  private readonly bus = inject(RefreshBus);
+
+  constructor() {
+    reloadOn(this.bus, ['accounts', 'movements'], () => {
+      if (this.investmentsResource.hasValue()) this.investmentsResource.reload();
+    });
+  }
 
   protected readonly savings = computed(() => this.store.savingsResource.value());
+  /** INV-06: this tab lists the savings pockets; the investment ones live in Inversiones. */
+  protected readonly savingsPockets = computed(() =>
+    (this.savings()?.pockets ?? []).filter((pocket) => pocket.kind === 'SAVINGS'),
+  );
+  protected readonly hasInvestmentPockets = computed(() =>
+    (this.savings()?.pockets ?? []).some((pocket) => pocket.kind === 'INVESTMENT'),
+  );
+
+  /**
+   * "De eso, invertido": only with investment pockets and a plan that includes them (asking
+   * otherwise would answer FEATURE_NOT_IN_PLAN and open the plan sheet).
+   */
+  private readonly investmentsResource = httpResource<Investments>(() =>
+    this.plan.plan() && this.plan.can('investments') && this.hasInvestmentPockets()
+      ? `${API}/investments`
+      : undefined,
+  );
+  protected readonly invested = computed(() =>
+    this.investmentsResource.hasValue() ? this.investmentsResource.value() : null,
+  );
+  protected readonly investedPositive = computed(
+    () => !this.invested()?.base.yield.startsWith('-'),
+  );
+  protected readonly investedYield = computed(
+    () => this.invested()?.base.yield.replace('-', '') ?? '0',
+  );
 
   protected readonly approx = computed(() => {
     const s = this.savings();
@@ -271,6 +342,14 @@ export class SavingsPage {
       tone: CURRENCY_TONES[line.currency],
     })),
   );
+
+  protected rate(value: string): string {
+    return formatRate(value);
+  }
+
+  protected valuedOn(date: string): string {
+    return formatDate(parseLocalDate(date));
+  }
 
   protected dotClass(currency: Currency): string {
     return DOT_CLASSES[CURRENCY_TONES[currency]];
@@ -300,9 +379,6 @@ export class SavingsPage {
     });
     return `${monthly}${this.texts.perMonth} · ${formatPeriodShort(parsePeriod(goal.targetPeriod))}`;
   }
-
-  /** The plan mark shows the feature first: that's what "Pro" adds. */
-  protected readonly investmentPocketGate = ['investments', 'pockets'] as const;
 
   protected newPocket(kind: PocketKind): void {
     this.sheet.open(PocketFormSheet, {

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { LucideChevronLeft, LucideRefreshCw } from '@lucide/angular';
+import { LucideRefreshCw } from '@lucide/angular';
 import type { Instrument, InvestmentPocket } from '@platin/contracts';
 import { daysBetween, parseLocalDate } from '@platin/domain';
 import {
@@ -35,24 +35,13 @@ import { INVESTMENTS_TEXTS } from './investments.texts';
     PlErrorState,
     PlSkeleton,
     PlStackedBar,
-    LucideChevronLeft,
     LucideRefreshCw,
     PlanGate,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-4' },
   template: `
-    <header class="flex items-center gap-2">
-      <a
-        routerLink="/app/ahorros"
-        class="flex size-11 items-center justify-center rounded-full hover:bg-field"
-        [attr.aria-label]="t.back"
-      >
-        <svg lucideChevronLeft [size]="24"></svg>
-      </a>
-      <h1 class="text-3xl font-bold">{{ t.title }}</h1>
-    </header>
-
+    <!-- Ahorros e inversiones › Inversiones (INV-06): the section has the title. -->
     @if (store.resource.error() && !store.resource.hasValue()) {
       <pl-error-state (retry)="store.resource.reload()" />
     } @else if (!data()) {
@@ -64,121 +53,146 @@ import { INVESTMENTS_TEXTS } from './investments.texts';
         </button>
       </pl-empty-state>
     } @else if (data(); as d) {
-      <section class="flex flex-col gap-4 rounded-card bg-surface p-5" [attr.aria-label]="t.value">
-        <div class="flex flex-col gap-2">
-          <span class="text-[15px] text-muted">{{ t.value }}</span>
-          <pl-money
-            class="text-4xl font-semibold tracking-tight"
-            [amount]="d.base.value"
-            [currency]="d.base.currency"
-            [decimals]="false"
-          />
-          <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span
-              class="font-amount rounded-xl px-3 py-1.5 text-[15px] font-semibold"
-              [class]="positive() ? 'bg-brand-soft text-brand-strong' : 'bg-expense-soft text-ink'"
-            >
-              {{ positive() ? '+' : '−' }}
-              <pl-money
-                [amount]="absYield()"
-                [currency]="d.base.currency"
-                [decimals]="false"
-                sign="never"
-              />
-              @if (d.base.yieldRate) {
-                · {{ rate(d.base.yieldRate) }}
-              }
-            </span>
-            <span class="text-[15px] text-muted">{{ overText() }}</span>
-          </div>
-        </div>
-        @if (d.totals.length > 1 || d.totals[0]?.currency !== d.base.currency) {
-          <!-- MON-03: the value in each currency; the big number above is the total valued. -->
-          <ul
-            class="flex flex-col gap-1 border-t border-line-soft pt-3"
-            [attr.aria-label]="t.byCurrency"
-          >
-            @for (line of d.totals; track line.currency) {
-              <li class="flex items-baseline justify-between gap-3 text-[15px]">
-                <span class="text-muted">{{ currencyNames[line.currency] }}</span>
-                <pl-money [amount]="line.value" [currency]="line.currency" [decimals]="false" />
-              </li>
-            }
-          </ul>
-        }
-        @if (composition().length > 0) {
-          <pl-stacked-bar [segments]="composition()" [currency]="d.base.currency" />
-          <ul class="flex flex-wrap gap-x-5 gap-y-1 text-[15px]" [attr.aria-label]="t.composition">
-            @for (part of composition(); track part.label) {
-              <li class="flex items-center gap-2">
-                <span
-                  class="size-2.5 rounded-full"
-                  [class]="toneBg[part.tone]"
-                  aria-hidden="true"
-                ></span>
-                {{ part.label }}
-              </li>
-            }
-          </ul>
-        }
-      </section>
-
-      <section class="flex items-center gap-3 rounded-card border border-dashed border-line p-4">
-        <svg lucideRefreshCw [size]="22" class="shrink-0 text-muted" aria-hidden="true"></svg>
-        <div class="flex min-w-0 flex-1 flex-col">
-          <span class="font-semibold">{{ t.manual }}</span>
-          <span class="text-sm text-muted">{{ lastUpdateText() }}</span>
-        </div>
-        <a
-          plButton="secondary"
-          size="sm"
-          routerLink="/app/inversiones/actualizar"
-          [attr.aria-label]="t.updateLabel"
-          >{{ t.update }}</a
+      <div
+        class="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start lg:gap-5"
+      >
+        <section
+          class="flex flex-col gap-4 rounded-card bg-surface p-5"
+          [attr.aria-label]="t.value"
         >
-      </section>
-
-      @for (account of d.accounts; track account.id) {
-        <section class="flex flex-col gap-2">
-          <h2 class="text-xl font-bold">{{ account.name }}</h2>
-          <ul class="rounded-tile bg-surface px-4">
-            @for (pocket of account.pockets; track pocket.id) {
-              <li class="border-b border-line-soft last:border-b-0">
-                <a
-                  [routerLink]="['/app/reservas', pocket.id]"
-                  class="flex min-h-[72px] items-center gap-3 rounded-xl py-3"
-                  [attr.aria-label]="t.openPocket(pocket.name)"
-                >
+          <div class="flex flex-col gap-2">
+            <span class="text-[15px] text-muted">{{ t.value }}</span>
+            <pl-money
+              class="text-4xl font-semibold tracking-tight"
+              [amount]="d.base.value"
+              [currency]="d.base.currency"
+              [decimals]="false"
+            />
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span
+                class="font-amount rounded-xl px-3 py-1.5 text-[15px] font-semibold"
+                [class]="
+                  positive() ? 'bg-brand-soft text-brand-strong' : 'bg-expense-soft text-ink'
+                "
+              >
+                {{ positive() ? '+' : '−' }}
+                <pl-money
+                  [amount]="absYield()"
+                  [currency]="d.base.currency"
+                  [decimals]="false"
+                  sign="never"
+                />
+                @if (d.base.yieldRate) {
+                  · {{ rate(d.base.yieldRate) }}
+                }
+              </span>
+              <span class="text-[15px] text-muted">{{ overText() }}</span>
+            </div>
+          </div>
+          @if (d.totals.length > 1 || d.totals[0]?.currency !== d.base.currency) {
+            <!-- MON-03: the value in each currency; the big number above is the total valued. -->
+            <ul
+              class="flex flex-col gap-1 border-t border-line-soft pt-3"
+              [attr.aria-label]="t.byCurrency"
+            >
+              @for (line of d.totals; track line.currency) {
+                <li class="flex items-baseline justify-between gap-3 text-[15px]">
+                  <span class="text-muted">{{ currencyNames[line.currency] }}</span>
+                  <pl-money [amount]="line.value" [currency]="line.currency" [decimals]="false" />
+                </li>
+              }
+            </ul>
+          }
+          @if (composition().length > 0) {
+            <pl-stacked-bar [segments]="composition()" [currency]="d.base.currency" />
+            <ul
+              class="flex flex-wrap gap-x-5 gap-y-1 text-[15px]"
+              [attr.aria-label]="t.composition"
+            >
+              @for (part of composition(); track part.label) {
+                <li class="flex items-center gap-2">
                   <span
-                    class="h-11 w-1.5 shrink-0 rounded-full"
-                    [class]="toneBg[tone(pocket.instrument)]"
+                    class="size-2.5 rounded-full"
+                    [class]="toneBg[part.tone]"
                     aria-hidden="true"
                   ></span>
-                  <span class="flex min-w-0 flex-1 flex-col">
-                    <span class="truncate text-[17px] font-semibold">{{ pocket.name }}</span>
-                    <span class="truncate text-sm text-muted">{{ subtitle(pocket) }}</span>
-                  </span>
-                  <span class="flex flex-col items-end">
-                    <pl-money
-                      class="text-[17px]"
-                      [amount]="pocket.summary.value"
-                      [currency]="pocket.currency"
-                      [decimals]="false"
-                    />
-                    @if (pocket.summary.yieldRate) {
-                      <span
-                        class="font-amount text-sm"
-                        [class.text-brand-strong]="!pocket.summary.yieldRate.startsWith('-')"
-                        >{{ rate(pocket.summary.yieldRate) }}</span
-                      >
-                    }
-                  </span>
-                </a>
-              </li>
-            }
-          </ul>
+                  {{ part.label }}
+                </li>
+              }
+            </ul>
+          }
         </section>
-      }
+
+        <section
+          class="flex items-center gap-3 rounded-card border border-dashed border-line p-4 lg:flex-col lg:items-start lg:p-5"
+        >
+          <svg lucideRefreshCw [size]="22" class="shrink-0 text-muted" aria-hidden="true"></svg>
+          <div class="flex min-w-0 flex-1 flex-col">
+            <span class="font-semibold">{{ t.manual }}</span>
+            <span class="text-sm text-muted">{{ lastUpdateText() }}</span>
+          </div>
+          <a
+            plButton="secondary"
+            size="sm"
+            routerLink="/app/inversiones/actualizar"
+            [attr.aria-label]="t.updateLabel"
+            >{{ t.update }}</a
+          >
+        </section>
+      </div>
+
+      <!-- From lg, two accounts per row. -->
+      <div class="flex flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-5">
+        @for (account of d.accounts; track account.id) {
+          <section class="flex flex-col gap-2">
+            <h2 class="text-xl font-bold">{{ account.name }}</h2>
+            <ul class="rounded-tile bg-surface px-4">
+              @for (pocket of account.pockets; track pocket.id) {
+                <li class="border-b border-line-soft last:border-b-0">
+                  <a
+                    [routerLink]="['/app/reservas', pocket.id]"
+                    class="flex min-h-[72px] items-center gap-3 rounded-xl py-3"
+                    [attr.aria-label]="t.openPocket(pocket.name)"
+                  >
+                    <span
+                      class="h-11 w-1.5 shrink-0 rounded-full"
+                      [class]="toneBg[tone(pocket.instrument)]"
+                      aria-hidden="true"
+                    ></span>
+                    <span class="flex min-w-0 flex-1 flex-col">
+                      <span class="truncate text-[17px] font-semibold">{{ pocket.name }}</span>
+                      <span class="truncate text-sm text-muted">{{ subtitle(pocket) }}</span>
+                    </span>
+                    <span class="flex flex-col items-end">
+                      <pl-money
+                        class="text-[17px]"
+                        [amount]="pocket.summary.value"
+                        [currency]="pocket.currency"
+                        [decimals]="false"
+                      />
+                      @if (pocket.summary.yieldRate) {
+                        <span
+                          class="font-amount text-sm"
+                          [class.text-brand-strong]="!pocket.summary.yieldRate.startsWith('-')"
+                          >{{ rate(pocket.summary.yieldRate) }}</span
+                        >
+                      }
+                    </span>
+                  </a>
+                </li>
+              }
+            </ul>
+          </section>
+        }
+      </div>
+      <button
+        type="button"
+        class="inline-flex min-h-11 items-center gap-1.5 self-start font-semibold text-brand-strong"
+        [plPlanGate]="pocketGate"
+        (click)="newPocket()"
+      >
+        {{ t.addPocket }}
+      </button>
     }
   `,
 })
