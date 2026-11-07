@@ -61,6 +61,13 @@ export const PLANS_TEXTS = {
   investmentsIncluded: 'Inversiones incluidas',
   investmentsNotIncluded: 'Sin inversiones',
   askAnother: 'Pedir otro plan',
+  // AUTH-10: the plan in one line.
+  changePlan: 'Cambiar de plan',
+  planKind: (unlimited: boolean, investments: boolean) =>
+    `${unlimited ? 'Sin límites' : 'Con límites'}, ${investments ? 'con inversiones' : 'sin inversiones'}.`,
+  youUse: 'Usás',
+  usedOf: (used: number, limit: number) => `${used} de ${limit}`,
+  and: 'y',
   page: {
     title: 'Planes',
     heading: 'Elegí cómo usar platin.',
