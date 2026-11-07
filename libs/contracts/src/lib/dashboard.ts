@@ -7,6 +7,7 @@ import {
   uuidSchema,
 } from './common';
 import { commitmentCategorySchema, payFromSchema } from './commitments';
+import { movementSchema } from './movements';
 
 export const dashboardQuerySchema = z.object({ period: periodSchema.optional() });
 
@@ -90,13 +91,24 @@ export const dashboardAccountSchema = z.object({
 export const dashboardUnassignedSchema = z.object({ toPay: z.string(), ...paymentsSchema });
 
 /**
- * DAS-01 / DAS-05: "Libre este mes" and how it is reached, all in base currency with today's
- * rate. For a previous month, `inAccounts` is the balance on its last day and the other two
- * parts are zero.
+ * DAS-01 / DAS-05: "Libre este mes" and how it is reached ("Cómo se llega al libre"), all in base
+ * currency with today's rate. For a previous month, `inAccounts` is the balance on its last day
+ * and `toCollect` and `toPay` are zero. Always:
+ * opening + received + toCollect + other = paidOut + reserved + toPay + free.
  */
 export const dashboardSchema = z.object({
   period: z.string(),
   currency: baseCurrencySchema,
+  /** Balance of the account balances and spending reserves at the end of the previous month. */
+  opening: z.string(),
+  /** Confirmed incomes of the month in those pockets ("cobrados"). */
+  received: z.string(),
+  /** Confirmed expenses and statement payments of the month from those pockets. */
+  paidOut: z.string(),
+  /** Moved to savings and investment reserves minus what came back (can be negative). */
+  reserved: z.string(),
+  /** Balance adjustments and what changing currencies left (signed; shown only if not zero). */
+  other: z.string(),
   /** Today's balance of the account balances and the spending reserves. */
   inAccounts: z.string(),
   /** Unconfirmed fixed incomes and scheduled incomes of the month. */
@@ -105,9 +117,7 @@ export const dashboardSchema = z.object({
   toPay: z.string(),
   /** inAccounts + toCollect − toPay (can be negative). */
   free: z.string(),
-  /** As data: confirmed expenses + card purchases of the month (by their total). */
-  spent: z.string(),
-  /** As data: saved or invested this month, minus what came back (can be negative). */
+  /** As data: saved or invested this month, minus what came back, at each transfer's rate. */
   saved: z.string(),
   pending: z.object({ count: z.number().int(), names: z.array(z.string()) }),
   /** Next 30 days: statements due and fixed items. */
@@ -121,8 +131,6 @@ export const dashboardSchema = z.object({
   perDay: z.string().nullable(),
   /** Days left in the month counting today (0 for a past month). */
   daysLeft: z.number().int(),
-  /** As data: confirmed incomes of the month ("entraron"). */
-  received: z.string(),
   /** Accounts with what they have to spend and pay this month (empty for a past month). */
   accounts: z.array(dashboardAccountSchema),
   /** What is to pay this month without a payment account; null when there is nothing. */
@@ -131,7 +139,62 @@ export const dashboardSchema = z.object({
   toPayItems: z.array(toPayItemSchema),
 });
 
+export const dashboardPeriodQuerySchema = z.object({ period: periodSchema });
+
+/**
+ * DAS-05, the month summary: a group of movements (a category, a card's statements, a reserve)
+ * with its total in base currency at today's rate, and its movements, newest first.
+ */
+export const monthGroupSchema = z.object({
+  /** Category, card or pocket id; "OTHER" for the rest of the categories, "NONE" without one. */
+  key: z.string(),
+  name: z.string(),
+  /** The category's icon and color; null for statements, reserves, "Otras" and "NONE". */
+  category: commitmentCategorySchema.nullable(),
+  /** A card group: the purchases its statements cover, from and to (YYYY-MM-DD). */
+  purchases: z.object({ from: z.string(), to: z.string() }).nullable(),
+  amount: z.string(),
+  movements: z.array(movementSchema),
+});
+
+/** `GET /dashboard/summary`: where the month's money came from and where it went. */
+export const monthSummarySchema = z.object({
+  period: z.string(),
+  currency: baseCurrencySchema,
+  opening: z.string(),
+  received: z.string(),
+  toCollect: z.string(),
+  paidOut: z.string(),
+  reserved: z.string(),
+  other: z.string(),
+  toPay: z.string(),
+  free: z.string(),
+  /** Confirmed incomes by category, largest first. */
+  income: z.array(monthGroupSchema),
+  /** Expenses by category: the 6 largest and "Otras". */
+  paidByCategory: z.array(monthGroupSchema),
+  /** Statement payments by card ("Resumen Visa Santander"). */
+  paidByCard: z.array(monthGroupSchema),
+  /** Net per savings or investment reserve, largest first. */
+  reservedByPocket: z.array(monthGroupSchema),
+});
+
+/** `GET /dashboard/income`: "Ingresos del mes", collected and still to collect. */
+export const monthIncomeSchema = z.object({
+  period: z.string(),
+  currency: baseCurrencySchema,
+  received: z.string(),
+  toCollect: z.string(),
+  /** Confirmed incomes in the account balances and spending reserves, newest first. */
+  collected: z.array(movementSchema),
+  /** Fixed and scheduled incomes still to collect, by date; `payFrom` is where they come in. */
+  pending: z.array(toPayItemSchema),
+});
+
 export type ToPayItem = z.infer<typeof toPayItemSchema>;
+export type MonthGroup = z.infer<typeof monthGroupSchema>;
+export type MonthSummary = z.infer<typeof monthSummarySchema>;
+export type MonthIncome = z.infer<typeof monthIncomeSchema>;
 export type DashboardAccount = z.infer<typeof dashboardAccountSchema>;
 export type DashboardUnassigned = z.infer<typeof dashboardUnassignedSchema>;
 export type UpcomingItem = z.infer<typeof upcomingItemSchema>;

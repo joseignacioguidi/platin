@@ -4,12 +4,15 @@ import type {
   Dashboard,
   DashboardAccount,
   DashboardUnassigned,
+  MonthIncome,
+  MonthSummary,
   ToPayItem,
   UpcomingItem,
 } from '@platin/contracts';
 import {
   accountCoverage,
   addDays,
+  addMonths,
   CommitmentItem,
   daysLeftIn,
   freePerDay,
@@ -17,10 +20,12 @@ import {
   Currency,
   duePeriods,
   firstDayOf,
-  freeThisMonth,
   lastDayOf,
   LocalDate,
   Money,
+  MonthCommitments,
+  MonthFlow,
+  monthFlow,
   Period,
   periodOf,
   RateTable,
@@ -32,6 +37,7 @@ import {
   utcToPeriod,
   valueIn,
   canConvert,
+  CardCurrency,
   commitmentsByMonth,
 } from '@platin/domain';
 import { PocketBalancesService } from '../accounts/pocket-balances.service';
@@ -42,9 +48,16 @@ import { baseCurrency, date, money as money2, toDbDate, toDbPeriod } from '../co
 import { FIXED_INCLUDE, FixedRow, toSchedule } from '../fixed/fixed.mapper';
 import type { Prisma } from '../generated/prisma/client';
 import { InvestmentsService } from '../investments/investments.service';
+import { toTransactionMovement } from '../movements/movements.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RatesService } from '../rates/rates.service';
-import { UserRates } from '../rates/user-rates.service';
+import {
+  flowByCurrency,
+  loadMonthRows,
+  MonthRows,
+  paidStatementCards,
+  summaryGroups,
+} from './month-rows';
 
 const UPCOMING_DAYS = 30;
 /** DAS-07: the next payments each account shows. */
@@ -58,6 +71,30 @@ interface AccountInfo {
 const STATEMENT_WITH_CARD = { ...STATEMENT_PARTS, card: { select: { name: true } } } as const;
 type StatementRow = Prisma.CardStatementGetPayload<{ include: typeof STATEMENT_WITH_CARD }>;
 
+type SpendableRow = Prisma.PocketGetPayload<{
+  include: { account: { select: { name: true; sortOrder: true } } };
+}>;
+
+interface MonthCore {
+  today: LocalDate;
+  period: Period;
+  past: boolean;
+  base: CardCurrency;
+  valuationRate: RateType;
+  fresh: boolean;
+  todayRate: Awaited<ReturnType<RatesService['rateFor']>>;
+  todayRates: RateTable;
+  toBase: (money: Money) => Money;
+  spendable: SpendableRow[];
+  balances: Map<string, Money>;
+  fixedItems: FixedRow[];
+  built: BuiltCommitments;
+  month: MonthCommitments;
+  rows: MonthRows;
+  toCollectItems: ToPayItem[];
+  flow: MonthFlow;
+}
+
 /**
  * DAS-01 / DAS-05 (iteration 6). All amounts in base currency, with today's rate:
  * - in your accounts = balance of the account balances and spending reserves (today, or on the
@@ -67,7 +104,8 @@ type StatementRow = Prisma.CardStatementGetPayload<{ include: typeof STATEMENT_W
  *   (commitmentsByMonth);
  * - free = in your accounts + to collect − to pay (card installments due after the month are
  *   left out, ADR 0029). A previous month only has the first part;
- * - spent and saved are shown as data apart.
+ * - how it is reached (iteration 11): opening balance, collected, paid out, reserved and other,
+ *   with monthFlow ("Cómo se llega al libre").
  */
 @Injectable()
 export class DashboardService {
@@ -75,59 +113,16 @@ export class DashboardService {
     private readonly prisma: PrismaService,
     private readonly clock: ClockService,
     private readonly rates: RatesService,
-    private readonly userRates: UserRates,
     private readonly investments: InvestmentsService,
     private readonly commitments: CommitmentsInputBuilder,
     private readonly balances: PocketBalancesService,
   ) {}
 
   async get(userId: string, requested?: Period): Promise<Dashboard> {
-    const today = this.clock.today();
-    const period = requested ?? periodOf(today);
+    const core = await this.core(userId, requested);
+    const { today, period, past, base, flow, balances, spendable, toBase, todayRates } = core;
     const range = { gte: toDbDate(firstDayOf(period)), lte: toDbDate(lastDayOf(period)) };
-    const fresh = await this.rates.refreshIfStale();
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    const base = baseCurrency(user.baseCurrency);
-    // Today's rates: the dollar of the preferred type, the other currencies at the oficial rate.
-    const todayRate = await this.rates.rateFor(user.valuationRate, today);
-    const todayRates = await this.rates.tableFor(user.valuationRate, today);
-    const toBase = (money: Money) =>
-      canConvert(money.currency, base, todayRates)
-        ? valueIn(money, base, todayRates)
-        : Money.zero(base);
-
-    const past = compareDates(period, periodOf(today)) < 0;
-    const [
-      spendable,
-      expenses,
-      incomes,
-      charges,
-      fixedItems,
-      monthFixedTx,
-      statements,
-      pending,
-      built,
-    ] = await Promise.all([
-      this.prisma.pocket.findMany({
-        where: { userId, kind: { in: ['AVAILABLE', 'SPENDING'] }, archivedAt: null },
-        include: { account: { select: { name: true, sortOrder: true } } },
-      }),
-      this.prisma.transaction.aggregate({
-        where: { userId, date: range, status: 'CONFIRMED', type: 'EXPENSE' },
-        _sum: { baseAmount: true },
-      }),
-      this.prisma.transaction.aggregate({
-        where: { userId, date: range, status: 'CONFIRMED', type: 'INCOME' },
-        _sum: { baseAmount: true },
-      }),
-      this.prisma.cardCharge.findMany({ where: { userId, date: range } }),
-      this.prisma.fixedItem.findMany({
-        where: { userId, pocketId: { not: null } },
-        include: FIXED_INCLUDE,
-      }),
-      this.prisma.transaction.findMany({
-        where: { userId, origin: 'FIXED', fixedPeriod: toDbPeriod(period) },
-      }),
+    const [statements, pending] = await Promise.all([
       this.prisma.cardStatement.findMany({
         where: {
           userId,
@@ -143,59 +138,11 @@ export class DashboardService {
         orderBy: { date: 'asc' },
         select: { description: true },
       }),
-      this.commitments.build(userId, period, period),
     ]);
-
-    const money = (value: { toFixed(d: number): string } | null) =>
-      Money.of((value ?? 0).toFixed(2), base);
-
-    const balances = await this.balances.balances(
-      userId,
-      spendable,
-      past ? lastDayOf(period) : undefined,
-    );
-    const inAccounts = Money.sum([...balances.values()].map(toBase), base);
-
-    // Fixed incomes of the month not confirmed yet: the pending movement's amount, else the
-    // expected one.
-    let fixedIncome = Money.zero(base);
-    for (const fixed of fixedItems.filter((f) => f.kind === 'INCOME')) {
-      for (const due of duePeriods(toSchedule(fixed), period, period)) {
-        const tx = monthFixedTx.find((t) => t.fixedId === fixed.id);
-        if (tx?.status === 'CONFIRMED') continue;
-        fixedIncome = fixedIncome.add(
-          toBase(tx ? Money.of(tx.amount.toFixed(2), tx.currency) : due.amount),
-        );
-      }
-    }
-    // Scheduled incomes of the month not confirmed yet (MOV-08).
-    const scheduledIncome = Money.sum(
-      (built.input.scheduled ?? []).filter((s) => s.kind === 'INCOME').map((s) => toBase(s.amount)),
-      base,
-    );
-
-    let cardSpent = Money.zero(base);
-    for (const charge of charges) {
-      const amount = Money.of(charge.totalAmount.toFixed(2), charge.currency);
-      if (charge.currency === base) {
-        cardSpent = cardSpent.add(amount);
-        continue;
-      }
-      const rate = await this.userRates.sellFor(userId, utcToLocalDate(charge.date));
-      if (rate) cardSpent = cardSpent.add(valueIn(amount, base, rate));
-    }
-
-    // The same rule and input as Compromisos (COM-02), for this month.
-    const [month] = commitmentsByMonth(built.input, period, 1);
-    const zero = Money.zero(base);
-    const toCollect = past ? zero : fixedIncome.add(scheduledIncome);
-    const toPay = past ? zero : month.committed.base;
-    const spent = money(expenses._sum.baseAmount).add(cardSpent);
-    const saved = await this.saved(userId, base, user.valuationRate, range);
-    const free = freeThisMonth({ inAccounts, toCollect, toPay });
+    const saved = await this.saved(userId, base, core.valuationRate, range);
 
     // DAS-07: the same items as "to pay", split by the account they are paid from.
-    const toPayItems = past ? [] : month.items.map((item) => this.toPayItem(item, built));
+    const toPayItems = past ? [] : core.month.items.map((item) => this.toPayItem(item, core.built));
     const { accounts, unassigned } = past
       ? { accounts: [], unassigned: null }
       : await this.accountPayments(userId, spendable, balances, toPayItems, toBase, todayRates);
@@ -203,11 +150,15 @@ export class DashboardService {
     return {
       period,
       currency: base,
-      inAccounts: inAccounts.toString(),
-      toCollect: toCollect.toString(),
-      toPay: toPay.toString(),
-      free: free.toString(),
-      spent: spent.toString(),
+      opening: flow.opening.toString(),
+      received: flow.received.toString(),
+      paidOut: flow.paidOut.toString(),
+      reserved: flow.reserved.toString(),
+      other: flow.other.toString(),
+      inAccounts: flow.inAccounts.toString(),
+      toCollect: flow.toCollect.toString(),
+      toPay: flow.toPay.toString(),
+      free: flow.free.toString(),
       saved: saved.toString(),
       pending: {
         count: pending.length,
@@ -216,26 +167,207 @@ export class DashboardService {
       upcoming: this.upcoming(
         today,
         statements,
-        fixedItems,
+        core.fixedItems,
         await this.confirmedFixedKeys(userId, today),
         await this.upcomingScheduled(userId, today),
       ),
-      rate: todayRate
+      rate: core.todayRate
         ? {
-            type: todayRate.type,
-            sell: todayRate.sell,
-            date: todayRate.date,
-            stale: !fresh || todayRate.date !== today,
+            type: core.todayRate.type,
+            sell: core.todayRate.sell,
+            date: core.todayRate.date,
+            stale: !core.fresh || core.todayRate.date !== today,
           }
         : null,
       valuationsOverdue: await this.investments.overdue(userId),
-      perDay: freePerDay(free, today, period)?.toString() ?? null,
+      perDay: freePerDay(flow.free, today, period)?.toString() ?? null,
       daysLeft: daysLeftIn(period, today),
-      received: money(incomes._sum.baseAmount).toString(),
       accounts,
       unassigned,
       toPayItems,
     };
+  }
+
+  /** DAS-05, the month summary: where the money came from and where it went. */
+  async summary(userId: string, period: Period): Promise<MonthSummary> {
+    const core = await this.core(userId, period);
+    const cards = await paidStatementCards(this.prisma, userId, core.rows);
+    return {
+      ...this.totals(core),
+      ...summaryGroups(core.rows, new Set(core.spendable.map((p) => p.id)), cards, core.toBase),
+    };
+  }
+
+  /** DAS-05, "Ingresos del mes": collected and still to collect. */
+  async income(userId: string, period: Period): Promise<MonthIncome> {
+    const core = await this.core(userId, period);
+    return {
+      period: core.period,
+      currency: core.base,
+      received: core.flow.received.toString(),
+      toCollect: core.flow.toCollect.toString(),
+      collected: core.rows.transactions
+        .filter((tx) => tx.type === 'INCOME')
+        .map(toTransactionMovement),
+      pending: core.toCollectItems,
+    };
+  }
+
+  private totals(core: MonthCore) {
+    const { flow } = core;
+    return {
+      period: core.period,
+      currency: core.base,
+      opening: flow.opening.toString(),
+      received: flow.received.toString(),
+      toCollect: flow.toCollect.toString(),
+      paidOut: flow.paidOut.toString(),
+      reserved: flow.reserved.toString(),
+      other: flow.other.toString(),
+      toPay: flow.toPay.toString(),
+      free: flow.free.toString(),
+    };
+  }
+
+  /**
+   * What the home, the month summary and the month incomes share: the balances at the start and
+   * now (or at the end of a previous month), the month's movements of those pockets, what is
+   * still to collect and to pay, and the month flow that joins them (DAS-05).
+   */
+  private async core(userId: string, requested?: Period): Promise<MonthCore> {
+    const today = this.clock.today();
+    const period = requested ?? periodOf(today);
+    const fresh = await this.rates.refreshIfStale();
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const base = baseCurrency(user.baseCurrency);
+    // Today's rates: the dollar of the preferred type, the other currencies at the oficial rate.
+    const todayRate = await this.rates.rateFor(user.valuationRate, today);
+    const todayRates = await this.rates.tableFor(user.valuationRate, today);
+    const toBase = (money: Money) =>
+      canConvert(money.currency, base, todayRates)
+        ? valueIn(money, base, todayRates)
+        : Money.zero(base);
+
+    const past = compareDates(period, periodOf(today)) < 0;
+    // A previous month ends on its last day; this one (or a later one) runs until today's
+    // balance, so the flow closes with it.
+    const dates = past
+      ? { gte: toDbDate(firstDayOf(period)), lte: toDbDate(lastDayOf(period)) }
+      : { gte: toDbDate(firstDayOf(period)) };
+    const [spendable, fixedItems, monthFixedTx, built] = await Promise.all([
+      this.prisma.pocket.findMany({
+        where: { userId, kind: { in: ['AVAILABLE', 'SPENDING'] }, archivedAt: null },
+        include: { account: { select: { name: true, sortOrder: true } } },
+      }),
+      this.prisma.fixedItem.findMany({
+        where: { userId, pocketId: { not: null } },
+        include: FIXED_INCLUDE,
+      }),
+      this.prisma.transaction.findMany({
+        where: { userId, origin: 'FIXED', fixedPeriod: toDbPeriod(period) },
+      }),
+      this.commitments.build(userId, period, period),
+    ]);
+    const ids = spendable.map((pocket) => pocket.id);
+    const [balances, openings, rows] = await Promise.all([
+      this.balances.balances(userId, spendable, past ? lastDayOf(period) : undefined),
+      this.balances.balances(userId, spendable, lastDayOf(addMonths(period, -1))),
+      loadMonthRows(this.prisma, userId, ids, dates),
+    ]);
+    const inAccounts = Money.sum([...balances.values()].map(toBase), base);
+
+    const toCollectItems = past ? [] : this.toCollectItems(period, fixedItems, monthFixedTx, built);
+    // The same rule and input as Compromisos (COM-02), for this month.
+    const [month] = commitmentsByMonth(built.input, period, 1);
+    const zero = Money.zero(base);
+    const flow = monthFlow({
+      base,
+      rates: todayRates,
+      currencies: flowByCurrency(
+        rows,
+        spendable.map((pocket) => ({
+          id: pocket.id,
+          currency: pocket.currency,
+          opening: openings.get(pocket.id) ?? Money.zero(pocket.currency),
+          closing: balances.get(pocket.id) ?? Money.zero(pocket.currency),
+        })),
+      ),
+      inAccounts,
+      toCollect: Money.sum(
+        toCollectItems.map((item) => toBase(Money.of(item.amount, item.currency))),
+        base,
+      ),
+      toPay: past ? zero : month.committed.base,
+    });
+
+    return {
+      today,
+      period,
+      past,
+      base,
+      valuationRate: user.valuationRate,
+      fresh,
+      todayRate,
+      todayRates,
+      toBase,
+      spendable,
+      balances,
+      fixedItems,
+      built,
+      month,
+      rows,
+      toCollectItems,
+      flow,
+    };
+  }
+
+  /**
+   * Still to collect this month: fixed incomes not confirmed (the pending movement's amount,
+   * else the expected one) and scheduled incomes (MOV-08), by date.
+   */
+  private toCollectItems(
+    period: Period,
+    fixedItems: FixedRow[],
+    monthFixedTx: {
+      fixedId: string | null;
+      status: string;
+      amount: Prisma.Decimal;
+      currency: Currency;
+    }[],
+    built: BuiltCommitments,
+  ): ToPayItem[] {
+    const items: ToPayItem[] = [];
+    for (const fixed of fixedItems.filter((f) => f.kind === 'INCOME')) {
+      for (const due of duePeriods(toSchedule(fixed), period, period)) {
+        const tx = monthFixedTx.find((t) => t.fixedId === fixed.id);
+        if (tx?.status === 'CONFIRMED') continue;
+        const amount = tx ? Money.of(tx.amount.toFixed(2), tx.currency) : due.amount;
+        items.push({
+          type: 'FIXED',
+          id: fixed.id,
+          cardId: null,
+          date: due.date,
+          name: fixed.name,
+          amount: amount.toString(),
+          currency: amount.currency,
+          payFrom: built.fixedPayers.get(fixed.id) ?? null,
+        });
+      }
+    }
+    for (const scheduled of built.input.scheduled ?? []) {
+      if (scheduled.kind !== 'INCOME') continue;
+      items.push({
+        type: 'SCHEDULED',
+        id: scheduled.id,
+        cardId: null,
+        date: scheduled.date,
+        name: scheduled.description,
+        amount: scheduled.amount.toString(),
+        currency: scheduled.amount.currency,
+        payFrom: built.scheduled.get(scheduled.id)?.payFrom ?? null,
+      });
+    }
+    return items.sort((a, b) => compareDates(a.date as LocalDate, b.date as LocalDate));
   }
 
   /** A line of "to pay this month" with where it is paid from (COM-04). */

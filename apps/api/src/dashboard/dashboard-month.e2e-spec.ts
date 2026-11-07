@@ -141,4 +141,238 @@ describe('dashboard: the whole month', () => {
       free: '1415000.00',
     });
   });
+
+  it('splits the month into opening, collected, paid out, reserved and other (DAS-05)', async () => {
+    await month();
+    const res = await as(ctx.app, user).get('/api/v1/dashboard').expect(200);
+    // Opening: ARS 700.000 + USD 100 × 1.200. Paid out: Coto + the September statement.
+    // Reserved: 300.000 − 20.000. Other: the −5.000 adjustment; the dollars bought cost 120.000
+    // and are worth 120.000 today.
+    expect(res.body).toMatchObject({
+      opening: '820000.00',
+      received: '1000000.00',
+      paidOut: '140000.00',
+      reserved: '280000.00',
+      other: '-5000.00',
+      free: '1415000.00',
+    });
+    expect(res.body).not.toHaveProperty('spent');
+  });
+
+  it('a previous month: what there was, came in, went out and was left', async () => {
+    await month();
+    const res = await as(ctx.app, user).get('/api/v1/dashboard?period=2026-09').expect(200);
+    expect(res.body).toMatchObject({
+      opening: '620000.00',
+      received: '200000.00',
+      paidOut: '0.00',
+      reserved: '0.00',
+      other: '0.00',
+      toCollect: '0.00',
+      toPay: '0.00',
+      inAccounts: '820000.00',
+      free: '820000.00',
+    });
+  });
+
+  it('the example of the rule "Cómo se llega al libre", with and without excess', async () => {
+    const api = as(ctx.app, user);
+    const pocket = await createPocket(ctx.app, user, { name: 'Banco', initialBalance: '300000' });
+    const savings = await addPocket(ctx.app, user, pocket.accountId, { name: 'Auto' });
+    const salary = await category(ctx.app, user, 'Sueldo');
+    const food = await category(ctx.app, user, 'Supermercado');
+    const rent = await category(ctx.app, user, 'Alquiler');
+    const tx = (body: Record<string, unknown>) =>
+      api
+        .post('/api/v1/transactions')
+        .send({ pocketId: pocket.id, ...body })
+        .expect(201);
+    await tx({ type: 'INCOME', categoryId: salary.id, amount: '1600000', date: '2026-10-01' });
+    await tx({ type: 'EXPENSE', categoryId: food.id, amount: '650000', date: '2026-10-02' });
+    const fixed = (body: Record<string, unknown>) =>
+      api
+        .post('/api/v1/fixed')
+        .send({ pocketId: pocket.id, startPeriod: '2026-10', ...body })
+        .expect(201);
+    await fixed({
+      kind: 'INCOME',
+      name: 'Extra',
+      categoryId: salary.id,
+      amount: '400000',
+      dayOfMonth: 30,
+    });
+    await fixed({
+      kind: 'EXPENSE',
+      name: 'Alquiler',
+      categoryId: rent.id,
+      amount: '397218',
+      dayOfMonth: 28,
+    });
+    const save = (amount: string) =>
+      api
+        .post('/api/v1/transfers')
+        .send({
+          fromPocketId: pocket.id,
+          toPocketId: savings.id,
+          amountOut: amount,
+          date: '2026-10-05',
+        })
+        .expect(201);
+    await save('904000');
+
+    let res = await api.get('/api/v1/dashboard').expect(200);
+    expect(res.body).toMatchObject({
+      opening: '300000.00',
+      received: '1600000.00',
+      toCollect: '400000.00',
+      paidOut: '650000.00',
+      reserved: '904000.00',
+      toPay: '397218.00',
+      other: '0.00',
+      inAccounts: '346000.00',
+      free: '348782.00',
+    });
+
+    await save('396000');
+    res = await api.get('/api/v1/dashboard').expect(200);
+    expect(res.body).toMatchObject({
+      reserved: '1300000.00',
+      inAccounts: '-50000.00',
+      free: '-47218.00',
+    });
+  });
+
+  it('GET /dashboard/summary groups by category, card and reserve', async () => {
+    const { card, savings } = await month();
+    const res = await as(ctx.app, user).get('/api/v1/dashboard/summary?period=2026-10').expect(200);
+    expect(res.body).toMatchObject({
+      period: '2026-10',
+      currency: 'ARS',
+      opening: '820000.00',
+      received: '1000000.00',
+      toCollect: '400000.00',
+      paidOut: '140000.00',
+      reserved: '280000.00',
+      other: '-5000.00',
+      toPay: '380000.00',
+      free: '1415000.00',
+    });
+    expect(res.body.income).toEqual([
+      expect.objectContaining({ name: 'Sueldo', amount: '1000000.00' }),
+    ]);
+    expect(res.body.income[0].movements).toHaveLength(1);
+    expect(res.body.paidByCategory).toEqual([
+      expect.objectContaining({ name: 'Supermercado', amount: '50000.00' }),
+    ]);
+    // The September statement, paid in October, covers the purchases of September.
+    expect(res.body.paidByCard).toEqual([
+      expect.objectContaining({
+        key: card.id,
+        name: 'Visa',
+        amount: '90000.00',
+        purchases: { from: '2026-08-31', to: '2026-09-30' },
+      }),
+    ]);
+    expect(res.body.paidByCard[0].movements[0]).toMatchObject({
+      kind: 'TRANSFER',
+      amountOut: '90000.00',
+      statement: { cardName: 'Visa', period: '2026-09' },
+    });
+    // Reserves and withdrawals: 300.000 in, 20.000 back.
+    expect(res.body.reservedByPocket).toEqual([
+      expect.objectContaining({ key: savings.id, name: 'Ahorro', amount: '280000.00' }),
+    ]);
+    expect(res.body.reservedByPocket[0].movements).toHaveLength(2);
+  });
+
+  it('GET /dashboard/summary puts the categories after the 6 largest in "Otras"', async () => {
+    const api = as(ctx.app, user);
+    const pocket = await createPocket(ctx.app, user, { name: 'Banco', initialBalance: '100000' });
+    const categories = (await api.get('/api/v1/categories').expect(200)).body as {
+      id: string;
+      name: string;
+      kind: string;
+      parentId: string | null;
+    }[];
+    const expenses = categories.filter((c) => c.kind === 'EXPENSE' && !c.parentId).slice(0, 8);
+    expect(expenses).toHaveLength(8);
+    for (const [index, spending] of expenses.entries()) {
+      const i = index + 1;
+      await api
+        .post('/api/v1/transactions')
+        .send({
+          type: 'EXPENSE',
+          pocketId: pocket.id,
+          categoryId: spending.id,
+          amount: String(i * 100),
+          date: '2026-10-02',
+        })
+        .expect(201);
+    }
+    const res = await api.get('/api/v1/dashboard/summary?period=2026-10').expect(200);
+    const groups = res.body.paidByCategory as { key: string; name: string; amount: string }[];
+    expect(groups.map((g) => g.name)).toEqual([
+      ...expenses
+        .slice(2)
+        .reverse()
+        .map((c) => c.name),
+      '',
+    ]);
+    expect(groups[6]).toMatchObject({ key: 'OTHER', amount: '300.00' });
+  });
+
+  it('GET /dashboard/income lists what was collected and what is still to collect', async () => {
+    await month();
+    const api = as(ctx.app, user);
+    const res = await api.get('/api/v1/dashboard/income?period=2026-10').expect(200);
+    expect(res.body).toMatchObject({
+      period: '2026-10',
+      received: '1000000.00',
+      toCollect: '400000.00',
+      collected: [expect.objectContaining({ kind: 'TRANSACTION', amount: '1000000.00' })],
+      pending: [
+        expect.objectContaining({
+          type: 'FIXED',
+          name: 'Bono',
+          date: '2026-10-30',
+          amount: '400000.00',
+          payFrom: expect.objectContaining({ accountName: 'Galicia' }),
+        }),
+      ],
+    });
+    const september = await api.get('/api/v1/dashboard/income?period=2026-09').expect(200);
+    expect(september.body).toMatchObject({
+      received: '200000.00',
+      toCollect: '0.00',
+      pending: [],
+    });
+  });
+
+  it('the summary and the incomes need a period', async () => {
+    const api = as(ctx.app, user);
+    await api.get('/api/v1/dashboard/summary').expect(400);
+    await api.get('/api/v1/dashboard/income?period=octubre').expect(400);
+  });
+
+  it('isolation: another user sees an empty month', async () => {
+    await month();
+    const other = await registerUser(ctx.app, { name: 'Otra' });
+    const summary = await as(ctx.app, other)
+      .get('/api/v1/dashboard/summary?period=2026-10')
+      .expect(200);
+    expect(summary.body).toMatchObject({
+      opening: '0.00',
+      received: '0.00',
+      paidOut: '0.00',
+      free: '0.00',
+      income: [],
+      paidByCategory: [],
+      paidByCard: [],
+      reservedByPocket: [],
+    });
+    const income = await as(ctx.app, other)
+      .get('/api/v1/dashboard/income?period=2026-10')
+      .expect(200);
+    expect(income.body).toMatchObject({ collected: [], pending: [] });
+  });
 });

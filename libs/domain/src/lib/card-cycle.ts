@@ -1,4 +1,12 @@
-import { addMonths, compareDates, dayInPeriod, LocalDate, Period, periodOf } from './dates';
+import {
+  addDays,
+  addMonths,
+  compareDates,
+  dayInPeriod,
+  LocalDate,
+  Period,
+  periodOf,
+} from './dates';
 
 export interface CardCycle {
   /** Day of the month the statement closes (1-31). */
@@ -87,4 +95,20 @@ export function previousStatementWindow(
     return { period, ...dates };
   }
   return null;
+}
+
+/**
+ * The purchases a statement collects: from the day after the previous statement closed to its
+ * own closing date, both included (corrected dates are respected).
+ */
+export function statementPurchaseRange(
+  card: CardCycle,
+  period: Period,
+  overrides: StatementOverrides = new Map(),
+): { from: LocalDate; to: LocalDate } {
+  const previous = statementDatesFor(card, addMonths(period, -1), overrides);
+  return {
+    from: addDays(previous.closingDate, 1),
+    to: statementDatesFor(card, period, overrides).closingDate,
+  };
 }

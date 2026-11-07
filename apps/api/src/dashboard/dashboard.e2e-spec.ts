@@ -121,7 +121,12 @@ describe('dashboard', () => {
       toCollect: '1850000.00',
       toPay: '410000.00',
       free: '1421500.00',
-      spent: '42800.00',
+      // Phase 37: card purchases count when their statement is paid.
+      opening: '0.00',
+      received: '0.00',
+      paidOut: '18500.00',
+      reserved: '0.00',
+      other: '0.00',
       saved: '0.00',
       // The rent (Oct 28) is not to confirm until its date.
       pending: { count: 1, names: ['Sueldo'] },
@@ -238,12 +243,12 @@ describe('dashboard', () => {
       toCollect: '0.00',
       toPay: '0.00',
       free: '0.00',
-      // The September purchase still counts as spent in its month.
-      spent: '90000.00',
+      // The September purchase is paid with its statement, in October.
+      paidOut: '0.00',
     });
   });
 
-  it('confirming a fixed expense moves it from committed to spent', async () => {
+  it('confirming a fixed expense moves it from committed to paid out', async () => {
     await scenario();
     const api = as(ctx.app, user);
     const pending = (await api.get('/api/v1/movements?status=PENDING').expect(200)).body.items;
@@ -254,7 +259,7 @@ describe('dashboard', () => {
       .expect(200);
     const res = await api.get('/api/v1/dashboard').expect(200);
     expect(res.body).toMatchObject({
-      spent: '442800.00',
+      paidOut: '418500.00',
       toPay: '30000.00',
       free: '1401500.00',
       pending: { count: 1, names: ['Sueldo'] },
@@ -406,7 +411,7 @@ describe('dashboard', () => {
       toCollect: '0.00',
       toPay: '0.00',
       free: '0.00',
-      spent: '0.00',
+      paidOut: '0.00',
       saved: '0.00',
       pending: { count: 0 },
       upcoming: [],
