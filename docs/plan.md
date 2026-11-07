@@ -1272,6 +1272,52 @@ Forma de trabajo:
 - Rama feat/fase-36-navegacion-y-perfil. Todo en verde antes del PR, con capturas en escritorio (1440 px, claro y oscuro) de la barra, las tres pestañas de Compromisos, las dos de Ahorros e inversiones y el perfil, y en celular de "Más" y del perfil.
 ```
 
+## Iteración 11: el mes de punta a punta
+
+Una fase para que la tarjeta del libre explique de dónde salió la plata del mes y a dónde fue, y para ordenar las cuentas del inicio.
+
+| Fase | Qué se construye | Casos de uso | Terminado cuando |
+| --- | --- | --- | --- |
+| 37 | Tarjeta del libre con el mes completo, resumen del mes y cuentas en una tarjeta | DAS-05, DAS-07 | La barra suma exactamente lo que tuve en el mes, veo en qué se fue y, si me pasé, cuánto |
+
+## Fase 37 — El mes de punta a punta
+
+La tarjeta del libre deja de partir solo de lo que hay hoy: cuenta lo que tenías al empezar, lo que entró, lo que pagaste, lo que reservaste y lo que falta pagar, y todo cierra con el libre.
+
+**Terminado cuando:**
+- el ejemplo de la regla "Cómo se llega al libre", con y sin exceso, es un test literal y la identidad se verifica en `monthFlow`;
+- el libre que muestra el inicio es el mismo que antes de la fase para los mismos datos;
+- la barra mide lo que tuve en el mes y se reparte en ya pagaste, reservaste, para pagar y libre; con libre negativo se pasa de largo a rayas en rojo después de una marca, con "Te pasaste $ X";
+- "Ingresos del mes" abre lo cobrado y lo que falta cobrar;
+- "Libre" abre el resumen del mes, con lo pagado por categoría y por tarjeta y lo reservado por reserva, y cada grupo muestra sus movimientos;
+- "Tus cuentas y sus pagos" es una sola tarjeta con una sección por cuenta;
+- "El mes hasta hoy" ya no está en el inicio;
+- en un mes anterior, la tarjeta muestra lo que tenías, lo que entró, lo que pagaste, lo que reservaste y lo que quedó, sin por cobrar ni para pagar.
+
+```
+Leé CLAUDE.md; DAS-05, DAS-07 y las reglas "Libre este mes" y "Cómo se llega al libre" de docs/especificacion.md; y en docs/arquitectura.md "Iteración 11: el mes de punta a punta" y "Componentes y patrones de la iteración 11".
+
+Vamos a hacer la Fase 37 de docs/plan.md.
+
+Dominio:
+1. monthFlow en libs/domain, por moneda y valuado al final con la cotización de hoy, con la identidad de la regla. Tests literales con el ejemplo (con y sin exceso), más un cambio de pesos a dólares dentro de una cuenta, un ajuste positivo y uno negativo, un mes anterior y un mes sin saldo inicial.
+
+Backend:
+2. GET /dashboard con opening, received, paidOut, reserved y other; free sale de monthFlow. Antes de cambiar nada, agregá un test e2e que fije el free actual con datos de ejemplo y verificá que después de la fase da lo mismo. Sacá spent si nadie más lo usa (revisá el bot de Telegram y el resto de la web) y decime qué encontraste.
+3. GET /dashboard/summary?period= y GET /dashboard/income?period= según la arquitectura, con sus esquemas en libs/contracts. Tests e2e: el ejemplo de la regla, un pago de resumen agrupado por tarjeta, reservas y retiros, y aislamiento entre usuarios.
+
+Web:
+4. HomeFreeCard: barra de lo que tuviste en el mes, filas de DAS-05 con ⓘ (texto corto de qué es cada una) y ›, y el exceso a rayas con su marca y "Te pasaste $ X". Accesible: la barra tiene un resumen en texto para lectores de pantalla y los segmentos usan pl-chart-tooltip.
+5. IncomeSheet y MonthSummarySheet, pedidas al abrirlas; un movimiento abre su edición.
+6. HomeAccounts en una sola tarjeta con secciones por cuenta y "Ver los N pagos" al pie.
+7. Sacá HomeMonth del inicio, en celular y en escritorio.
+8. Textos en el archivo de textos del inicio.
+
+Forma de trabajo:
+- Plan primero, esperame.
+- Rama feat/fase-37-mes-completo. Todo en verde antes del PR, con capturas del inicio (libre positivo y negativo, claro y oscuro, celular y escritorio) y de las dos hojas.
+```
+
 ## Después del MVP
 
 La segunda tanda de la especificación, en fases chicas que se pueden hacer en cualquier orden. Los prompts siguen el mismo molde que las fases anteriores: leer `CLAUDE.md` y la sección de la especificación, plan primero, rama propia, PR con todo en verde.
