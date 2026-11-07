@@ -37,7 +37,7 @@ type ParsedQuery = Omit<MovementsQuery, 'limit'> & {
   until?: LocalDate;
 };
 
-const pocketRef = {
+export const pocketRef = {
   select: {
     id: true,
     name: true,
@@ -74,6 +74,74 @@ function toPocketRef(row: PocketRefRow) {
     accountId: row.accountId,
     accountName: row.account.name,
     currency: row.currency,
+  };
+}
+
+/** What a transaction needs to show as a movement. */
+export const TRANSACTION_MOVEMENT_INCLUDE = {
+  pocket: pocketRef,
+  category: { select: { id: true, name: true, icon: true, color: true } },
+} as const;
+
+/** What a transfer needs to show as a movement. */
+export const TRANSFER_MOVEMENT_INCLUDE = {
+  fromPocket: pocketRef,
+  toPocket: pocketRef,
+  statement: {
+    select: { id: true, period: true, card: { select: { id: true, name: true } } },
+  },
+} as const;
+
+export type TransactionMovementRow = Prisma.TransactionGetPayload<{
+  include: typeof TRANSACTION_MOVEMENT_INCLUDE;
+}>;
+export type TransferMovementRow = Prisma.TransferGetPayload<{
+  include: typeof TRANSFER_MOVEMENT_INCLUDE;
+}>;
+
+export function toTransactionMovement(row: TransactionMovementRow): Movement {
+  return {
+    kind: 'TRANSACTION',
+    id: row.id,
+    type: row.type,
+    status: row.status,
+    origin: row.origin,
+    channel: row.channel,
+    date: date(row.date),
+    amount: money(row.amount),
+    currency: row.currency,
+    baseAmount: money(row.baseAmount),
+    rateToBase: rate(row.rateToBase),
+    description: row.description,
+    pocket: toPocketRef(row.pocket),
+    category: row.category ? { ...row.category, color: row.category.color as ColorToken } : null,
+  };
+}
+
+export function toTransferMovement(row: TransferMovementRow): Movement {
+  const intent = row.toPocket ? transferIntent(row.fromPocket.kind, row.toPocket.kind) : null;
+  const dto = toTransferDto(row, row.fromPocket.currency, intent);
+  return {
+    kind: 'TRANSFER',
+    id: dto.id,
+    date: dto.date,
+    amountOut: dto.amountOut,
+    currencyOut: dto.currencyOut,
+    amountIn: dto.amountIn,
+    currencyIn: dto.currencyIn,
+    impliedRate: dto.impliedRate,
+    description: dto.description,
+    fromPocket: toPocketRef(row.fromPocket),
+    toPocket: row.toPocket ? toPocketRef(row.toPocket) : null,
+    intent,
+    statement: row.statement
+      ? {
+          id: row.statement.id,
+          cardId: row.statement.card.id,
+          cardName: row.statement.card.name,
+          period: utcToPeriod(row.statement.period),
+        }
+      : null,
   };
 }
 
@@ -117,56 +185,8 @@ export class MovementsService {
     ]);
 
     const merged: { key: Cursor; movement: Movement }[] = [
-      ...transactions.map((row) => ({
-        key: row,
-        movement: {
-          kind: 'TRANSACTION' as const,
-          id: row.id,
-          type: row.type,
-          status: row.status,
-          origin: row.origin,
-          channel: row.channel,
-          date: date(row.date),
-          amount: money(row.amount),
-          currency: row.currency,
-          baseAmount: money(row.baseAmount),
-          rateToBase: rate(row.rateToBase),
-          description: row.description,
-          pocket: toPocketRef(row.pocket),
-          category: row.category
-            ? { ...row.category, color: row.category.color as ColorToken }
-            : null,
-        },
-      })),
-      ...transfers.map((row) => {
-        const intent = row.toPocket ? transferIntent(row.fromPocket.kind, row.toPocket.kind) : null;
-        const dto = toTransferDto(row, row.fromPocket.currency, intent);
-        return {
-          key: row,
-          movement: {
-            kind: 'TRANSFER' as const,
-            id: dto.id,
-            date: dto.date,
-            amountOut: dto.amountOut,
-            currencyOut: dto.currencyOut,
-            amountIn: dto.amountIn,
-            currencyIn: dto.currencyIn,
-            impliedRate: dto.impliedRate,
-            description: dto.description,
-            fromPocket: toPocketRef(row.fromPocket),
-            toPocket: row.toPocket ? toPocketRef(row.toPocket) : null,
-            intent,
-            statement: row.statement
-              ? {
-                  id: row.statement.id,
-                  cardId: row.statement.card.id,
-                  cardName: row.statement.card.name,
-                  period: utcToPeriod(row.statement.period),
-                }
-              : null,
-          },
-        };
-      }),
+      ...transactions.map((row) => ({ key: row, movement: toTransactionMovement(row) })),
+      ...transfers.map((row) => ({ key: row, movement: toTransferMovement(row) })),
       ...charges.map((row) => ({
         key: row,
         movement: {
@@ -262,10 +282,7 @@ export class MovementsService {
     if (query.q) filters.OR = this.transactionSearch(query.q);
     return this.prisma.transaction.findMany({
       where: { AND: [filters, afterCursor(cursor)] },
-      include: {
-        pocket: pocketRef,
-        category: { select: { id: true, name: true, icon: true, color: true } },
-      },
+      include: TRANSACTION_MOVEMENT_INCLUDE,
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
       take,
     });
@@ -306,13 +323,7 @@ export class MovementsService {
     if (query.q) filters.description = { contains: query.q, mode: 'insensitive' };
     return this.prisma.transfer.findMany({
       where: { AND: [filters, afterCursor(cursor)] },
-      include: {
-        fromPocket: pocketRef,
-        toPocket: pocketRef,
-        statement: {
-          select: { id: true, period: true, card: { select: { id: true, name: true } } },
-        },
-      },
+      include: TRANSFER_MOVEMENT_INCLUDE,
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
       take,
     });

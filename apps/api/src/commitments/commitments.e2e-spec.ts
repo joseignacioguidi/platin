@@ -297,7 +297,7 @@ describe('commitments', () => {
           .send({ items: [{ id: body.id, amount: '47000', date: '2026-11-19' }] })
           .expect(200);
         const home = (await there.get('/api/v1/dashboard').expect(200)).body;
-        expect(home).toMatchObject({ spent: '47000.00', toPay: '0.00', pending: { count: 0 } });
+        expect(home).toMatchObject({ paidOut: '47000.00', toPay: '0.00', pending: { count: 0 } });
         expect((await there.get(`/api/v1/pockets/${galicia.id}`).expect(200)).body.balance).toBe(
           '953000.00',
         );

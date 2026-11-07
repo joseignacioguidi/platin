@@ -22,7 +22,7 @@ import { HomeAccounts } from './home-accounts';
 import { HomeAlerts, hasAlerts } from './home-alerts';
 import { HomeFreeCard } from './home-free-card';
 import { HomeGoals } from './home-goals';
-import { HomeMonth } from './home-month';
+
 import { HomeRecentMovements } from './home-recent-movements';
 import { HomeShortcuts } from './home-shortcuts';
 import { SETTINGS_TEXTS } from '../settings/settings.texts';
@@ -45,7 +45,6 @@ import { SETTINGS_TEXTS } from '../settings/settings.texts';
     HomeShortcuts,
     HomeAccounts,
     HomeGoals,
-    HomeMonth,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-5' },
@@ -87,8 +86,7 @@ import { SETTINGS_TEXTS } from '../settings/settings.texts';
     } @else if (data(); as d) {
       <!--
         DAS-07: one column on a phone, in this order. From xl, two rows: the free card (two
-        thirds) with the alerts and shortcuts beside it; then movements, accounts, and goals with
-        the month.
+        thirds) with the alerts and shortcuts beside it; then movements, accounts and goals.
       -->
       <div class="flex flex-col gap-5 xl:grid xl:grid-cols-3 xl:items-start">
         <pl-home-free-card
@@ -109,10 +107,7 @@ import { SETTINGS_TEXTS } from '../settings/settings.texts';
         @if (!past()) {
           <pl-home-accounts class="xl:col-start-2 xl:row-start-3" [dashboard]="d" />
         }
-        <div class="flex flex-col gap-5 xl:col-start-3 xl:row-start-3 xl:gap-4">
-          <pl-home-goals />
-          <pl-home-month [dashboard]="d" [past]="past()" />
-        </div>
+        <pl-home-goals class="xl:col-start-3 xl:row-start-3" />
       </div>
     }
   `,
@@ -141,7 +136,7 @@ export class DashboardPage {
     return name ? `${this.texts.hello}, ${name}` : this.texts.hello;
   });
 
-  /** A previous month only shows what was left in the accounts on its last day. */
+  /** A previous month has no "to collect", "to pay" nor accounts with payments. */
   protected readonly past = computed(() => {
     const d = this.data();
     return !!d && compareDates(d.period as Period, this.today.period()) < 0;

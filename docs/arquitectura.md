@@ -561,6 +561,22 @@ Sin cambios de esquema ni de API; las razones están en `docs/adr/0031-navegacio
 - El contador de pendientes de la navegación sale de `GET /movements?status=PENDING&until=<hoy>&limit=100`, en un servicio de raíz que se recarga con la clave `movements` del `RefreshBus`.
 - Metas y ahorros separa las reservas por `kind` (`SAVINGS` en esta pestaña, `INVESTMENT` en Inversiones) con los datos que ya trae. La tarjeta "De eso, invertido" usa `GET /investments`.
 
+### Iteración 11: el mes de punta a punta
+
+Sin cambios de esquema.
+
+- `libs/domain`: `monthFlow(input)` arma, por moneda, `{ opening, received, toCollect, paidOut, reserved, other, toPay, free }` y verifica la identidad de la regla "Cómo se llega al libre". Recibe los movimientos y transferencias del período ya agrupados por tipo y por moneda; valúa todo con la cotización de hoy al final. El ejemplo de la regla (con y sin exceso) es un test literal; más un caso con un cambio de pesos a dólares dentro de una cuenta y otro con un ajuste.
+- `opening` es el saldo de `AVAILABLE` y `SPENDING` al último día del mes anterior, con el mismo cálculo que el libre de un mes anterior.
+- `GET /dashboard` suma `opening`, `received`, `paidOut`, `reserved` y `other`, y `free` sale de `monthFlow` (tiene que dar lo mismo que hoy). Se quita `spent`, que solo usaba el bloque "El mes hasta hoy".
+- `GET /dashboard/summary?period=YYYY-MM`: el resumen del mes para la hoja, con los ingresos por categoría, lo pagado por categoría (6 y "Otras") y por tarjeta (con el período de compras de cada resumen), lo reservado por reserva y los ids de los movimientos de cada grupo. Se pide al abrir la hoja.
+- `GET /dashboard/income?period=YYYY-MM`: los ingresos cobrados y por cobrar del período, para la hoja de "Ingresos del mes".
+
+| Método y ruta | Caso de uso |
+| --- | --- |
+| `GET /dashboard` con `opening`, `received`, `paidOut`, `reserved` y `other` | DAS-05 |
+| `GET /dashboard/summary?period=YYYY-MM` | DAS-05 (resumen del mes) |
+| `GET /dashboard/income?period=YYYY-MM` | DAS-05 (ingresos del mes) |
+
 ## Backend
 
 Un módulo de Nest por dominio; los controladores son finos, los servicios orquestan y las reglas viven en `libs/domain`.
@@ -786,6 +802,15 @@ Cada feature tiene sus rutas (carga diferida), sus componentes de página y un s
 | Perfil y ajustes | `ProfileHeader` (nombre con edición en el lugar), Monedas y cotización con guardado al cambiar, `PlanSummary` compacto, Personalización, `SignInMethods` con "Definir" que abre el campo, `TelegramSettings` con las acciones en la fila del estado; en escritorio, dos columnas desde `lg` |
 | Ancho en escritorio | El `main` del shell se abre a `max-w-6xl` para el inicio, Compromisos, Ahorros e inversiones y el perfil; el resto sigue en `max-w-3xl` |
 | Texto rojo chico | `expense-ink` (zona peligrosa, "Desvincular"); `expense` queda para bordes y fondos |
+
+### Componentes y patrones de la iteración 11
+
+| Pieza | Uso |
+| --- | --- |
+| `HomeFreeCard` | Barra de lo que tuviste en el mes con ya pagaste (`expense`), reservaste (`savings`), para pagar (`pending`) y libre (`brand`). Con libre negativo, la barra se escala al total de lo que fue, una marca vertical en `ink` donde terminaba lo que tenías y el exceso a rayas en `expense-ink` con "Te pasaste $ X". Filas de DAS-05 con ⓘ y ›; las filas que valen 0 y son opcionales no se muestran |
+| `IncomeSheet` | Ingresos cobrados y por cobrar del período, con fecha, cuenta y monto |
+| `MonthSummarySheet` | El resumen del mes: grupos que se abren con sus movimientos; tocar un movimiento abre su edición |
+| `HomeAccounts` | Una sola `pl-card` con una sección por cuenta separada por un divisor (`border-line`); "Ver los N pagos" al pie |
 
 ## Auth y seguridad
 

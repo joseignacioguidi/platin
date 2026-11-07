@@ -15,6 +15,7 @@ export const INSTRUMENT_TONES: Record<Instrument, PlStackTone> = {
 /** Background class of each tone, for legend dots and row markers. */
 export const TONE_BG: Record<PlStackTone, string> = {
   expense: 'bg-expense',
+  muted: 'bg-muted',
   card: 'bg-card',
   brand: 'bg-brand',
   pending: 'bg-pending',

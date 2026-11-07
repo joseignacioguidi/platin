@@ -57,6 +57,7 @@ const DOT_CLASSES: Record<PlStackTone, string> = {
   card: 'bg-card',
   pending: 'bg-pending',
   expense: 'bg-expense',
+  muted: 'bg-muted',
 };
 
 const PACE_CLASS = {

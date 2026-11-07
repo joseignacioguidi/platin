@@ -3,6 +3,7 @@ import {
   previousStatementWindow,
   StatementDates,
   statementPeriodFor,
+  statementPurchaseRange,
 } from './card-cycle';
 import { Period } from './dates';
 import { d, p } from './test-helpers';
@@ -127,5 +128,23 @@ describe('previousStatementWindow', () => {
     expect(previousStatementWindow(card, d('2026-11-07'))).toBeNull();
     expect(previousStatementWindow(card, d('2026-11-07'), overrides)?.dueDate).toBe('2026-11-09');
     expect(previousStatementWindow(card, d('2026-10-27'), overrides)).toBeNull();
+  });
+});
+
+describe('statementPurchaseRange', () => {
+  const card = { closingDay: 15, dueDay: 5 };
+
+  it('goes from the day after the previous closing to its own closing', () => {
+    expect(statementPurchaseRange(card, p('2026-10'))).toEqual({
+      from: '2026-09-16',
+      to: '2026-10-15',
+    });
+  });
+
+  it('respects corrected dates of either statement', () => {
+    const overrides = new Map<Period, StatementDates>([
+      [p('2026-09'), { closingDate: d('2026-09-18'), dueDate: d('2026-10-05') }],
+    ]);
+    expect(statementPurchaseRange(card, p('2026-10'), overrides).from).toBe('2026-09-19');
   });
 });
