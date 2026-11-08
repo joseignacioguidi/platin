@@ -1,4 +1,9 @@
 export const DASHBOARD_TEXTS = {
+  setupMissing: {
+    both: 'Todavía sin fijos ni consumos de tarjeta.',
+    fixed: 'Todavía sin fijos.',
+    charges: 'Todavía sin consumos de tarjeta.',
+  },
   /** What each part of the free card means (its help tooltip). */
   help: {
     income: 'Lo que cobraste este mes más lo que falta cobrar.',

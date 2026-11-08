@@ -18,6 +18,7 @@ const ALL_KEYS: DataKey[] = [
   'commitments',
   'dashboard',
   'goals',
+  'onboarding',
 ];
 
 /** AUTH-09: what starting over would delete, and doing it. */

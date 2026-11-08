@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import type { Onboarding, OnboardingStepName, UpdateOnboardingStepRequest } from '@platin/contracts';
+import type {
+  Onboarding,
+  OnboardingStepName,
+  UpdateOnboardingStepRequest,
+} from '@platin/contracts';
 import {
   limitOf,
   markOnboardingStep,

@@ -128,7 +128,7 @@ export class RegisterPage {
         registerRequestSchema.parse({ ...rest, name: name.trim() || undefined }),
       );
       await this.session.started();
-      await this.router.navigateByUrl('/app/bienvenida');
+      await this.router.navigateByUrl('/app');
     } catch (error) {
       this.error.set(errorMessage(error));
     } finally {
