@@ -1,10 +1,9 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { httpResource } from '@angular/common/http';
-import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { LucideChevronDown, LucideChevronRight } from '@lucide/angular';
+import { LucideChevronDown } from '@lucide/angular';
 import type { MonthGroup, MonthSummary, Movement } from '@platin/contracts';
-import { parseLocalDate, parsePeriod, Period, toDecimal } from '@platin/domain';
+import { parseLocalDate, parsePeriod, Period } from '@platin/domain';
 import {
   formatDayMonth,
   formatPeriod,
@@ -19,12 +18,13 @@ import { MovementRow } from '../transactions/movement-row';
 import { MovementSheet } from '../transactions/movement-sheet';
 import { TRANSACTIONS_TEXTS } from '../transactions/transactions.texts';
 import { DASHBOARD_TEXTS } from './dashboard.texts';
-import { HomeToPay, ToPayData } from './home-to-pay';
+
+/** What the sheet shows: what was paid ("Ya pagaste") or what was reserved ("Reservaste"). */
+export type MonthSummaryView = 'paid' | 'reserved';
 
 export interface MonthSummaryData {
   period: Period;
-  /** "Para pagar" leads to its list. */
-  toPay: ToPayData;
+  view: MonthSummaryView;
 }
 
 /** A group as the sheet shows it. */
@@ -37,135 +37,69 @@ interface GroupView {
 }
 
 /**
- * DAS-05, the month summary ("Libre"): where the money came from and where it went. Groups by
- * category, card statement and reserve open to show their movements; a movement opens its edit
- * sheet. Requested when it opens.
+ * DAS-05, the month in detail (ADR 0034): "Ya pagaste" opens where the money went, by category
+ * and by card statement; "Reservaste" opens each reserve. Groups open to show their movements;
+ * a movement opens its edit sheet. Requested when it opens.
  */
 @Component({
   selector: 'pl-month-summary-sheet',
-  imports: [
-    NgTemplateOutlet,
-    PlSheet,
-    PlMoney,
-    PlSkeleton,
-    PlErrorState,
-    MovementRow,
-    LucideChevronDown,
-    LucideChevronRight,
-  ],
+  imports: [PlSheet, PlMoney, PlSkeleton, PlErrorState, MovementRow, LucideChevronDown],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="heading">
       @if (resource.hasValue()) {
         @let s = resource.value();
-        <section class="flex flex-col" [attr.aria-label]="texts.summaryHad">
-          <h3 class="pb-1 text-[13px] font-semibold text-muted uppercase">
-            {{ texts.summaryHad }}
-          </h3>
-          @if (!isZero(s.opening)) {
-            <ng-container
-              *ngTemplateOutlet="line; context: { label: texts.opening, amount: s.opening }"
-            />
+        <section class="flex flex-col" [attr.aria-label]="sectionTitle">
+          @if (data.view === 'paid') {
+            <h3 class="pb-1 text-[13px] font-semibold text-muted uppercase">
+              {{ texts.summaryWent }}
+            </h3>
           }
-          @for (group of income(); track group.key) {
-            <ng-container *ngTemplateOutlet="groupRow; context: { $implicit: group }" />
-          }
-          @if (!isZero(s.toCollect)) {
-            <ng-container
-              *ngTemplateOutlet="line; context: { label: texts.toCollect, amount: s.toCollect }"
-            />
-          }
-          @if (positive(s.other)) {
-            <ng-container
-              *ngTemplateOutlet="line; context: { label: texts.other, amount: s.other }"
-            />
-          }
-        </section>
-
-        <section class="mt-4 flex flex-col" [attr.aria-label]="texts.summaryWent">
-          <h3 class="pb-1 text-[13px] font-semibold text-muted uppercase">
-            {{ texts.summaryWent }}
-          </h3>
-          @for (group of went(); track group.key) {
-            <ng-container *ngTemplateOutlet="groupRow; context: { $implicit: group }" />
-          }
-          @if (!isZero(s.toPay)) {
+          @for (group of groups(); track group.key) {
             <div class="border-b border-line-soft">
               <button
                 type="button"
-                class="flex min-h-12 w-full items-center gap-3 text-left"
-                (click)="openToPay()"
+                class="flex min-h-12 w-full items-center gap-3 py-1.5 text-left"
+                [attr.aria-expanded]="expanded().has(group.key)"
+                (click)="toggle(group.key)"
               >
-                <span class="min-w-0 flex-1 text-[15px]">{{ texts.toPayMonth }}</span>
-                <pl-money class="text-[15px]" [amount]="s.toPay" [currency]="s.currency" />
+                <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span class="truncate text-[15px]">{{ group.name }}</span>
+                  @if (group.detail) {
+                    <span class="truncate text-[13px] text-muted">{{ group.detail }}</span>
+                  }
+                </span>
+                <pl-money class="text-[15px]" [amount]="group.amount" [currency]="s.currency" />
                 <svg
-                  lucideChevronRight
-                  class="shrink-0 text-muted"
+                  lucideChevronDown
+                  class="shrink-0 text-muted transition-transform"
+                  [class.rotate-180]="expanded().has(group.key)"
                   [size]="18"
                   aria-hidden="true"
                 ></svg>
               </button>
+              @if (expanded().has(group.key)) {
+                <ul class="mb-2 flex flex-col rounded-xl bg-field px-3">
+                  @for (movement of group.movements; track movement.kind + movement.id) {
+                    <li class="border-b border-line-soft last:border-b-0">
+                      <button
+                        type="button"
+                        class="block w-full rounded-xl text-left"
+                        (click)="edit(movement)"
+                      >
+                        <pl-movement-row [movement]="movement" [icons]="false" [dated]="true" />
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
             </div>
-          }
-          @if (s.other.startsWith('-')) {
-            <ng-container
-              *ngTemplateOutlet="line; context: { label: texts.other, amount: s.other }"
-            />
+          } @empty {
+            <p class="py-3 text-[15px] text-muted">
+              {{ data.view === 'paid' ? texts.noPaid : texts.noReserved }}
+            </p>
           }
         </section>
-
-        <div class="mt-2 flex min-h-12 items-center gap-3">
-          <span class="min-w-0 flex-1 text-base font-bold">{{ texts.leftOver }}</span>
-          <pl-money class="mr-7 text-base font-bold" [amount]="s.free" [currency]="s.currency" />
-        </div>
-
-        <ng-template #line let-label="label" let-amount="amount">
-          <div class="flex min-h-12 items-center gap-3 border-b border-line-soft">
-            <span class="min-w-0 flex-1 text-[15px]">{{ label }}</span>
-            <pl-money class="mr-7 text-[15px]" [amount]="amount" [currency]="s.currency" />
-          </div>
-        </ng-template>
-
-        <ng-template #groupRow let-group>
-          <div class="border-b border-line-soft">
-            <button
-              type="button"
-              class="flex min-h-12 w-full items-center gap-3 py-1.5 text-left"
-              [attr.aria-expanded]="expanded().has(group.key)"
-              (click)="toggle(group.key)"
-            >
-              <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span class="truncate text-[15px]">{{ group.name }}</span>
-                @if (group.detail) {
-                  <span class="truncate text-[13px] text-muted">{{ group.detail }}</span>
-                }
-              </span>
-              <pl-money class="text-[15px]" [amount]="group.amount" [currency]="s.currency" />
-              <svg
-                lucideChevronDown
-                class="shrink-0 text-muted transition-transform"
-                [class.rotate-180]="expanded().has(group.key)"
-                [size]="18"
-                aria-hidden="true"
-              ></svg>
-            </button>
-            @if (expanded().has(group.key)) {
-              <ul class="mb-2 flex flex-col rounded-xl bg-field px-3">
-                @for (movement of group.movements; track movement.kind + movement.id) {
-                  <li class="border-b border-line-soft last:border-b-0">
-                    <button
-                      type="button"
-                      class="block w-full rounded-xl text-left"
-                      (click)="edit(movement)"
-                    >
-                      <pl-movement-row [movement]="movement" [icons]="false" [dated]="true" />
-                    </button>
-                  </li>
-                }
-              </ul>
-            }
-          </div>
-        </ng-template>
       } @else if (resource.error()) {
         <pl-error-state (retry)="resource.reload()" />
       } @else {
@@ -176,14 +110,18 @@ interface GroupView {
 })
 export class MonthSummarySheet {
   protected readonly texts = DASHBOARD_TEXTS;
-  private readonly data = inject<MonthSummaryData>(DIALOG_DATA);
+  protected readonly data = inject<MonthSummaryData>(DIALOG_DATA);
   private readonly ref = inject(DialogRef);
   private readonly sheet = inject(PlBottomSheet);
 
-  /** "Resumen de noviembre". */
-  protected readonly heading = this.texts.summaryTitle(
-    formatPeriod(parsePeriod(this.data.period)).split(' ')[0].toLowerCase(),
-  );
+  private readonly month = formatPeriod(parsePeriod(this.data.period)).split(' ')[0].toLowerCase();
+  /** "Ya pagaste en noviembre" or "Reservaste en noviembre". */
+  protected readonly heading =
+    this.data.view === 'paid'
+      ? this.texts.paidTitle(this.month)
+      : this.texts.reservedTitle(this.month);
+  protected readonly sectionTitle =
+    this.data.view === 'paid' ? this.texts.summaryWent : this.texts.reserved;
 
   protected readonly resource = httpResource<MonthSummary>(() => ({
     url: `${API}/dashboard/summary`,
@@ -191,29 +129,18 @@ export class MonthSummarySheet {
   }));
   protected readonly expanded = signal<ReadonlySet<string>>(new Set());
 
-  protected readonly income = computed(() =>
-    (this.resource.value()?.income ?? []).map((g) => this.view(g, 'category')),
-  );
-
-  /** Paid by category, then the card statements, then the reserves. */
-  protected readonly went = computed(() => {
+  /** Paid by category, then the card statements; or the reserves. */
+  protected readonly groups = computed(() => {
     const s = this.resource.value();
     if (!s) return [];
+    if (this.data.view === 'reserved') {
+      return s.reservedByPocket.map((g) => this.view(g, 'reserve'));
+    }
     return [
       ...s.paidByCategory.map((g) => this.view(g, 'category')),
       ...s.paidByCard.map((g) => this.view(g, 'card')),
-      ...s.reservedByPocket.map((g) => this.view(g, 'reserve')),
     ];
   });
-
-  protected isZero(amount: string): boolean {
-    return toDecimal(amount).isZero();
-  }
-
-  protected positive(amount: string): boolean {
-    const value = toDecimal(amount);
-    return value.isPositive() && !value.isZero();
-  }
 
   private view(group: MonthGroup, kind: 'category' | 'card' | 'reserve'): GroupView {
     const t = this.texts;
@@ -252,10 +179,5 @@ export class MonthSummarySheet {
   protected edit(movement: Movement): void {
     this.ref.close();
     this.sheet.open(MovementSheet, { data: movement, ariaLabel: TRANSACTIONS_TEXTS.title });
-  }
-
-  protected openToPay(): void {
-    this.ref.close();
-    this.sheet.open(HomeToPay, { data: this.data.toPay, ariaLabel: this.texts.toPayTitle });
   }
 }

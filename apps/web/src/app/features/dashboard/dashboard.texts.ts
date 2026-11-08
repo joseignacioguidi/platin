@@ -1,15 +1,11 @@
 export const DASHBOARD_TEXTS = {
   /** What each part of the free card means (its help tooltip). */
   help: {
-    opening: 'Lo que había en tus cuentas y reservas para gastar al terminar el mes anterior.',
     income: 'Lo que cobraste este mes más lo que falta cobrar.',
     incomePast: 'Lo que cobraste ese mes.',
     paidOut: 'Gastos y pagos de tarjeta que ya salieron de tus cuentas este mes.',
     reserved: 'Lo que pasaste a ahorros e inversiones, menos lo que sacaste de ahí.',
     toPay: 'Plata que sale de tus cuentas antes de fin de mes.',
-    other: 'Ajustes de saldo y la diferencia que deja cambiar plata de moneda.',
-    free: 'Lo que te queda de verdad.',
-    freePast: 'Lo que quedó en tus cuentas el último día del mes.',
   },
   helpLabel: (term: string) => `Qué es "${term}"`,
   hello: 'Hola',
@@ -24,16 +20,13 @@ export const DASHBOARD_TEXTS = {
   noFree: 'No te queda libre este mes',
   missing: 'Te faltan',
   missingRest: 'para cubrir lo de este mes',
-  /** DAS-05, the month from start to end. */
-  hadPrefix: 'Tuviste',
-  hadSuffix: 'para el mes',
-  opening: 'Tenías al empezar el mes',
+  /** DAS-05, the month in the free card. */
   income: 'Ingresos del mes',
   paidOut: 'Ya pagaste',
   reserved: 'Reservaste',
-  other: 'Otros',
+  moreReserves: (count: number) => `y ${count} más`,
   overspent: 'Te pasaste',
-  barSummary: (had: string, parts: string) => `Tuviste ${had} para el mes: ${parts}.`,
+  barSummary: (parts: string) => `Lo del mes se reparte en: ${parts}.`,
   barExcess: (amount: string) => `Te pasaste ${amount}.`,
   toPayMonth: 'Para pagar este mes',
   /** DAS-05, the incomes sheet. */
@@ -42,16 +35,16 @@ export const DASHBOARD_TEXTS = {
   toCollect: 'Por cobrar',
   noCollected: 'Todavía no cobraste nada este mes.',
   fixedIncome: (name: string) => `${name} · fijo`,
-  /** DAS-05, the month summary sheet. */
-  summaryTitle: (month: string) => `Resumen de ${month}`,
-  summaryHad: 'Lo que tuviste',
+  /** DAS-05, what was paid and what was reserved in the month. */
+  paidTitle: (month: string) => `Ya pagaste en ${month}`,
+  reservedTitle: (month: string) => `Reservaste en ${month}`,
   summaryWent: 'A dónde fue',
+  noPaid: 'Todavía no pagaste nada este mes.',
+  noReserved: 'No pasaste plata a tus reservas este mes.',
   otherCategories: 'Otras',
   noCategory: 'Sin categoría',
   cardStatement: (card: string) => `Resumen ${card}`,
   purchases: (from: string, to: string) => `Compras del ${from} al ${to}`,
-  leftOver: 'Libre',
-  retry: 'Reintentar',
   /** DAS-07, the to-pay sheet. */
   toPayTitle: 'Para pagar este mes',
   toPayEmpty: 'No te queda nada por pagar este mes.',

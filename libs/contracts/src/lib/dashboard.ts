@@ -107,6 +107,10 @@ export const dashboardSchema = z.object({
   paidOut: z.string(),
   /** Moved to savings and investment reserves minus what came back (can be negative). */
   reserved: z.string(),
+  /** `reserved` per reserve, net and signed, largest first (the free card lists them). */
+  reservedByPocket: z.array(
+    z.object({ pocketId: uuidSchema, name: z.string(), amount: z.string() }),
+  ),
   /** Balance adjustments and what changing currencies left (signed; shown only if not zero). */
   other: z.string(),
   /** Today's balance of the account balances and the spending reserves. */
