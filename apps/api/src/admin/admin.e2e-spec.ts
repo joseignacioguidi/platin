@@ -106,7 +106,7 @@ describe('admin', () => {
       const res = await asAdmin().get(`/api/v1/admin/users/${user.id}`).expect(200);
       const detail = res.body as AdminUserDetail;
       expect(detail).toMatchObject({ email: user.email, role: 'USER', status: 'ACTIVE' });
-      expect(detail.counts).toMatchObject({ accounts: 2, pockets: 2, cards: 0, goals: 0 });
+      expect(detail.counts).toMatchObject({ accounts: 1, pockets: 1, cards: 0, goals: 0 });
       expect(detail.activeSessions).toBe(1);
       await asAdmin().get('/api/v1/admin/users/00000000-0000-4000-8000-000000000000').expect(404);
     });
@@ -122,7 +122,7 @@ describe('admin', () => {
       await asAdmin().post(`/api/v1/admin/users/${user.id}/reactivate`).expect(200);
       await login(user.email).expect(200);
       // The data is kept.
-      expect(await ctx.prisma.account.count({ where: { userId: user.id } })).toBe(1);
+      expect(await ctx.prisma.category.count({ where: { userId: user.id } })).toBeGreaterThan(0);
 
       const audit = (await asAdmin().get('/api/v1/admin/audit').expect(200)).body as AuditPage;
       expect(audit.items.map((e) => e.action)).toEqual(['user.reactivate', 'user.suspend']);
@@ -217,7 +217,7 @@ describe('admin', () => {
         expect(await count).toBe(0);
       }
       // The admin's own data is untouched.
-      expect(await ctx.prisma.account.count({ where: { userId: admin.id } })).toBe(1);
+      expect(await ctx.prisma.category.count({ where: { userId: admin.id } })).toBeGreaterThan(0);
 
       const audit = (await asAdmin().get('/api/v1/admin/audit').expect(200)).body as AuditPage;
       expect(audit.items[0]).toMatchObject({

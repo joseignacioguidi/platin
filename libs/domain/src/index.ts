@@ -18,3 +18,4 @@ export * from './lib/plans';
 export * from './lib/sign-in';
 export * from './lib/text-entry';
 export * from './lib/merchant-rules';
+export * from './lib/onboarding';

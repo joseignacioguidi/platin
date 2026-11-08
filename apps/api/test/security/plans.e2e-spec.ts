@@ -3,7 +3,7 @@ import { addPocket, category, createAccount } from '../fixtures';
 import { createTestApp, resetDatabase, TestContext } from '../test-app';
 import { ADMIN_EMAIL, login, PASSWORD, SECURITY_ENV } from './seed';
 
-/** One of each (two accounts: sign-up already creates "Efectivo"). */
+/** One of each (two accounts: each test starts with "Efectivo"). */
 const LIMIT_ONE = {
   maxAccounts: 2,
   maxPockets: 1,
@@ -55,6 +55,8 @@ describe('security: plans and limits', () => {
     await registerUser(ctx.app, { email: ADMIN_EMAIL, password: PASSWORD });
     admin = await login(ctx.app, ADMIN_EMAIL);
     user = await registerUser(ctx.app, { password: PASSWORD });
+    // What step 1 of the onboarding creates by default (ADR 0035).
+    await createAccount(ctx.app, user, { name: 'Efectivo', kind: 'CASH' });
     otherExpenses = (await category(ctx.app, user, 'Otros gastos')).id;
   });
 
@@ -163,7 +165,7 @@ describe('security: plans and limits', () => {
     const bank = await createAccount(ctx.app, user, { name: 'Banco' });
     await addPocket(ctx.app, user, bank.id, { name: 'Ahorro' });
     await api().patch(`/api/v1/accounts/${bank.id}`).send({ archived: true }).expect(200);
-    // The pocket slot is now taken by a pocket in the sign-up 'Efectivo' account.
+    // The pocket slot is now taken by a pocket in the 'Efectivo' account.
     const cash = (await api().get('/api/v1/accounts').expect(200)).body.items[0];
     await addPocket(ctx.app, user, cash.id, { name: 'Ahorro 2' });
     const restore = await api().patch(`/api/v1/accounts/${bank.id}`).send({ archived: false });

@@ -139,7 +139,9 @@ describe('sign in with a provider (AUTH-06 to 08)', () => {
       expect(user.identities).toMatchObject([
         { provider: 'GOOGLE', providerUserId: 'g-ana', email: 'ana@gmail.com' },
       ]);
-      expect(user.accounts.map((a) => a.name)).toEqual(['Efectivo']);
+      // No account yet: the onboarding opens from step 1 (ADR 0035).
+      expect(user.accounts).toEqual([]);
+      expect(user.preferences).toMatchObject({ onboarding: { status: 'IN_PROGRESS' } });
       expect(await ctx.prisma.userPlan.count({ where: { userId: user.id } })).toBe(1);
     });
 

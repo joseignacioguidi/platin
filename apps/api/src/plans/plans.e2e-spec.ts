@@ -43,6 +43,8 @@ describe('plans', () => {
       .expect(200);
     await asAdmin().patch(`/api/v1/admin/plans/${pro.id}`).send({ priceArs: '4500' }).expect(200);
     user = await registerUser(ctx.app, { email: 'ana@test.platin' });
+    // What step 1 of the onboarding creates by default (ADR 0035).
+    await createAccount(ctx.app, user, { name: 'Efectivo', kind: 'CASH' });
   });
 
   afterAll(async () => {

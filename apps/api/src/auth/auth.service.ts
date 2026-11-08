@@ -9,6 +9,7 @@ import { SettingsService } from '../settings/settings.service';
 import { toUserDto } from '../users/user.mapper';
 import { PasswordService } from './password.service';
 import { IssuedRefreshToken, RefreshTokenService } from './refresh-token.service';
+import { updateOnboarding } from '../onboarding/onboarding-state';
 import { UserOnboardingService } from './user-onboarding.service';
 
 export interface Session {
@@ -102,6 +103,12 @@ export class AuthService {
 
   /** The same session as POST /auth/login: an access token plus a new refresh token. */
   async startSession(userId: string): Promise<Session> {
+    // AUTH-11: "Ahora no" hides the onboarding card until the next sign-in.
+    await this.prisma.$transaction((tx) =>
+      updateOnboarding(tx, userId, (state) =>
+        state.dismissedAt ? { ...state, dismissedAt: null } : state,
+      ),
+    );
     const refreshToken = await this.refreshTokens.issue(userId);
     return { response: await this.buildResponse(userId), refreshToken };
   }

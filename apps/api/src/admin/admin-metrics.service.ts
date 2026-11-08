@@ -1,11 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import type { AdminMetrics } from '@platin/contracts';
-import { addDays, countByWeek, localDateAt, localDateToUtc, weekStart } from '@platin/domain';
+import {
+  addDays,
+  countByWeek,
+  lastTouchedOnboardingStep,
+  localDateAt,
+  localDateToUtc,
+  weekStart,
+} from '@platin/domain';
 import { ClockService } from '../common/clock.service';
+import { readOnboarding, storedOnboarding } from '../onboarding/onboarding-state';
 import { AdminPlansService } from '../plans/admin-plans.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 const SIGNUP_WEEKS = 12;
+const NO_STOPS = { none: 0, accounts: 0, cards: 0, cardCharges: 0, fixed: 0 };
 
 /** ADM-02: aggregated counts only, never per-user content. */
 @Injectable()
@@ -44,7 +53,7 @@ export class AdminMetricsService {
       this.activeSince(addDays(today, -29)),
       this.prisma.user.findMany({
         where: { createdAt: { gte: since } },
-        select: { createdAt: true },
+        select: { createdAt: true, preferences: true },
       }),
       this.prisma.creditCard.groupBy({ by: ['userId'], where: { archivedAt: null } }),
       this.prisma.goal.groupBy({ by: ['userId'], where: { status: 'ACTIVE' } }),
@@ -76,6 +85,15 @@ export class AdminMetricsService {
     const recentTotal = recentUnderstood + recentUnparsed;
 
     const plans = await this.plans.list();
+    const onboarding = { started: 0, finished: 0, stoppedAt: { ...NO_STOPS } };
+    for (const user of signups) {
+      // Accounts from before iteration 13 have no state and are left out.
+      if (!('onboarding' in storedOnboarding(user.preferences))) continue;
+      const state = readOnboarding(user.preferences);
+      onboarding.started += 1;
+      if (state.status === 'DONE') onboarding.finished += 1;
+      else onboarding.stoppedAt[lastTouchedOnboardingStep(state) ?? 'none'] += 1;
+    }
     return {
       usersByPlan: plans
         .filter((plan) => !plan.archived || plan.userCount > 0)
@@ -106,6 +124,7 @@ export class AdminMetricsService {
         unparsedShareLast30Days:
           recentTotal === 0 ? null : Math.round((recentUnparsed / recentTotal) * 1000) / 10,
       },
+      onboarding,
     };
   }
 

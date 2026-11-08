@@ -71,6 +71,8 @@ describe('Telegram bot (BOT-01 to 06)', () => {
     ANA += 1;
     BETO += 1;
     user = await registerUser(ctx.app, { name: 'Ana' });
+    // What step 1 of the onboarding creates by default (ADR 0035).
+    await createAccount(ctx.app, user, { name: 'Efectivo', kind: 'CASH' });
   });
 
   afterAll(async () => {
