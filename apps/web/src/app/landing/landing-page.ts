@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { PlWink } from '@platin/web-ui';
 import { sessionHint } from '../core/auth/session-hint';
+import { LandingChat } from './landing-chat';
 import { LANDING_TEXTS } from './landing.texts';
 import { WinkBubble } from './wink-bubble';
 
@@ -22,14 +23,14 @@ const ROW =
   'flex items-center justify-between gap-4 rounded-[18px] border-2 border-ink px-5 py-4 text-[17px]';
 
 /**
- * LAN-01: public landing, prerendered and always light. Coral, sky and rose are used only here.
+ * LAN-01 and LAN-03: public landing, prerendered and always light. Coral, sky and rose are used only here.
  * One main movement: the wink in the hero (with its bubble typing what platin tells you) and the
  * floating stickers;
  * everything stays still under `prefers-reduced-motion`.
  */
 @Component({
   selector: 'pl-landing-page',
-  imports: [RouterLink, PlWink, WinkBubble],
+  imports: [RouterLink, PlWink, WinkBubble, LandingChat],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'pl-light block min-h-dvh overflow-x-clip bg-surface text-ink' },
   styles: `
@@ -195,8 +196,13 @@ const ROW =
                 class="font-amount text-[clamp(44px,5vw,64px)] font-semibold tracking-[-0.04em]"
                 >{{ t.free.amount }}</span
               >
+              <span
+                class="self-start rounded-full border-2 border-ink bg-surface px-3.5 py-1.5 font-bold"
+                >{{ t.free.perDayPrefix }}<span class="font-amount">{{ t.free.perDayAmount }}</span
+                >{{ t.free.perDaySuffix }}</span
+              >
               <div role="img" [attr.aria-label]="t.free.barAria" class="flex h-[18px] gap-1">
-                <div class="w-[60%] rounded-[9px_3px_3px_9px] border-2 border-ink bg-expense"></div>
+                <div class="w-[60%] rounded-[9px_3px_3px_9px] border-2 border-ink bg-pending"></div>
                 <div class="w-[40%] rounded-[3px_9px_9px_3px] border-2 border-ink bg-brand"></div>
               </div>
               <div class="flex flex-wrap gap-4 text-[15px]" aria-hidden="true">
@@ -232,16 +238,31 @@ const ROW =
 
           <article [class]="questionCard + ' bg-savings-soft'">
             <div class="flex flex-[1_1_420px] flex-col gap-4">
-              <h3 [class]="heading + ' text-[clamp(34px,4vw,52px)]'">{{ t.pockets.title }}</h3>
+              <h3 [class]="heading + ' text-[clamp(34px,4vw,52px)]'">{{ t.enough.title }}</h3>
               <p class="m-0 max-w-[480px] text-lg leading-normal sm:text-[19px]">
-                {{ t.pockets.body }}
+                {{ t.enough.body }}
               </p>
             </div>
             <ul class="m-0 flex flex-[1_1_300px] list-none flex-col gap-3 p-0">
-              @for (pocket of t.pockets.rows; track pocket.label) {
-                <li [class]="row + (pocket.highlight ? ' bg-savings' : ' bg-surface')">
-                  <span>{{ pocket.label }}</span>
-                  <span class="font-amount font-semibold">{{ pocket.amount }}</span>
+              @for (account of t.enough.rows; track account.account) {
+                <li
+                  class="flex flex-col gap-2 rounded-[18px] border-2 border-ink bg-surface px-5 py-4"
+                >
+                  <span class="flex justify-between gap-4 text-[17px] font-bold">
+                    <span>{{ account.account }}</span>
+                    <span class="font-amount">{{ account.balance }}</span>
+                  </span>
+                  <span class="flex flex-wrap items-center justify-between gap-2 text-[15px]">
+                    <span
+                      >{{ t.enough.pays }}<span class="font-amount">{{ account.pays }}</span
+                      >{{ t.enough.thisMonth }}</span
+                    >
+                    <span
+                      class="rounded-full border-2 border-ink px-2.5 py-0.5 font-bold"
+                      [class]="account.short ? 'bg-coral' : 'bg-brand'"
+                      >{{ account.status }}</span
+                    >
+                  </span>
                 </li>
               }
             </ul>
@@ -257,8 +278,8 @@ const ROW =
                       item.kind === 'pending'
                         ? 'font-bold'
                         : item.kind === 'income'
-                          ? 'font-amount font-semibold text-brand-strong'
-                          : 'font-amount font-semibold'
+                          ? 'font-amount font-bold text-brand-strong'
+                          : 'font-amount font-bold'
                     "
                     >{{ item.value }}</span
                   >
@@ -273,6 +294,8 @@ const ROW =
             </div>
           </article>
         </section>
+
+        <pl-landing-chat />
 
         <section class="px-4 pb-24 pt-16 sm:px-6 sm:pb-30 sm:pt-20" aria-labelledby="cierre">
           <div
