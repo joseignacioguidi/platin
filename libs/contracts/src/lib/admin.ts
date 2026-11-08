@@ -106,6 +106,21 @@ export const adminMetricsSchema = z.object({
     unparsedShareLast30Days: z.number().nullable(),
   }),
   usersByPlan: z.array(z.object({ planId: uuidSchema, name: z.string(), count: z.number().int() })),
+  /**
+   * AUTH-05, only counts: accounts created in the last 12 weeks with an onboarding, how many
+   * finished it and, for the rest, the last step touched (`none` = not even the first).
+   */
+  onboarding: z.object({
+    started: z.number().int(),
+    finished: z.number().int(),
+    stoppedAt: z.object({
+      none: z.number().int(),
+      accounts: z.number().int(),
+      cards: z.number().int(),
+      cardCharges: z.number().int(),
+      fixed: z.number().int(),
+    }),
+  }),
 });
 export type AdminMetrics = z.infer<typeof adminMetricsSchema>;
 

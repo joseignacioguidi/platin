@@ -96,12 +96,10 @@ describe('start over (AUTH-09)', () => {
     expect(await ctx.prisma.transaction.count({ where: { userId: user.id } })).toBe(0);
     expect(await ctx.prisma.creditCard.count({ where: { userId: user.id } })).toBe(0);
     expect(await ctx.prisma.goal.count({ where: { userId: user.id } })).toBe(0);
-    const accounts = await ctx.prisma.account.findMany({
-      where: { userId: user.id },
-      include: { pockets: true },
-    });
-    expect(accounts.map((a) => a.name)).toEqual(['Efectivo']);
-    expect(accounts[0].pockets).toHaveLength(1);
+    // Like a new user: no accounts, and the onboarding opens again (ADR 0035).
+    expect(await ctx.prisma.account.count({ where: { userId: user.id } })).toBe(0);
+    const row = await ctx.prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(row.preferences).toMatchObject({ onboarding: { status: 'IN_PROGRESS' } });
     const after = await ctx.prisma.category.findMany({
       where: { userId: user.id },
       orderBy: { id: 'asc' },

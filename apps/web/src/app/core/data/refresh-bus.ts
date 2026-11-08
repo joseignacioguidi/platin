@@ -11,6 +11,8 @@ export type DataKey =
   | 'dashboard'
   | 'goals'
   | 'plan'
+  /** The onboarding state (AUTH-05). */
+  | 'onboarding'
   /** Aliases and merchant rules (TXT-01 to 03). */
   | 'text-entry';
 

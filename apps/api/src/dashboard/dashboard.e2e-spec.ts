@@ -1,7 +1,7 @@
 import type { Dashboard } from '@platin/contracts';
 import { Money } from '@platin/domain';
 import { as, registerUser, TestUser } from '../../test/auth-helpers';
-import { addPocket, category, createPocket } from '../../test/fixtures';
+import { addPocket, category, createAccount, createPocket } from '../../test/fixtures';
 import { createTestApp, resetDatabase, TestContext } from '../../test/test-app';
 
 describe('dashboard', () => {
@@ -306,11 +306,12 @@ describe('dashboard', () => {
 
   it('DAS-07: what each account pays plus the unassigned part adds up to "to pay"', async () => {
     const { galicia } = await scenario();
+    await createAccount(ctx.app, user, { name: 'Efectivo', kind: 'CASH' });
     const api = as(ctx.app, user);
     const res = await api.get('/api/v1/dashboard').expect(200);
     const body = res.body as Dashboard;
     // Rent on Galicia (it only has −18.500); the Sept installment of a card without a payment
-    // account; Efectivo (every user starts with it) pays nothing.
+    // account; Efectivo pays nothing.
     expect(body.accounts).toEqual([
       expect.objectContaining({
         accountId: galicia.accountId,
@@ -402,10 +403,8 @@ describe('dashboard', () => {
       unassigned: null,
       toPayItems: [],
     });
-    // Only the account every user starts with, empty.
-    expect(res.body.accounts).toEqual([
-      expect.objectContaining({ name: 'Efectivo', spendable: '0.00', toPay: '0.00' }),
-    ]);
+    // A new user has no accounts yet (ADR 0035).
+    expect(res.body.accounts).toEqual([]);
     expect(res.body).toMatchObject({
       inAccounts: '0.00',
       toCollect: '0.00',

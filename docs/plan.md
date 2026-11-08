@@ -1355,6 +1355,51 @@ Forma de trabajo:
 - Rama feat/fase-38-landing. Todo en verde antes del PR, con capturas de la landing completa en 1440 y 390 px, de la sección del chat a mitad de la animación y con reducir movimiento.
 ```
 
+## Iteración 13: la primera vez
+
+Una fase para que quien se registra llegue en unos minutos a un "Libre este mes" en el que pueda confiar.
+
+| Fase | Qué se construye | Casos de uso | Terminado cuando |
+| --- | --- | --- | --- |
+| 39 | Onboarding de cuatro pasos y tarjeta para retomarlo | AUTH-05, AUTH-11 | Me registro, cargo cuentas, una tarjeta con sus cuotas y mis fijos, y veo mi libre del mes; si corto a la mitad, el inicio me deja seguir |
+
+## Fase 39 — Onboarding
+
+**Terminado cuando:**
+- al registrarme (con contraseña o con Google) entro al paso 1 y no al inicio vacío;
+- en el paso 1 elijo Mercado Pago y Santander, dejo Efectivo, pongo los saldos y se crean las tres cuentas; si saco Efectivo, no se crea;
+- en el paso 2 guardo una tarjeta, me pregunta por los consumos actuales, cargo "voy por la 6 de 9" y un total de compras anteriores, y aparecen en su resumen;
+- en el paso 3, un sueldo del día 1 cargado el 8 empieza en diciembre y "Todavía no lo cobré" lo hace empezar este mes con su pendiente;
+- el ejemplo de la regla "Onboarding" da $ 80.780 y $ 3.512 por día;
+- todos los pasos se saltean y "Volver" muestra lo ya cargado;
+- si salgo en el paso 2, el inicio muestra "Terminá de configurar platin · 2 de 4" y "Ahora no" la oculta hasta el próximo ingreso;
+- "Empezar de cero" vuelve a abrir el onboarding y una cuenta vieja nunca lo ve;
+- los límites del plan se respetan y se explican en el paso;
+- en celular todo entra en 360 px de ancho y lo tocable mide 44 px o más.
+
+```
+Leé CLAUDE.md; AUTH-05, AUTH-09 y AUTH-11 y las reglas "Onboarding" y "Empezar de cero" de docs/especificacion.md; en docs/arquitectura.md "Iteración 13: onboarding" y "Componentes y patrones de la iteración 13"; docs/adr/0035-onboarding.md; y docs/mockups/onboarding/ (leé su README).
+
+Vamos a hacer la Fase 39 de docs/plan.md.
+
+Dominio y contratos:
+1. Esquema de onboarding en libs/contracts y fixedStartPeriod en libs/domain, con el ejemplo de la regla como test literal y los bordes (día de hoy, día 31 en un mes de 30, último día del mes).
+
+Backend:
+2. UserOnboardingService sin "Efectivo" y con el estado inicial del onboarding; "Empezar de cero" vuelve a escribirlo. Actualizá los tests de registro (contraseña y Google) y de AUTH-09.
+3. GET /onboarding, PATCH /onboarding/steps/:step y POST /onboarding/dismiss; POST /fixed con startPeriod. Tests e2e: un recorrido completo, uno salteado entero, el paso de consumos en "Más tarde", una cuenta vieja sin estado, límites del plan y aislamiento entre usuarios.
+4. Métricas del administrador según la arquitectura (solo conteos).
+
+Web:
+5. Ruta /app/bienvenida/:paso con OnboardingShell y los cuatro pasos, reutilizando los formularios y stores de cuentas, tarjetas, consumos y fijos. Cada acción guarda al instante e invalida lo afectado.
+6. El guard de /app lleva al onboarding cuando corresponde; el inicio muestra OnboardingResumeCard según la arquitectura.
+7. Textos en un archivo de textos del onboarding, en español rioplatense, como en los mockups.
+
+Forma de trabajo:
+- Plan primero, esperame. Si conviene, dividila en 39a (backend y dominio) y 39b (web).
+- Rama feat/fase-39-onboarding. Todo en verde antes del PR, con capturas de cada paso en celular y escritorio, de la hoja de consumos y del inicio a medias.
+```
+
 ## Después del MVP
 
 La segunda tanda de la especificación, en fases chicas que se pueden hacer en cualquier orden. Los prompts siguen el mismo molde que las fases anteriores: leer `CLAUDE.md` y la sección de la especificación, plan primero, rama propia, PR con todo en verde.

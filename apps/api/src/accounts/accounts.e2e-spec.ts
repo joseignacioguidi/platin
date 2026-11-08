@@ -23,18 +23,9 @@ describe('accounts and pockets', () => {
   const accounts = async (): Promise<AccountsResponse> =>
     (await as(ctx.app, user).get('/api/v1/accounts').expect(200)).body;
 
-  it('every user starts with "Efectivo" and its Disponible in pesos (AUTH-05)', async () => {
+  it('a new user has no accounts: "Efectivo" is created in the onboarding (ADR 0035)', async () => {
     const { items } = await accounts();
-    expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({ name: 'Efectivo', kind: 'CASH' });
-    expect(items[0].pockets).toEqual([
-      expect.objectContaining({
-        name: 'Disponible',
-        kind: 'AVAILABLE',
-        currency: 'ARS',
-        balance: '0.00',
-      }),
-    ]);
+    expect(items).toEqual([]);
   });
 
   it('an account is born with its Disponible in pesos holding the initial balance (CTA-01/02)', async () => {
@@ -352,6 +343,6 @@ describe('accounts and pockets', () => {
       .send({ balance: '1', date: '2026-10-23' })
       .expect(404);
     const theirs = (await api.get('/api/v1/accounts').expect(200)).body.items;
-    expect(theirs.map((a: { name: string }) => a.name)).toEqual(['Efectivo']);
+    expect(theirs).toEqual([]);
   });
 });

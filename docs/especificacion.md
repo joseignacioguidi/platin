@@ -60,7 +60,12 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 - **AUTH-02** Iniciar y cerrar sesión; la sesión se renueva sola (refresh token).
 - **AUTH-03** Recuperar contraseña por email.
 - **AUTH-04** Configurar moneda base y cotización preferida para valuar dólares.
-- **AUTH-05** Onboarding inicial: crear primeras cuentas, tarjetas y categorías sugeridas.
+- **AUTH-05** Onboarding (iteración 13), igual a `docs/mockups/onboarding/`. Apenas se crea la cuenta, con contraseña o con Google, un recorrido de cuatro pasos lleva a un primer "Libre este mes" confiable (regla "Onboarding"):
+  1. **"¿Dónde tenés tu plata?"**: chips de cuentas comunes (Efectivo preseleccionado, Mercado Pago, Santander, Ualá, Galicia, BBVA, Brubank, Naranja X) y "Otra"; el saldo de hoy de cada una, "+ Saldo en dólares u otra moneda" y, opcional, "¿Tenés plata separada?" para cargar reservas con su uso.
+  2. **"¿Tenés tarjeta de crédito?"**: nombre, día de cierre, día de vencimiento y la cuenta con la que se paga. Al guardarla, "¿Querés cargar tus consumos actuales?" [Sí, ahora] [Más tarde]. "Sí" abre las compras en cuotas ya empezadas ("voy por la 6 de 9", con la pregunta de TAR-03 cuando corresponde) y un total para "lo demás del resumen abierto". Se pueden cargar varias tarjetas.
+  3. **"¿Qué pagás o cobrás todos los meses?"**: chips (Sueldo, Alquiler, Expensas, Luz, Gas, Internet, Celular, Gimnasio, Spotify, Netflix y "Otro"), cada uno con monto, día y cuenta o tarjeta.
+  4. **"Tu libre"**: el libre del mes con el por día y un desglose corto (tenés en tus cuentas, para pagar este mes, libre), y dos próximos pasos: cargar el primer gasto y crear una meta. "Ir al inicio".
+- **AUTH-11** Si la persona sale del onboarding sin terminarlo, el inicio muestra arriba "Terminá de configurar platin · N de 4", con lo que falta y por qué importa, "Seguir configurando" y "Ahora no". "Ahora no" la oculta hasta el próximo ingreso; la tarjeta deja de aparecer cuando se completan o saltean los cuatro pasos.
 
 * **AUTH-06** Registrarse e ingresar con una cuenta externa. Por ahora, Google; la estructura admite sumar Facebook y Apple sin cambiar el resto de la app. Los botones de proveedores aparecen solo si están habilitados en el servidor.
 * **AUTH-07** Ver en el perfil las formas de ingreso de la cuenta (contraseña y proveedores), vincular un proveedor nuevo y desvincular uno, siempre que quede al menos una forma de ingresar.
@@ -457,6 +462,20 @@ Ejemplo (tests literales): tenías al empezar $ 300.000; cobraste $ 1.600.000 y 
 - Solo se aceptan emails que el proveedor marca como verificados.
 - Las reglas de usuario suspendido y registro cerrado se aplican igual que en el ingreso con contraseña.
 
+### Onboarding
+
+- **Todo se puede saltear.** Cada paso tiene "Seguir" (grande) y "Saltear este paso" (chico); la barra de progreso de arriba y "Volver" dejan moverse entre pasos.
+- **Lo que se carga es real y se guarda al instante**: cuentas, reservas, tarjetas, consumos y fijos se crean con los mismos servicios de siempre, no como borrador. Volver a un paso muestra lo ya creado y deja editarlo.
+- **Efectivo se crea solo si queda elegido** en el paso 1 (viene preseleccionado). Las categorías sugeridas se siguen creando al registrarse, como hoy.
+- **Saldo de hoy**: cada cuenta elegida se crea con su saldo en pesos como saldo inicial; "+ Saldo en dólares u otra moneda" agrega el saldo en esa moneda (y la activa en el perfil si no lo estaba).
+- **Consumos actuales**: cada compra ya empezada se carga como TAR-03 ("voy por la k de N", con el valor de la cuota). "Lo demás del resumen abierto" crea un solo consumo en 1 pago, "Compras anteriores", con fecha de hoy, en el resumen abierto; vacío no crea nada. "Más tarde" deja el paso como pendiente en la tarjeta del inicio.
+- **Fijos cuyo día ya pasó este mes**: se crean con inicio el mes que viene, porque esa plata ya está (o ya salió) del saldo de hoy que se cargó en el paso 1. En la fila dice "Ya pasó este mes: empieza en diciembre" y un botón "Todavía no lo cobré" (o "no lo pagué") lo hace empezar este mes, con su pendiente para confirmar. Un fijo con día de hoy o posterior empieza este mes.
+- **Límites del plan**: si el plan tiene tope de cuentas, tarjetas o fijos, el paso lo dice ("Tu plan incluye 3 cuentas") y no deja elegir más.
+- **Quién lo ve**: toda cuenta nueva, con contraseña o con Google. "Empezar de cero" (AUTH-09) lo vuelve a abrir desde el paso 1. Las cuentas que ya existían antes de la iteración 13 no lo ven.
+- **Métricas del administrador**: cuántas cuentas nuevas terminan el onboarding y en qué paso lo dejan, solo conteos.
+
+Ejemplo (hoy 8/11): Efectivo $ 0, Mercado Pago $ 459.880 y Santander $ 900; una tarjeta sin consumos; fijos Sueldo $ 1.600.000 el día 1 (ya pasó: empieza en diciembre), Alquiler $ 380.000 el día 10 y Spotify $ 3.300 el día 7 en la Visa (ya pasó). Tu libre = 460.780 − 380.000 = $ 80.780, ≈ $ 3.512 por día hasta el 30/11.
+
 ### Empezar de cero
 
 - Está en el perfil, en una sección "Zona peligrosa" al final, separada del resto.
@@ -464,7 +483,7 @@ Ejemplo (tests literales): tenías al empezar $ 300.000; cobraste $ 1.600.000 y 
 - Para confirmar hay que escribir el email de la cuenta y, si la cuenta tiene contraseña, también la contraseña. Una cuenta que solo ingresa con Google confirma solo con el email.
 - **Se borra**, todo junto o nada: cuentas, apartados, movimientos, transferencias, tarjetas con sus resúmenes, compras, cuotas, ajustes y pagos, fijos, metas y valuaciones. Si la casilla "Mantener mis categorías" está desmarcada, también las categorías propias.
 - **Se conserva**: el usuario, la contraseña y los proveedores vinculados, el plan y las solicitudes de plan, las preferencias (moneda base, cotización, monedas activadas, accesos del inicio) y la sesión actual.
-- Después queda igual que un usuario nuevo: la cuenta "Efectivo" con su Disponible en pesos y, si se borraron las categorías, las sugeridas vigentes. Las categorías de sistema (Ajuste, Rendimientos) existen siempre.
+- Después queda igual que un usuario nuevo: sin cuentas y, si se borraron las categorías, con las sugeridas vigentes. Las categorías de sistema (Ajuste, Rendimientos) existen siempre. Desde la iteración 13 se vuelve a abrir el onboarding (AUTH-05) desde el paso 1.
 - Queda en la auditoría como acción del propio usuario, con los conteos y sin datos financieros.
 - No se puede deshacer.
 
@@ -585,7 +604,7 @@ El MVP es lo mínimo para dejar de usar la versión actual: cuentas, movimientos
 
 | Módulo | MVP | Segunda tanda |
 | --- | --- | --- |
-| Autenticación y perfil | AUTH-01, 02, 04 | AUTH-03 recuperar contraseña, AUTH-05 onboarding |
+| Autenticación y perfil | AUTH-01, 02, 04 | AUTH-03 recuperar contraseña, AUTH-05 onboarding (iteración 13) |
 | Cuentas | CTA-01, 02, 03, 04 | — |
 | Movimientos | MOV-01 a 05 | MOV-06 exportar CSV |
 | Tarjetas | TAR-01 a 05, 07, 08 | TAR-06 corregir fechas, TAR-09 fijos en tarjeta, TAR-10 límite disponible |
@@ -692,6 +711,10 @@ Menos secciones y mejor agrupadas, y pantallas que usan el ancho del escritorio.
 ### Iteración 12 (noviembre 2026)
 
 - La landing al día con la app: el por día, "¿Me alcanza para pagar todo?" y una sección nueva para cargar por mensaje, con Telegram disponible y WhatsApp más adelante (LAN-03).
+
+### Iteración 13 (noviembre 2026)
+
+- Onboarding de cuatro pasos (cuentas, tarjetas con sus consumos actuales, fijos y tu libre), todo salteable, con la tarjeta "Terminá de configurar platin" en el inicio (AUTH-05, AUTH-11).
 
 ## Identidad visual y UX
 

@@ -1,18 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { AVAILABLE_POCKET_NAME } from '../accounts/pockets.service';
+import { initialOnboardingState } from '@platin/domain';
 import { seedSuggestedCategories } from '../categories/suggested-categories';
 import type { Prisma } from '../generated/prisma/client';
+import { writeOnboarding } from '../onboarding/onboarding-state';
 import { PlansService } from '../plans/plans.service';
 import { SettingsService } from '../settings/settings.service';
 
-/** Name of the account every user starts with. */
-export const CASH_ACCOUNT_NAME = 'Efectivo';
-
 /**
  * Data every new user starts with (AUTH-05): the suggested categories set by the admin, the
- * system ones, the default plan and the "Efectivo" account with its "Disponible" pocket in pesos.
- * Runs inside the registration transaction. Starting over (AUTH-09) reuses `seedInitialData`
- * and leaves the plan alone.
+ * system ones, the default plan and the onboarding to do. No account: "Efectivo" is created in
+ * step 1 only if the user keeps it (ADR 0035). Runs inside the registration transaction.
+ * Starting over (AUTH-09) reuses `seedInitialData` and leaves the plan alone.
  */
 @Injectable()
 export class UserOnboardingService {
@@ -28,7 +26,7 @@ export class UserOnboardingService {
     await tx.userPlan.create({ data: { userId, planId: plan.id, source: 'DEFAULT' } });
   }
 
-  /** The "Efectivo" account and, unless the user keeps theirs, the suggested and system categories. */
+  /** The suggested and system categories (unless the user keeps theirs) and step 1 again. */
   async seedInitialData(
     tx: Prisma.TransactionClient,
     userId: string,
@@ -38,17 +36,6 @@ export class UserOnboardingService {
       const { categories } = await this.settings.value('suggested-categories', tx);
       await seedSuggestedCategories(tx, userId, categories);
     }
-    const cash = await tx.account.create({
-      data: { userId, name: CASH_ACCOUNT_NAME, kind: 'CASH', color: 'brand' },
-    });
-    await tx.pocket.create({
-      data: {
-        userId,
-        accountId: cash.id,
-        name: AVAILABLE_POCKET_NAME,
-        kind: 'AVAILABLE',
-        currency: 'ARS',
-      },
-    });
+    await writeOnboarding(tx, userId, initialOnboardingState());
   }
 }

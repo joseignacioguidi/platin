@@ -17,6 +17,7 @@ import { errorMessage } from '../../core/errors';
 import { INPUT_CLASS } from '../../core/forms/form-field';
 import { SETTINGS_TEXTS } from './settings.texts';
 import { StartOver } from './start-over.service';
+import { OnboardingStore } from '../onboarding/onboarding.store';
 
 /**
  * AUTH-09: shows what will be deleted and what stays, and asks for the email (and the password
@@ -108,6 +109,7 @@ export class StartOverSheet {
   private readonly startOver = inject(StartOver);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly onboarding = inject(OnboardingStore);
   private readonly ref = inject(DialogRef);
 
   protected readonly summary = resource({ loader: () => this.startOver.summary() });
@@ -169,7 +171,9 @@ export class StartOverSheet {
         keepCategories: this.keepCategories(),
       });
       this.ref.close();
-      await this.router.navigate(['/app'], { queryParams: { reiniciado: 1 } });
+      // The onboarding opens again from step 1 (ADR 0035).
+      await this.onboarding.reload().catch(() => undefined);
+      await this.router.navigateByUrl('/app/bienvenida/cuentas');
     } catch (error) {
       this.error.set(errorMessage(error));
     } finally {

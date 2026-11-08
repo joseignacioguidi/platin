@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Inicio con la configuración a medias</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#007A65}a:hover{color:#005c4c}
+input{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 700px; box-sizing: border-box; background: #F5F5F3; font-family: 'Hanken Grotesk', system-ui, sans-serif; color: #181818; display: flex; flex-direction: column">
+<div style="padding: 20px 16px; display: flex; flex-direction: column; gap: 16px">
+  <p style="margin: 0; font-size: 14px; color: #6D6D6D">Hola, Jose Ignacio</p>
+  <h1 style="margin: 0; font-size: 22px; font-weight: 800">Noviembre 2026</h1>
+  <a href="#" style="background: #fff; border: 1.5px solid #181818; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 12px; text-decoration: none; color: #181818">
+    <span style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 16px; font-weight: 800">Terminá de configurar platin</span><span style="font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; font-size: 14px; color: #6D6D6D">2 de 4</span></span>
+    <span style="display: flex; gap: 6px"><span style="flex: 1; height: 6px; border-radius: 3px; background: #181818"></span><span style="flex: 1; height: 6px; border-radius: 3px; background: #181818"></span><span style="flex: 1; height: 6px; border-radius: 3px; background: #E4E4E0"></span><span style="flex: 1; height: 6px; border-radius: 3px; background: #E4E4E0"></span></span>
+    <span style="font-size: 14px; color: #6D6D6D">Falta: consumos de la Visa Santander y lo que pagás todos los meses. Sin eso, tu libre sale de más.</span>
+    <span style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 15px; font-weight: 700; color: #007A65">Seguir configurando</span><button type="button" style="min-height: 44px; border: 0; background: transparent; font: inherit; font-size: 14px; color: #6D6D6D">Ahora no</button></span>
+  </a>
+  <section style="background: #fff; border-radius: 24px; padding: 20px; display: flex; flex-direction: column; gap: 8px">
+    <p style="margin: 0; font-size: 15px; color: #6D6D6D">Te quedan para gastar este mes</p>
+    <p style="margin: 0; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; font-size: 40px; font-weight: 700">$ 460.780</p>
+    <p style="margin: 0; font-size: 13px; color: #6D6D6D">Todavía sin fijos ni consumos de tarjeta.</p>
+  </section>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":700}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

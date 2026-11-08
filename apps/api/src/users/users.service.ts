@@ -7,6 +7,8 @@ import { UserOnboardingService } from '../auth/user-onboarding.service';
 import { AppException } from '../common/app-exception';
 import { CurrenciesService } from '../common/currencies.service';
 import { countUserData, deleteFinancialData } from '../common/user-data';
+import type { Prisma } from '../generated/prisma/client';
+import { storedOnboarding } from '../onboarding/onboarding-state';
 import { PrismaService } from '../prisma/prisma.service';
 import { readPreferences, toUserDto } from './user.mapper';
 
@@ -26,7 +28,8 @@ export class UsersService {
 
   /**
    * AUTH-09: deletes every financial row, then recreates what a new user has. The account, its
-   * sign-in methods, plan, preferences and sessions stay. All or nothing.
+   * sign-in methods, plan, preferences and sessions stay, and the onboarding opens again from
+   * step 1. All or nothing.
    */
   async reset(userId: string, request: ResetRequest): Promise<DataSummary> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -102,7 +105,14 @@ export class UsersService {
           ...fields,
           currencies: enabled,
           ...(preferences
-            ? { preferences: { ...readPreferences(rows[0].preferences), ...preferences } }
+            ? {
+                preferences: {
+                  ...readPreferences(rows[0].preferences),
+                  // The onboarding state is not a preference the user edits (ADR 0035).
+                  ...storedOnboarding(rows[0].preferences),
+                  ...preferences,
+                } as Prisma.InputJsonValue,
+              }
             : {}),
         },
       });

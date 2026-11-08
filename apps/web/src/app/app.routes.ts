@@ -1,5 +1,6 @@
 import { Route } from '@angular/router';
 import { adminGuard, authGuard, guestGuard } from './core/auth/auth.guards';
+import { onboardingGuard, onboardingReady } from './features/onboarding/onboarding.guard';
 
 export const appRoutes: Route[] = [
   {
@@ -29,8 +30,17 @@ export const appRoutes: Route[] = [
     loadComponent: () => import('./features/auth/auth-done-page').then((m) => m.AuthDonePage),
   },
   {
+    // AUTH-05: the onboarding, full screen (outside the shell).
+    path: 'app/bienvenida/:paso',
+    title: 'Bienvenida · platin',
+    canActivate: [authGuard, onboardingReady],
+    loadComponent: () =>
+      import('./features/onboarding/onboarding-page').then((m) => m.OnboardingPage),
+  },
+  { path: 'app/bienvenida', pathMatch: 'full', redirectTo: 'app/bienvenida/cuentas' },
+  {
     path: 'app',
-    canActivate: [authGuard],
+    canActivate: [authGuard, onboardingGuard],
     loadComponent: () => import('./layout/shell').then((m) => m.Shell),
     loadChildren: () => import('./app-area.routes').then((m) => m.appAreaRoutes),
   },

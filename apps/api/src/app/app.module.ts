@@ -22,6 +22,7 @@ import { GoalsModule } from '../goals/goals.module';
 import { InvestmentsModule } from '../investments/investments.module';
 import { HealthModule } from '../health/health.module';
 import { MovementsModule } from '../movements/movements.module';
+import { OnboardingModule } from '../onboarding/onboarding.module';
 import { PlansModule } from '../plans/plans.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RatesModule } from '../rates/rates.module';
@@ -82,6 +83,7 @@ export function clientIpOf(req: Request, header: string | undefined): string {
     HealthModule,
     AuthModule,
     UsersModule,
+    OnboardingModule,
     AccountsModule,
     CategoriesModule,
     TransactionsModule,

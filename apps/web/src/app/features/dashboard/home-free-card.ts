@@ -14,6 +14,7 @@ import {
   PlStackSegment,
   PlStackTone,
 } from '@platin/web-ui';
+import { OnboardingStore } from '../onboarding/onboarding.store';
 import { DASHBOARD_TEXTS } from './dashboard.texts';
 import { HomeToPay, ToPayData } from './home-to-pay';
 import { IncomeSheet, IncomeSheetData } from './income-sheet';
@@ -86,6 +87,9 @@ const nonNegative = (money: Money) => (money.isNegative() ? Money.zero(money.cur
               {{ texts.missingRest }}
             </p>
           }
+        }
+        @if (!past() && setupHint()) {
+          <p class="text-[13px] text-muted">{{ setupHint() }}</p>
         }
       </div>
 
@@ -201,6 +205,18 @@ export class HomeFreeCard {
   protected readonly dots = PL_STACK_TONE_BG;
   private readonly sheet = inject(PlBottomSheet);
   private readonly hideAmounts = inject(HideAmounts);
+  private readonly onboarding = inject(OnboardingStore);
+
+  /** AUTH-11: while the fixed items or the card charges are missing, the free amount is high. */
+  protected readonly setupHint = computed(() => {
+    const missing = this.onboarding.state()?.missing ?? [];
+    const fixed = missing.includes('fixed');
+    const charges = missing.includes('cardCharges');
+    if (fixed && charges) return this.texts.setupMissing.both;
+    if (fixed) return this.texts.setupMissing.fixed;
+    if (charges) return this.texts.setupMissing.charges;
+    return null;
+  });
 
   private readonly money = computed(() => {
     const d = this.dashboard();

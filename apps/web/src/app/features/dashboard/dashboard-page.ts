@@ -1,5 +1,5 @@
 import { httpResource } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { LucideEye, LucideEyeOff } from '@lucide/angular';
 import type { Dashboard } from '@platin/contracts';
@@ -25,7 +25,7 @@ import { HomeGoals } from './home-goals';
 
 import { HomeRecentMovements } from './home-recent-movements';
 import { HomeShortcuts } from './home-shortcuts';
-import { SETTINGS_TEXTS } from '../settings/settings.texts';
+import { OnboardingResumeCard } from '../onboarding/onboarding-resume-card';
 
 /** DAS-07: the practical home (docs/mockups/inicio-v2), on a phone and on a desktop. */
 @Component({
@@ -45,6 +45,7 @@ import { SETTINGS_TEXTS } from '../settings/settings.texts';
     HomeShortcuts,
     HomeAccounts,
     HomeGoals,
+    OnboardingResumeCard,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-5' },
@@ -69,9 +70,8 @@ import { SETTINGS_TEXTS } from '../settings/settings.texts';
       </button>
     </header>
 
-    @if (restarted()) {
-      <p class="rounded-2xl bg-brand-soft px-4 py-3 text-sm" role="status">{{ restartedText }}</p>
-    }
+    <!-- AUTH-11: on top while the onboarding is unfinished. -->
+    <pl-onboarding-resume-card class="empty:hidden" />
 
     @if (accounts.resource.hasValue() && accounts.accounts().length === 0) {
       <pl-empty-state icon="wallet" [heading]="texts.emptyTitle" [description]="texts.emptyBody">
@@ -113,10 +113,6 @@ import { SETTINGS_TEXTS } from '../settings/settings.texts';
   `,
 })
 export class DashboardPage {
-  /** Set by the profile after starting over (AUTH-09): `?reiniciado=1`. */
-  readonly reiniciado = input<string>();
-  protected readonly restarted = computed(() => this.reiniciado() === '1');
-  protected readonly restartedText = SETTINGS_TEXTS.startOver.done;
   protected readonly texts = DASHBOARD_TEXTS;
   protected readonly today = inject(Today);
   protected readonly hideAmounts = inject(HideAmounts);
