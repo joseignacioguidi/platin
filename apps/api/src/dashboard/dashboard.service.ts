@@ -56,6 +56,7 @@ import {
   loadMonthRows,
   MonthRows,
   paidStatementCards,
+  reservedByPocket,
   summaryGroups,
 } from './month-rows';
 
@@ -154,6 +155,11 @@ export class DashboardService {
       received: flow.received.toString(),
       paidOut: flow.paidOut.toString(),
       reserved: flow.reserved.toString(),
+      reservedByPocket: reservedByPocket(
+        core.rows,
+        new Set(core.spendable.map((pocket) => pocket.id)),
+        toBase,
+      ).map((group) => ({ pocketId: group.key, name: group.name, amount: group.amount })),
       other: flow.other.toString(),
       inAccounts: flow.inAccounts.toString(),
       toCollect: flow.toCollect.toString(),

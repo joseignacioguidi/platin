@@ -21,27 +21,31 @@ import { MonthSummarySheet, MonthSummaryData } from './month-summary-sheet';
 
 type RowAction = 'income' | 'toPay' | 'summary';
 
-/** A line of "Cómo se llega al libre". */
+/** A line of the month in the free card. */
 interface FlowRow {
   key: string;
   label: string;
   help: string;
   amount: string;
-  /** The bar segment's color; null for what there was. */
+  /** The bar segment's color; null for the incomes. */
   tone: PlStackTone | null;
   action: RowAction | null;
-  bold?: boolean;
-  /** A line between what there was and where it went. */
+  /** A line between what came in and where it went. */
   divided?: boolean;
+  /** Indented lines under it (the reserves of "Reservaste"); no amount for "y N más". */
+  details?: { key: string; label: string; amount: string | null }[];
 }
+
+/** Reserves listed under "Reservaste"; the rest go together as "y N más". */
+const SHOWN_RESERVES = 3;
 
 const nonNegative = (money: Money) => (money.isNegative() ? Money.zero(money.currency) : money);
 
 /**
- * DAS-07 (1) and DAS-05 (iteration 11): what is left to spend this month and the month from
- * start to end. The bar measures what there was for the month (at the start plus incomes) and
- * splits it into paid, reserved, to pay and free; past it, striped, what went beyond it.
- * "Ingresos del mes", "Para pagar este mes" and "Libre" open their sheets.
+ * DAS-07 (1) and DAS-05: what is left to spend this month and what happened in the month. The
+ * bar splits what there was into paid, reserved, to pay and free; past it, striped, what went
+ * beyond it. "Ingresos del mes" and "Para pagar este mes" open their sheets; "Ya pagaste" opens
+ * the month summary.
  */
 @Component({
   selector: 'pl-home-free-card',
@@ -86,16 +90,11 @@ const nonNegative = (money: Money) => (money.isNegative() ? Money.zero(money.cur
       </div>
 
       <div class="flex min-w-0 flex-[1_1_300px] flex-col gap-1">
-        <p class="text-sm text-muted">
-          {{ texts.hadPrefix }}
-          <pl-money class="text-ink" [amount]="had()" [currency]="d.currency" [decimals]="false" />
-          {{ texts.hadSuffix }}
-        </p>
         <p class="sr-only">{{ barSummary() }}</p>
         <pl-stacked-bar
           [segments]="segments()"
           [currency]="d.currency"
-          [limit]="had()"
+          [limit]="measured()"
           [excessLabel]="texts.overspent"
         />
         @if (negative()) {
@@ -108,53 +107,70 @@ const nonNegative = (money: Money) => (money.isNegative() ? Money.zero(money.cur
         <div class="flex flex-col">
           @for (row of rows(); track row.key; let first = $first) {
             <div
-              class="relative flex min-h-11 items-center gap-2.5"
               [class.border-t]="!first"
               [class.border-line-soft]="!first && !row.divided"
               [class.border-line]="row.divided"
             >
-              @if (row.tone) {
-                <span
-                  class="size-2.5 shrink-0 rounded-full"
-                  [class]="dots[row.tone]"
-                  aria-hidden="true"
-                ></span>
-              } @else {
-                <span class="size-2.5 shrink-0" aria-hidden="true"></span>
-              }
-              <span class="min-w-0 flex-1 text-[15px]" [class.font-bold]="row.bold">
-                @if (row.action) {
-                  <button
-                    type="button"
-                    class="text-left after:absolute after:inset-0 after:rounded-xl"
-                    (click)="open(row.action)"
-                  >
-                    {{ row.label }}</button
-                  ><ng-container
-                    *ngTemplateOutlet="help; context: { term: row.label, text: row.help }"
-                  />
+              <div class="relative flex min-h-11 items-center gap-2.5">
+                @if (row.tone) {
+                  <span
+                    class="size-2.5 shrink-0 rounded-full"
+                    [class]="dots[row.tone]"
+                    aria-hidden="true"
+                  ></span>
                 } @else {
-                  {{ row.label
-                  }}<ng-container
-                    *ngTemplateOutlet="help; context: { term: row.label, text: row.help }"
-                  />
+                  <span class="size-2.5 shrink-0" aria-hidden="true"></span>
                 }
-              </span>
-              <pl-money
-                class="text-[15px]"
-                [class.font-bold]="row.bold"
-                [class.mr-7]="!row.action"
-                [amount]="row.amount"
-                [currency]="d.currency"
-                [decimals]="false"
-              />
-              @if (row.action) {
-                <svg
-                  lucideChevronRight
-                  class="shrink-0 text-muted"
-                  [size]="18"
-                  aria-hidden="true"
-                ></svg>
+                <span class="min-w-0 flex-1 text-[15px]">
+                  @if (row.action) {
+                    <button
+                      type="button"
+                      class="text-left after:absolute after:inset-0 after:rounded-xl"
+                      (click)="open(row.action)"
+                    >
+                      {{ row.label }}</button
+                    ><ng-container
+                      *ngTemplateOutlet="help; context: { term: row.label, text: row.help }"
+                    />
+                  } @else {
+                    {{ row.label
+                    }}<ng-container
+                      *ngTemplateOutlet="help; context: { term: row.label, text: row.help }"
+                    />
+                  }
+                </span>
+                <pl-money
+                  class="text-[15px]"
+                  [class.mr-7]="!row.action"
+                  [amount]="row.amount"
+                  [currency]="d.currency"
+                  [decimals]="false"
+                />
+                @if (row.action) {
+                  <svg
+                    lucideChevronRight
+                    class="shrink-0 text-muted"
+                    [size]="18"
+                    aria-hidden="true"
+                  ></svg>
+                }
+              </div>
+              @if (row.details?.length) {
+                <ul class="-mt-1.5 flex flex-col gap-1 pb-2.5 pl-5 text-sm text-muted">
+                  @for (detail of row.details; track detail.key) {
+                    <li class="flex items-baseline justify-between gap-3">
+                      <span class="min-w-0 truncate">{{ detail.label }}</span>
+                      @if (detail.amount) {
+                        <pl-money
+                          class="mr-7"
+                          [amount]="detail.amount"
+                          [currency]="d.currency"
+                          [decimals]="false"
+                        />
+                      }
+                    </li>
+                  }
+                </ul>
               }
             </div>
           }
@@ -204,74 +220,75 @@ export class HomeFreeCard {
   protected readonly excess = computed(() => this.money().free.abs().toString());
 
   /**
-   * What there was for the month: at the start, the incomes and a positive "otros". A negative
-   * start or "otros" goes with what went; money taken back from reserves adds to what there was.
+   * What the bar measures: what there was for the month (at the start, the incomes, a positive
+   * "otros" and money taken back from reserves) minus a negative start or "otros", which are not
+   * shown. So paid, reserved, to pay and free fill it exactly, and a negative free goes past it
+   * by exactly that amount.
    */
-  protected readonly had = computed(() => {
+  protected readonly measured = computed(() => {
     const m = this.money();
-    return nonNegative(m.opening)
-      .add(nonNegative(m.income))
-      .add(nonNegative(m.other))
-      .add(nonNegative(m.reserved.negate()))
-      .toString();
+    return nonNegative(
+      m.opening.add(m.income).add(m.other).add(nonNegative(m.reserved.negate())),
+    ).toString();
   });
 
   protected readonly segments = computed<PlStackSegment[]>(() => {
     const m = this.money();
     const t = this.texts;
-    const otherOut = nonNegative(m.other.negate()).add(nonNegative(m.opening.negate()));
     const segments: PlStackSegment[] = [
       { label: t.paidOut, amount: m.paidOut.toString(), tone: 'expense' },
       { label: t.reserved, amount: nonNegative(m.reserved).toString(), tone: 'savings' },
     ];
     if (!this.past())
       segments.push({ label: t.toPayMonth, amount: m.toPay.toString(), tone: 'pending' });
-    if (otherOut.isPositive())
-      segments.push({ label: t.other, amount: otherOut.toString(), tone: 'muted' });
     segments.push({ label: t.freeShort, amount: nonNegative(m.free).toString(), tone: 'brand' });
     return segments;
+  });
+
+  /** Each reserve with what was put in this month; the ones past the third as "y N más". */
+  private readonly reserves = computed(() => {
+    const d = this.dashboard();
+    const moved = d.reservedByPocket.filter((r) => !Money.of(r.amount, d.currency).isZero());
+    const details: NonNullable<FlowRow['details']> = moved
+      .slice(0, SHOWN_RESERVES)
+      .map((r) => ({ key: r.pocketId, label: r.name, amount: r.amount }));
+    const rest = moved.length - SHOWN_RESERVES;
+    if (rest > 0) details.push({ key: 'more', label: this.texts.moreReserves(rest), amount: null });
+    return details;
   });
 
   protected readonly rows = computed<FlowRow[]>(() => {
     const m = this.money();
     const t = this.texts;
     const past = this.past();
-    const rows: FlowRow[] = [];
-    if (!m.opening.isZero()) {
-      rows.push({
-        key: 'opening',
-        label: t.opening,
-        help: t.help.opening,
-        amount: m.opening.toString(),
+    const rows: FlowRow[] = [
+      {
+        key: 'income',
+        label: t.income,
+        help: past ? t.help.incomePast : t.help.income,
+        amount: m.income.toString(),
         tone: null,
+        action: 'income',
+      },
+      {
+        key: 'paidOut',
+        label: t.paidOut,
+        help: t.help.paidOut,
+        amount: m.paidOut.toString(),
+        tone: 'expense',
+        action: 'summary',
+        divided: true,
+      },
+      {
+        key: 'reserved',
+        label: t.reserved,
+        help: t.help.reserved,
+        amount: m.reserved.toString(),
+        tone: 'savings',
         action: null,
-      });
-    }
-    rows.push({
-      key: 'income',
-      label: t.income,
-      help: past ? t.help.incomePast : t.help.income,
-      amount: m.income.toString(),
-      tone: null,
-      action: 'income',
-    });
-    rows.push({
-      key: 'paidOut',
-      label: t.paidOut,
-      help: t.help.paidOut,
-      amount: m.paidOut.toString(),
-      tone: 'expense',
-      action: null,
-      divided: true,
-    });
-    rows.push({
-      key: 'reserved',
-      label: t.reserved,
-      help: t.help.reserved,
-      amount: m.reserved.toString(),
-      tone: 'savings',
-      action: null,
-    });
+        details: this.reserves(),
+      },
+    ];
     if (!past) {
       rows.push({
         key: 'toPay',
@@ -282,25 +299,6 @@ export class HomeFreeCard {
         action: 'toPay',
       });
     }
-    if (!m.other.isZero()) {
-      rows.push({
-        key: 'other',
-        label: t.other,
-        help: t.help.other,
-        amount: m.other.toString(),
-        tone: m.other.isNegative() ? 'muted' : null,
-        action: null,
-      });
-    }
-    rows.push({
-      key: 'free',
-      label: t.freeShort,
-      help: past ? t.help.freePast : t.help.free,
-      amount: m.free.toString(),
-      tone: 'brand',
-      action: 'summary',
-      bold: true,
-    });
     return rows;
   });
 
@@ -312,7 +310,7 @@ export class HomeFreeCard {
       .filter((s) => !Money.of(s.amount, d.currency).isZero())
       .map((s) => `${s.label.toLowerCase()} ${text(s.amount)}`)
       .join(', ');
-    const summary = this.texts.barSummary(text(this.had()), parts);
+    const summary = this.texts.barSummary(parts);
     return this.negative() ? `${summary} ${this.texts.barExcess(text(this.excess()))}` : summary;
   });
 
@@ -348,7 +346,7 @@ export class HomeFreeCard {
           period: d.period as Period,
           toPay: { items: d.toPayItems, currency: d.currency, total: d.toPay },
         } satisfies MonthSummaryData,
-        ariaLabel: this.texts.freeShort,
+        ariaLabel: this.texts.summaryLabel,
       });
     }
   }

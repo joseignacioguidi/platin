@@ -142,6 +142,27 @@ describe('dashboard: the whole month', () => {
     });
   });
 
+  it('lists what was reserved per reserve, net of withdrawals (DAS-05)', async () => {
+    const { galicia, savings } = await month();
+    const api = as(ctx.app, user);
+    const trip = await addPocket(ctx.app, user, galicia.accountId, { name: 'Viaje' });
+    await api
+      .post('/api/v1/transfers')
+      .send({
+        fromPocketId: galicia.id,
+        toPocketId: trip.id,
+        amountOut: '50000',
+        date: '2026-10-15',
+      })
+      .expect(201);
+    const res = await api.get('/api/v1/dashboard').expect(200);
+    expect(res.body.reserved).toBe('330000.00');
+    expect(res.body.reservedByPocket).toEqual([
+      { pocketId: savings.id, name: 'Ahorro', amount: '280000.00' },
+      { pocketId: trip.id, name: 'Viaje', amount: '50000.00' },
+    ]);
+  });
+
   it('splits the month into opening, collected, paid out, reserved and other (DAS-05)', async () => {
     await month();
     const res = await as(ctx.app, user).get('/api/v1/dashboard').expect(200);
@@ -374,5 +395,7 @@ describe('dashboard: the whole month', () => {
       .get('/api/v1/dashboard/income?period=2026-10')
       .expect(200);
     expect(income.body).toMatchObject({ collected: [], pending: [] });
+    const home = await as(ctx.app, other).get('/api/v1/dashboard').expect(200);
+    expect(home.body).toMatchObject({ reserved: '0.00', reservedByPocket: [] });
   });
 });

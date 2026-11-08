@@ -236,7 +236,6 @@ export function summaryGroups(
   const income = new Groups();
   const expenses = new Groups();
   const statements = new Groups();
-  const reserves = new Groups();
 
   for (const tx of rows.transactions) {
     const amount = money(tx.amount, tx.currency);
@@ -246,28 +245,11 @@ export function summaryGroups(
   }
 
   for (const transfer of rows.transfers) {
-    const role = roleOf(transfer, pocketIds);
+    if (roleOf(transfer, pocketIds).role !== 'PAYMENT' || !transfer.statement) continue;
+    const card = transfer.statement.card;
     const out = money(transfer.amountOut, transfer.fromPocket.currency);
-    const movement = toTransferMovement(transfer);
-    if (role.role === 'PAYMENT' && transfer.statement) {
-      const card = transfer.statement.card;
-      statements.add(card.id, { name: card.name, category: null, purchases: null }, out, movement);
-    } else if (role.role === 'TO_RESERVE' && transfer.toPocket) {
-      reserves.add(
-        role.pocketId,
-        { name: transfer.toPocket.name, category: null, purchases: null },
-        out,
-        movement,
-      );
-    } else if (role.role === 'FROM_RESERVE') {
-      const into = money(transfer.amountIn, transfer.currencyIn);
-      reserves.add(
-        role.pocketId,
-        { name: transfer.fromPocket.name, category: null, purchases: null },
-        into.negate(),
-        movement,
-      );
-    }
+    const init = { name: card.name, category: null, purchases: null };
+    statements.add(card.id, init, out, toTransferMovement(transfer));
   }
 
   const byCategory = expenses.valued(toBase);
@@ -302,8 +284,40 @@ export function summaryGroups(
     income: income.valued(toBase).map(strip),
     paidByCategory,
     paidByCard,
-    reservedByPocket: reserves.valued(toBase).map(strip),
+    reservedByPocket: reservedByPocket(rows, pocketIds, toBase),
   };
+}
+
+/** "Reservaste" per savings or investment reserve, net of what came back, largest first. */
+export function reservedByPocket(
+  rows: MonthRows,
+  pocketIds: ReadonlySet<string>,
+  toBase: (money: Money) => Money,
+): MonthGroup[] {
+  const reserves = new Groups();
+  for (const transfer of rows.transfers) {
+    const role = roleOf(transfer, pocketIds);
+    const out = money(transfer.amountOut, transfer.fromPocket.currency);
+    const movement = toTransferMovement(transfer);
+    if (role.role === 'TO_RESERVE' && transfer.toPocket) {
+      reserves.add(
+        role.pocketId,
+        { name: transfer.toPocket.name, category: null, purchases: null },
+        out,
+        movement,
+      );
+    } else if (role.role === 'FROM_RESERVE') {
+      const into = money(transfer.amountIn, transfer.currencyIn);
+      reserves.add(
+        role.pocketId,
+        { name: transfer.fromPocket.name, category: null, purchases: null },
+        into.negate(),
+        movement,
+      );
+    }
+  }
+
+  return reserves.valued(toBase).map(strip);
 }
 
 /** From the first purchase day of the earliest statement to the closing of the latest one. */
