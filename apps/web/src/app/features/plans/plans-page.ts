@@ -145,6 +145,7 @@ export class PlansPage {
       plan.limits.investments
         ? PLANS_TEXTS.investmentsIncluded
         : PLANS_TEXTS.investmentsNotIncluded,
+      PLANS_TEXTS.messageLoading,
     ];
   }
 }
