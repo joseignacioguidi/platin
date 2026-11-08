@@ -248,7 +248,10 @@ export class HomeFreeCard {
   /** Each reserve with what was put in this month; the ones past the third as "y N más". */
   private readonly reserves = computed(() => {
     const d = this.dashboard();
-    const moved = d.reservedByPocket.filter((r) => !Money.of(r.amount, d.currency).isZero());
+    // An API deployed before the field (web and API deploy apart) leaves it out: no details.
+    const moved = (d.reservedByPocket ?? []).filter(
+      (r) => !Money.of(r.amount, d.currency).isZero(),
+    );
     const details: NonNullable<FlowRow['details']> = moved
       .slice(0, SHOWN_RESERVES)
       .map((r) => ({ key: r.pocketId, label: r.name, amount: r.amount }));
