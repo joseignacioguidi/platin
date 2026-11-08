@@ -812,6 +812,18 @@ Cada feature tiene sus rutas (carga diferida), sus componentes de página y un s
 | `MonthSummarySheet` | El resumen del mes: grupos que se abren con sus movimientos; tocar un movimiento abre su edición |
 | `HomeAccounts` | Una sola `pl-card` con una sección por cuenta separada por un divisor (`border-line`); "Ver los N pagos" al pie |
 
+### Componentes y patrones de la iteración 12
+
+Sin cambios de backend ni de esquema: la landing sigue prerenderizada y sin pedidos a la API.
+
+| Pieza | Uso |
+| --- | --- |
+| `landing.texts.ts` | Todos los textos nuevos de LAN-03, incluidos los mensajes de la conversación |
+| `LandingChat` | La sección del chat: texto, pasos, canales y la conversación. Los mensajes son una lista de `{ from: 'me' \| 'platin', parts, buttons? }`; los botones son de muestra (`aria-hidden`, sin acción) y la conversación entera tiene un resumen en texto para lectores de pantalla |
+| Aparición de los mensajes | `IntersectionObserver` (solo en el navegador, después de hidratar) que agrega una clase por mensaje con un retraso escalonado; con `prefers-reduced-motion` o sin JavaScript, los mensajes se ven desde el principio |
+| Tarjeta "¿Me alcanza para pagar todo?" | Reemplaza a la de reservas; filas con borde en tinta y una pastilla de estado (`brand` para "todo alcanza", `coral` para "te faltan") |
+| `/planes` | Suma "Carga por mensaje (Telegram)" como incluida en todos los planes |
+
 ## Auth y seguridad
 
 Auth propio con dos tokens: un JWT de acceso corto que vive en memoria y un refresh token largo en una cookie httpOnly, rotado en cada uso. Como Vercel reenvía `/api/*` a Render, la cookie es del mismo dominio que la app y no depende de cookies de terceros.

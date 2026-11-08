@@ -60,6 +60,8 @@ export const PLANS_TEXTS = {
   },
   investmentsIncluded: 'Inversiones incluidas',
   investmentsNotIncluded: 'Sin inversiones',
+  /** LAN-03: loading by message is in every plan. */
+  messageLoading: 'Carga por mensaje (Telegram)',
   askAnother: 'Pedir otro plan',
   // AUTH-10: the plan in one line.
   changePlan: 'Cambiar de plan',

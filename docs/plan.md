@@ -1318,6 +1318,43 @@ Forma de trabajo:
 - Rama feat/fase-37-mes-completo. Todo en verde antes del PR, con capturas del inicio (libre positivo y negativo, claro y oscuro, celular y escritorio) y de las dos hojas.
 ```
 
+## Iteración 12: la landing al día
+
+Una fase para que la landing muestre lo que la app hace hoy, con una sección nueva para cargar por mensaje.
+
+| Fase | Qué se construye | Casos de uso | Terminado cuando |
+| --- | --- | --- | --- |
+| 38 | Landing actualizada con la sección del chat | LAN-03 | La landing se ve como `docs/mockups/landing-v2/` en escritorio y en celular, y los mensajes del chat aparecen al llegar a la sección |
+
+## Fase 38 — La landing al día
+
+**Terminado cuando:**
+- la landing en 1440 px y en 390 px se parece a `docs/mockups/landing-v2/Escritorio.dc.html` y `Celular.dc.html`;
+- el hero nombra todas las monedas y la pastilla dice "Spotify · Confirmar";
+- "¿Cuánto me queda libre?" usa amarillo para "Para pagar" y muestra el por día;
+- "¿Me alcanza para pagar todo?" reemplaza a la tarjeta de reservas;
+- la sección del chat está antes del cierre, con los canales sin logos; los mensajes aparecen de a uno al llegar, una sola vez, y con "reducir movimiento" se ven quietos desde el principio;
+- la landing sigue prerenderizada y sin pedidos a la API, y la página prerenderizada ya trae los mensajes en el HTML;
+- `/planes` muestra la carga por Telegram en todos los planes;
+- en celular no hay scroll horizontal y todo lo tocable mide 44 px o más.
+
+```
+Leé CLAUDE.md; LAN-01 y LAN-03 y la sección "Identidad visual y UX › Landing" de docs/especificacion.md; "Componentes y patrones de la iteración 12" en docs/arquitectura.md; y docs/mockups/landing-v2/ (leé su README).
+
+Vamos a hacer la Fase 38 de docs/plan.md.
+
+1. Textos: todo lo nuevo en landing.texts.ts (subtítulo, pastilla, por día, "¿Me alcanza para pagar todo?", la sección del chat con sus mensajes y el cierre).
+2. Hero y preguntas: los cambios de LAN-03, con los tokens de Tailwind (pending para "Para pagar"; brand y coral en las pastillas de estado).
+3. LandingChat antes del cierre: banda a todo el ancho con borde arriba y abajo, texto y pasos a la izquierda y la conversación a la derecha; en celular, la conversación debajo y los pasos en una línea. Ícono genérico de chat (Lucide), sin logos.
+4. Aparición de los mensajes con IntersectionObserver después de hidratar, escalonada y una sola vez; con prefers-reduced-motion, sin animación. El HTML prerenderizado tiene que traer todos los mensajes visibles, así sin JavaScript se ven.
+5. /planes: "Carga por mensaje (Telegram)" en todos los planes.
+6. Revisá que la landing siga sin pedidos a la API y que el prerender funcione (nx build web y mirá el HTML de /).
+
+Forma de trabajo:
+- Plan primero, esperame.
+- Rama feat/fase-38-landing. Todo en verde antes del PR, con capturas de la landing completa en 1440 y 390 px, de la sección del chat a mitad de la animación y con reducir movimiento.
+```
+
 ## Después del MVP
 
 La segunda tanda de la especificación, en fases chicas que se pueden hacer en cualquier orden. Los prompts siguen el mismo molde que las fases anteriores: leer `CLAUDE.md` y la sección de la especificación, plan primero, rama propia, PR con todo en verde.
