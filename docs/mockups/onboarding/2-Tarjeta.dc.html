@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Onboarding, paso 2: tarjeta</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#007A65}a:hover{color:#005c4c}
+input{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #F5F5F3; font-family: 'Hanken Grotesk', system-ui, sans-serif; color: #181818; display: flex; flex-direction: column">
+<div style="padding: 16px 16px 0; display: flex; flex-direction: column; gap: 10px">
+  <div style="display: flex; align-items: center; gap: 8px"><button type="button" aria-label="Volver" style="width: 44px; height: 44px; border: 0; background: transparent; border-radius: 22px; display: flex; align-items: center; justify-content: center; color: #181818"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg></button><div role="progressbar" aria-label="Paso 2 de 4" aria-valuemin="1" aria-valuemax="4" aria-valuenow="2" style="flex: 1; display: flex; gap: 6px"><span style="flex: 1; height: 6px; border-radius: 3px; background: #181818"></span><span style="flex: 1; height: 6px; border-radius: 3px; background: #181818"></span><span style="flex: 1; height: 6px; border-radius: 3px; background: #E4E4E0"></span><span style="flex: 1; height: 6px; border-radius: 3px; background: #E4E4E0"></span></div><span style="width: 44px; text-align: right; font-size: 13px; color: #6D6D6D; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums">2/4</span></div>
+</div><div style="padding: 20px 20px 0; display: flex; flex-direction: column; gap: 8px">
+  <h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1">¿Tenés tarjeta de crédito?</h1>
+  <p style="margin: 0; font-size: 15px; color: #6D6D6D; line-height: 1.45">Con el cierre y el vencimiento, platin ubica cada compra en su resumen.</p>
+</div>
+<div style="padding: 20px; display: flex; flex-direction: column; gap: 14px">
+  <section style="background: #fff; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 14px">
+    <label style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #6D6D6D">Nombre
+  <span style="min-height: 48px; box-sizing: border-box; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 14px; background: #F1F1EE; border: 1.5px solid #F1F1EE"><input value="Visa Santander" placeholder="" style="flex: 1; min-width: 0; border: 0; background: transparent; font-size: 16px; color: #181818; font-weight: 500; "></span>
+</label>
+    <div style="display: flex; gap: 12px"><label style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #6D6D6D">Día de cierre
+  <span style="min-height: 48px; box-sizing: border-box; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 14px; background: #F1F1EE; border: 1.5px solid #F1F1EE"><input value="26" placeholder="" style="flex: 1; min-width: 0; border: 0; background: transparent; font-size: 16px; color: #181818; font-weight: 500; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums"></span>
+</label><label style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #6D6D6D">Día de vencimiento
+  <span style="min-height: 48px; box-sizing: border-box; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 14px; background: #F1F1EE; border: 1.5px solid #F1F1EE"><input value="5" placeholder="" style="flex: 1; min-width: 0; border: 0; background: transparent; font-size: 16px; color: #181818; font-weight: 500; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums"></span>
+</label></div>
+    <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #6D6D6D">La pagás desde
+      <button type="button" style="min-height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-radius: 14px; border: 0; background: #F1F1EE; font: inherit; font-size: 16px; font-weight: 500; color: #181818">Santander<span style="transform: rotate(90deg); display: inline-flex"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6D6D6D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg></span></button>
+    </label>
+  </section>
+  <p style="margin: 0; font-size: 13px; color: #6D6D6D; line-height: 1.45">Si el banco cambia las fechas algún mes, las corregís en ese resumen.</p>
+</div><div style="margin-top: auto; padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 6px; background: #F5F5F3; border-top: 1px solid #E4E4E0">
+  <button type="button" style="min-height: 52px; border: 0; border-radius: 16px; background: #181818; color: #fff; font: inherit; font-size: 16px; font-weight: 700">Guardar tarjeta</button>
+  <button type="button" style="min-height: 44px; border: 0; background: transparent; font: inherit; font-size: 15px; font-weight: 600; color: #6D6D6D">No tengo tarjeta</button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

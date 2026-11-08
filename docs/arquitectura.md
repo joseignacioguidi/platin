@@ -577,6 +577,28 @@ Sin cambios de esquema.
 | `GET /dashboard/summary?period=YYYY-MM` | DAS-05 (resumen del mes) |
 | `GET /dashboard/income?period=YYYY-MM` | DAS-05 (ingresos del mes) |
 
+### Iteración 13: onboarding
+
+Sin cambios de esquema; las decisiones están en `docs/adr/0035-onboarding.md`.
+
+- **Estado** en `User.preferences.onboarding`, validado con Zod en `libs/contracts`: `{ status: 'IN_PROGRESS' | 'DONE', steps: { accounts, cards, cardCharges, fixed } }`, cada paso `'PENDING' | 'DONE' | 'SKIPPED' | 'LATER'`, más `dismissedAt` para "Ahora no". Sin `onboarding` en las preferencias, el usuario cuenta como `DONE` (las cuentas viejas).
+- **Registro**: `UserOnboardingService` deja de crear "Efectivo"; crea las categorías y el plan, y escribe `onboarding: { status: 'IN_PROGRESS', steps: … 'PENDING' }`. "Empezar de cero" vuelve a escribir ese estado.
+- **Endpoints**:
+  - `GET /onboarding` devuelve el estado y lo necesario para cada paso (cuentas comunes sugeridas, límites del plan, qué ya se creó).
+  - `PATCH /onboarding/steps/:step` con `{ status }` marca un paso; cuando los cuatro están `DONE` o `SKIPPED`, `status` pasa a `DONE`.
+  - `POST /onboarding/dismiss` guarda `dismissedAt` ("Ahora no").
+  - Los datos se crean con los endpoints de siempre (`POST /accounts`, `POST /cards`, `POST /cards/:id/charges` con `startInstallment`, `POST /fixed`); no hay endpoint de "onboarding completo".
+- `POST /fixed` acepta `startPeriod`; la web lo manda en el mes que viene para un fijo cuyo día ya pasó, salvo "Todavía no lo cobré/pagué". La función `fixedStartPeriod(dayOfMonth, today, alreadyHappened)` va en `libs/domain`, con el ejemplo de la regla como test.
+- **Web**: ruta `/app/bienvenida/:paso` (carga diferida). El guard de `/app` lleva ahí si `status` es `IN_PROGRESS` y nunca se tocó un paso; después, el inicio muestra `OnboardingResumeCard` mientras haya pasos `PENDING` o `LATER` y no se haya elegido "Ahora no" en esta sesión.
+- **Métricas**: ADM-02 suma cuentas creadas en el período que terminaron el onboarding y el último paso tocado de las que no.
+
+| Método y ruta | Caso de uso |
+| --- | --- |
+| `GET /onboarding` | AUTH-05 |
+| `PATCH /onboarding/steps/:step` | AUTH-05 |
+| `POST /onboarding/dismiss` | AUTH-11 |
+| `POST /fixed` con `startPeriod` | AUTH-05 (fijos cuyo día ya pasó) |
+
 ## Backend
 
 Un módulo de Nest por dominio; los controladores son finos, los servicios orquestan y las reglas viven en `libs/domain`.
@@ -823,6 +845,17 @@ Sin cambios de backend ni de esquema: la landing sigue prerenderizada y sin pedi
 | Aparición de los mensajes | `IntersectionObserver` (solo en el navegador, después de hidratar) que agrega una clase por mensaje con un retraso escalonado; con `prefers-reduced-motion` o sin JavaScript, los mensajes se ven desde el principio |
 | Tarjeta "¿Me alcanza para pagar todo?" | Reemplaza a la de reservas; filas con borde en tinta y una pastilla de estado (`brand` para "todo alcanza", `coral` para "te faltan") |
 | `/planes` | Suma "Carga por mensaje (Telegram)" como incluida en todos los planes |
+
+### Componentes y patrones de la iteración 13
+
+| Pieza | Uso |
+| --- | --- |
+| `OnboardingShell` | Barra de progreso de 4 segmentos (`role="progressbar"`), "Volver", el contenido del paso y el pie con "Seguir" y "Saltear este paso"; en escritorio, una columna centrada de 560 px |
+| `AccountsStep` | Chips de cuentas (`aria-pressed`), una fila por cuenta elegida con su saldo de hoy (`pl-money-input`), "+ Saldo en otra moneda" y el acceso a reservas |
+| `CardsStep` y `CardChargesStep` | El formulario de tarjeta de siempre en modo compacto; al guardar, la hoja "¿Querés cargar tus consumos actuales?"; las compras ya empezadas en una lista con alta rápida |
+| `FixedStep` | Chips de fijos comunes; cada elegido con monto, día y cuenta o tarjeta, y la nota "Ya pasó este mes" con su botón |
+| `FreeStep` | El libre del mes con `freePerDay`, el desglose corto y los próximos pasos |
+| `OnboardingResumeCard` | En el inicio, arriba de todo: progreso, lo que falta, "Seguir configurando" y "Ahora no" |
 
 ## Auth y seguridad
 

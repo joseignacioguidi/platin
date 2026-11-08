@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Onboarding, paso 2: cargar consumos</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#007A65}a:hover{color:#005c4c}
+input{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 980px; box-sizing: border-box; background: #F5F5F3; font-family: 'Hanken Grotesk', system-ui, sans-serif; color: #181818; display: flex; flex-direction: column">
+<div style="padding: 16px 16px 0; display: flex; flex-direction: column; gap: 10px">
+  <div style="display: flex; align-items: center; gap: 8px"><button type="button" aria-label="Volver" style="width: 44px; height: 44px; border: 0; background: transparent; border-radius: 22px; display: flex; align-items: center; justify-content: center; color: #181818"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg></button><div role="progressbar" aria-label="Paso 2 de 4" aria-valuemin="1" aria-valuemax="4" aria-valuenow="2" style="flex: 1; display: flex; gap: 6px"><span style="flex: 1; height: 6px; border-radius: 3px; background: #181818"></span><span style="flex: 1; height: 6px; border-radius: 3px; background: #181818"></span><span style="flex: 1; height: 6px; border-radius: 3px; background: #E4E4E0"></span><span style="flex: 1; height: 6px; border-radius: 3px; background: #E4E4E0"></span></div><span style="width: 44px; text-align: right; font-size: 13px; color: #6D6D6D; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums">2/4</span></div>
+</div><div style="padding: 20px 20px 0; display: flex; flex-direction: column; gap: 8px">
+  <h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1">Consumos de la Visa Santander</h1>
+  <p style="margin: 0; font-size: 15px; color: #6D6D6D; line-height: 1.45">Cargá lo que ya venís pagando. Cada cuota cae sola en su resumen.</p>
+</div>
+<div style="padding: 20px; display: flex; flex-direction: column; gap: 14px">
+  <section style="background: #fff; border-radius: 20px; padding: 4px 16px 12px">
+    <p style="margin: 12px 0 4px; font-size: 13px; font-weight: 700; color: #6D6D6D">EN CUOTAS</p>
+    <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid #E4E4E0">
+      <span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700">Zapatillas Nike</span><span style="font-size: 13px; color: #6D6D6D">Voy por la <span style="font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums">6 de 9</span></span></span>
+      <span style="font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; font-size: 15px">$ 31.111<span style="color: #6D6D6D">/cuota</span></span>
+    </div><div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid #E4E4E0">
+      <span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px; font-weight: 700">Remera SL + Botines</span><span style="font-size: 13px; color: #6D6D6D">Voy por la <span style="font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums">4 de 9</span></span></span>
+      <span style="font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; font-size: 15px">$ 30.555<span style="color: #6D6D6D">/cuota</span></span>
+    </div>
+    <div style="border-top: 1px solid #E4E4E0; padding-top: 12px; display: flex; flex-direction: column; gap: 10px">
+      <label style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #6D6D6D">¿Qué compraste?
+  <span style="min-height: 48px; box-sizing: border-box; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 14px; background: #F1F1EE; border: 1.5px solid #F1F1EE"><input value="" placeholder="Heladera" style="flex: 1; min-width: 0; border: 0; background: transparent; font-size: 16px; color: #181818; font-weight: 500; "></span>
+</label>
+      <div style="display: flex; gap: 10px"><label style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #6D6D6D">Cuota de
+  <span style="min-height: 48px; box-sizing: border-box; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 14px; background: #F1F1EE; border: 1.5px solid #F1F1EE"><span style="color: #6D6D6D; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums">$</span><input value="" placeholder="25.000" style="flex: 1; min-width: 0; border: 0; background: transparent; font-size: 16px; color: #181818; font-weight: 500; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums"></span>
+</label><label style="flex: 0 0 78px; min-width: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #6D6D6D">Voy por la
+  <span style="min-height: 48px; box-sizing: border-box; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 14px; background: #F1F1EE; border: 1.5px solid #F1F1EE"><input value="" placeholder="3" style="flex: 1; min-width: 0; border: 0; background: transparent; font-size: 16px; color: #181818; font-weight: 500; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums"></span>
+</label><label style="flex: 0 0 78px; min-width: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #6D6D6D">de
+  <span style="min-height: 48px; box-sizing: border-box; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 14px; background: #F1F1EE; border: 1.5px solid #F1F1EE"><input value="" placeholder="12" style="flex: 1; min-width: 0; border: 0; background: transparent; font-size: 16px; color: #181818; font-weight: 500; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums"></span>
+</label></div>
+      <button type="button" style="min-height: 44px; border: 0; border-radius: 12px; background: #F1F1EE; font: inherit; font-size: 15px; font-weight: 700; color: #181818">+ Agregar</button>
+    </div>
+  </section>
+  <section style="background: #fff; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+    <label style="flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; color: #6D6D6D">Lo demás del resumen abierto (compras en un pago)
+  <span style="min-height: 48px; box-sizing: border-box; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 14px; background: #F1F1EE; border: 1.5px solid #F1F1EE"><span style="color: #6D6D6D; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums">$</span><input value="45.000" placeholder="" style="flex: 1; min-width: 0; border: 0; background: transparent; font-size: 16px; color: #181818; font-weight: 500; font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums"></span>
+</label>
+    <p style="margin: 0; font-size: 13px; color: #6D6D6D; line-height: 1.45">Un solo total, como "Compras anteriores". Si no lo sabés, dejalo vacío.</p>
+  </section>
+</div><div style="margin-top: auto; padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 6px; background: #F5F5F3; border-top: 1px solid #E4E4E0">
+  <button type="button" style="min-height: 52px; border: 0; border-radius: 16px; background: #181818; color: #fff; font: inherit; font-size: 16px; font-weight: 700">Listo</button>
+  <button type="button" style="min-height: 44px; border: 0; background: transparent; font: inherit; font-size: 15px; font-weight: 600; color: #6D6D6D">Lo cargo más tarde</button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":980}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>
