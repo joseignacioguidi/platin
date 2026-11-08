@@ -49,7 +49,7 @@ export const LANDING_TEXTS = {
     reserveLabel: 'Reserva en dólares',
     reserveAmount: 'USD 670',
   },
-  questionsTitle: 'Preguntale a tu plata. platin te contesta con números.',
+  questionsTitle: 'Lo que te preguntás cada mes, platin te lo contesta con números.',
   free: {
     title: '¿Cuánto me queda libre este mes?',
     body: 'Lo que hay en tus cuentas y lo que vas a cobrar, menos lo que tenés que pagar este mes: resúmenes de tarjeta, cuotas y fijos. Un solo número, y cuánto podés gastar por día.',

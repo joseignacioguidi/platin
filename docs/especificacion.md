@@ -178,6 +178,7 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 - **LAN-02** Páginas de login y registro con la misma identidad visual.
 - **LAN-03** Landing al día con la app (iteración 12), igual a `docs/mockups/landing-v2/`:
   - Hero: el subtítulo nombra todas las monedas ("en pesos, dólares y la moneda que uses") y la pastilla amarilla dice "Spotify · Confirmar".
+  - El título de las preguntas dice "Lo que te preguntás cada mes, platin te lo contesta con números."
   - "¿Cuánto me queda libre este mes?" con "Para pagar" en amarillo y "Libre" en verde, como en la app, y el por día ("≈ $ 17.179 por día hasta el 30/11").
   - "¿Me alcanza para pagar todo?" reemplaza a "¿Cuánto tengo separado para cada cosa?": dos cuentas con lo que pagan este mes, una con "todo alcanza" y otra con "te faltan $ X".
   - **Sección nueva antes del cierre**, a todo el ancho y con otro fondo que las preguntas: "Cargá un gasto mandando un mensaje.", la bajada, los tres pasos (vinculás, mandás, confirmás; en celular, en una línea), los canales "Telegram · disponible" y "WhatsApp · próximamente" (este con borde punteado y sin fecha) y una conversación de ejemplo: "super 45k visa 3c", la respuesta con [Confirmar] [Cambiar categoría] [Cancelar], "Guardado. Te quedan $ 412.300 este mes.", "/libre" y el por día.
