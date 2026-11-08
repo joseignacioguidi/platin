@@ -20,13 +20,11 @@ export const DASHBOARD_TEXTS = {
   noFree: 'No te queda libre este mes',
   missing: 'Te faltan',
   missingRest: 'para cubrir lo de este mes',
-  /** DAS-05, the month in the free card (and in the month summary). */
-  opening: 'Tenías al empezar el mes',
+  /** DAS-05, the month in the free card. */
   income: 'Ingresos del mes',
   paidOut: 'Ya pagaste',
   reserved: 'Reservaste',
   moreReserves: (count: number) => `y ${count} más`,
-  other: 'Otros',
   overspent: 'Te pasaste',
   barSummary: (parts: string) => `Lo del mes se reparte en: ${parts}.`,
   barExcess: (amount: string) => `Te pasaste ${amount}.`,
@@ -37,17 +35,16 @@ export const DASHBOARD_TEXTS = {
   toCollect: 'Por cobrar',
   noCollected: 'Todavía no cobraste nada este mes.',
   fixedIncome: (name: string) => `${name} · fijo`,
-  /** DAS-05, the month summary sheet. */
-  summaryTitle: (month: string) => `Resumen de ${month}`,
-  summaryLabel: 'Resumen del mes',
-  summaryHad: 'Lo que tuviste',
+  /** DAS-05, what was paid and what was reserved in the month. */
+  paidTitle: (month: string) => `Ya pagaste en ${month}`,
+  reservedTitle: (month: string) => `Reservaste en ${month}`,
   summaryWent: 'A dónde fue',
+  noPaid: 'Todavía no pagaste nada este mes.',
+  noReserved: 'No pasaste plata a tus reservas este mes.',
   otherCategories: 'Otras',
   noCategory: 'Sin categoría',
   cardStatement: (card: string) => `Resumen ${card}`,
   purchases: (from: string, to: string) => `Compras del ${from} al ${to}`,
-  leftOver: 'Libre',
-  retry: 'Reintentar',
   /** DAS-07, the to-pay sheet. */
   toPayTitle: 'Para pagar este mes',
   toPayEmpty: 'No te queda nada por pagar este mes.',

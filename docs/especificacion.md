@@ -181,10 +181,10 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 * **DAS-05** "Libre este mes" se calcula desde los saldos (regla "Libre este mes"). Desde la iteración 11, la tarjeta cuenta el mes de punta a punta (regla "Cómo se llega al libre"):
   - La barra mide todo lo que tuviste para el mes (lo que tenías al empezar más los ingresos) y se reparte en ya pagaste, reservaste, para pagar este mes y libre.
   - Si el libre es negativo, la barra se pasa de largo: lo que sobra se dibuja a rayas en rojo, después de una marca donde terminaba lo que tenías, con "Te pasaste $ X".
-  - Filas, solo con lo del mes (ADR 0034): "Ingresos del mes" ›, "Ya pagaste" ›, "Reservaste" y "Para pagar este mes" ›. "Tenías al empezar el mes", "Otros" y "Libre" no son filas: el libre ya está en grande y lo demás entra en la cuenta sin mostrarse.
+  - Filas, solo con lo del mes (ADR 0034): "Ingresos del mes" ›, "Ya pagaste" ›, "Reservaste" › y "Para pagar este mes" ›. "Tenías al empezar el mes", "Otros" y "Libre" no son filas: el libre ya está en grande y lo demás entra en la cuenta sin mostrarse.
   - Debajo de "Reservaste", cada reserva con lo que pusiste en el mes, neto de retiros: las 3 más grandes y "y N más".
   - "Ingresos del mes" abre los ingresos cobrados y los que faltan cobrar, con fecha, cuenta y monto.
-  - "Ya pagaste" abre el **resumen del mes**: de dónde vino la plata y a dónde fue, con lo pagado por categoría y por tarjeta y lo reservado por reserva.
+  - "Ya pagaste" abre **a dónde fue**: lo pagado por categoría y por tarjeta. "Reservaste" abre cada reserva con su neto. Cada grupo se abre y muestra sus movimientos.
 * **DAS-07** Inicio práctico (iteración 7), igual a `docs/mockups/inicio-v2/`. En celular, una columna en este orden:
   1. **Lo que te queda**: "Te quedan para gastar este mes", el libre, y "≈ $ X por día hasta el 30/11". La barra muestra en qué se reparte lo que hay: para pagar este mes y libre, cada parte con su nombre y monto. "Para pagar este mes" se abre y lista lo que hay que pagar, con su cuenta de pago.
   2. **Avisos**, una línea cada uno y solo si aplican: movimientos para confirmar, cotización desactualizada, valores de inversión para actualizar.
@@ -381,7 +381,7 @@ A dónde fue:
 - **Reservaste**: lo que pasaste a reservas de ahorro o inversión, menos lo que retiraste de ellas.
 - **Para pagar este mes**: lo mismo que "a pagar este mes" del libre.
 - **Libre**: lo que queda. Es el mismo número de siempre: en tus cuentas + por cobrar − a pagar este mes.
-- **Otros**: ajustes de saldo de cuentas y reservas para gastar, y la diferencia que deja cambiar plata de moneda dentro de tus cuentas. Se suma a lo que tuviste si es positivo y a lo que fue si es negativo. En la tarjeta del inicio no se muestra (ADR 0034): si es negativo, se descuenta de lo que mide la barra; en el resumen del mes aparece si no es 0.
+- **Otros**: ajustes de saldo de cuentas y reservas para gastar, y la diferencia que deja cambiar plata de moneda dentro de tus cuentas. Se suma a lo que tuviste si es positivo y a lo que fue si es negativo. En la tarjeta del inicio no se muestra (ADR 0034): si es negativo, se descuenta de lo que mide la barra.
 
 Identidad que tiene que cerrar siempre: al empezar + ingresos ± otros = ya pagaste + reservaste + para pagar + libre. Si el libre es negativo, lo que fue supera lo que tuviste por exactamente ese monto.
 

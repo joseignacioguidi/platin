@@ -17,9 +17,9 @@ import {
 import { DASHBOARD_TEXTS } from './dashboard.texts';
 import { HomeToPay, ToPayData } from './home-to-pay';
 import { IncomeSheet, IncomeSheetData } from './income-sheet';
-import { MonthSummarySheet, MonthSummaryData } from './month-summary-sheet';
+import { MonthSummarySheet, MonthSummaryData, MonthSummaryView } from './month-summary-sheet';
 
-type RowAction = 'income' | 'toPay' | 'summary';
+type RowAction = 'income' | 'toPay' | MonthSummaryView;
 
 /** A line of the month in the free card. */
 interface FlowRow {
@@ -44,8 +44,8 @@ const nonNegative = (money: Money) => (money.isNegative() ? Money.zero(money.cur
 /**
  * DAS-07 (1) and DAS-05: what is left to spend this month and what happened in the month. The
  * bar splits what there was into paid, reserved, to pay and free; past it, striped, what went
- * beyond it. "Ingresos del mes" and "Para pagar este mes" open their sheets; "Ya pagaste" opens
- * the month summary.
+ * beyond it. Every row opens its sheet: the incomes, what was paid by category and card, each
+ * reserve, and what is still to pay.
  */
 @Component({
   selector: 'pl-home-free-card',
@@ -279,7 +279,7 @@ export class HomeFreeCard {
         help: t.help.paidOut,
         amount: m.paidOut.toString(),
         tone: 'expense',
-        action: 'summary',
+        action: 'paid',
         divided: true,
       },
       {
@@ -288,7 +288,7 @@ export class HomeFreeCard {
         help: t.help.reserved,
         amount: m.reserved.toString(),
         tone: 'savings',
-        action: null,
+        action: 'reserved',
         details: this.reserves(),
       },
     ];
@@ -345,11 +345,8 @@ export class HomeFreeCard {
       });
     } else {
       this.sheet.open(MonthSummarySheet, {
-        data: {
-          period: d.period as Period,
-          toPay: { items: d.toPayItems, currency: d.currency, total: d.toPay },
-        } satisfies MonthSummaryData,
-        ariaLabel: this.texts.summaryLabel,
+        data: { period: d.period as Period, view: action } satisfies MonthSummaryData,
+        ariaLabel: action === 'paid' ? this.texts.paidOut : this.texts.reserved,
       });
     }
   }
