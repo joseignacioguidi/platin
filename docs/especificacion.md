@@ -176,6 +176,14 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 - **DAS-03** Evolución del patrimonio en el tiempo.
 - **LAN-01** Landing pública con la identidad de platin: propuesta de valor, el producto en acción, funcionalidades y llamado a registrarse. Usa la cara del guiño, la paleta completa y un movimiento principal (ver "Identidad visual y UX > Landing").
 - **LAN-02** Páginas de login y registro con la misma identidad visual.
+- **LAN-03** Landing al día con la app (iteración 12), igual a `docs/mockups/landing-v2/`:
+  - Hero: el subtítulo nombra todas las monedas ("en pesos, dólares y la moneda que uses") y la pastilla amarilla dice "Spotify · Confirmar".
+  - "¿Cuánto me queda libre este mes?" con "Para pagar" en amarillo y "Libre" en verde, como en la app, y el por día ("≈ $ 17.179 por día hasta el 30/11").
+  - "¿Me alcanza para pagar todo?" reemplaza a "¿Cuánto tengo separado para cada cosa?": dos cuentas con lo que pagan este mes, una con "todo alcanza" y otra con "te faltan $ X".
+  - **Sección nueva antes del cierre**, a todo el ancho y con otro fondo que las preguntas: "Cargá un gasto mandando un mensaje.", la bajada, los tres pasos (vinculás, mandás, confirmás; en celular, en una línea), los canales "Telegram · disponible" y "WhatsApp · próximamente" (este con borde punteado y sin fecha) y una conversación de ejemplo: "super 45k visa 3c", la respuesta con [Confirmar] [Cambiar categoría] [Cancelar], "Guardado. Te quedan $ 412.300 este mes.", "/libre" y el por día.
+  - Los mensajes de la conversación aparecen de a uno al llegar a la sección, una sola vez. Con "reducir movimiento" se ven todos desde el principio.
+  - El cierre dice "Cargá tus cuentas con el saldo de hoy y tu primer gasto desde el chat. Es gratis."
+  - Sin logos de Telegram ni de WhatsApp: un ícono genérico de chat en tinta.
 
 * **DAS-04** Accesos rápidos en el inicio a las demás funciones (cuentas, tarjetas, fijos, compromisos, ahorros, inversiones, categorías, presupuestos cuando existan). Cada usuario elige cuáles ver y en qué orden; hay un conjunto por defecto.
 * **DAS-05** "Libre este mes" se calcula desde los saldos (regla "Libre este mes"). Desde la iteración 11, la tarjeta cuenta el mes de punta a punta (regla "Cómo se llega al libre"):
@@ -679,6 +687,10 @@ Menos secciones y mejor agrupadas, y pantallas que usan el ancho del escritorio.
 - La tarjeta del libre cuenta el mes de punta a punta: lo que tenías, lo que entró, lo que pagaste, lo que reservaste y lo que falta, con el resumen del mes y el exceso a la vista (DAS-05).
 - Tus cuentas y sus pagos en una sola tarjeta (DAS-07).
 
+### Iteración 12 (noviembre 2026)
+
+- La landing al día con la app: el por día, "¿Me alcanza para pagar todo?" y una sección nueva para cargar por mensaje, con Telegram disponible y WhatsApp más adelante (LAN-03).
+
 ## Identidad visual y UX
 
 La app usa la paleta y la tipografía de Hecho, con los colores reasignados a significados financieros. La interfaz se diseña de cero, mobile-first, alrededor de una pregunta: cuánto puedo gastar este mes.
@@ -731,8 +743,8 @@ Antes de implementar conviene bajar estas pantallas a mockups: Inicio, Carga rá
 
 - La cara del guiño es el personaje de la marca: aparece en el hero y en el cierre.
 - La landing usa toda la paleta, incluidos los acentos coral, celeste y rosa, que en la app están reservados.
-- Un solo movimiento principal al cargar (el guiño, los números que ruedan o los recortes flotando, según la dirección elegida) y nada que se mueva sin motivo. Con "reducir movimiento" activado, todo queda quieto.
-- Los montos que se muestran son ejemplos coherentes con los de la app (libre del mes $ 412.300, meta del auto USD 771 por mes).
+- Un solo movimiento principal al cargar (el guiño, los números que ruedan o los recortes flotando, según la dirección elegida) y nada que se mueva sin motivo. Desde la iteración 12, además, los mensajes del chat aparecen al llegar a esa sección. Con "reducir movimiento" activado, todo queda quieto.
+- Los montos que se muestran son ejemplos coherentes con los de la app (libre del mes $ 412.300, $ 17.179 por día, meta del auto USD 771 por mes).
 
 ## Stack, arquitectura y preguntas abiertas
 
