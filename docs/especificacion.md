@@ -102,7 +102,7 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 - **MOV-03** Listar, filtrar (fecha, cuenta, categoría, tipo, texto) y buscar movimientos.
 - **MOV-04** Editar y eliminar movimientos. Al editar se puede cambiar la cuenta, solo por otra con saldo en la misma moneda; para cambiar de moneda hay que borrarlo y cargarlo de nuevo. Al editar un movimiento programado el botón dice "Guardar".
 - **MOV-05** Confirmar movimientos pendientes generados por fijos, en lote.
-- **MOV-06** Exportar movimientos a CSV.
+- **MOV-06** Exportar movimientos a CSV (desde la iteración 14, parte de LEG-04).
 - **MOV-07** Invertir o rescatar desde la carga rápida: un cuarto modo "Invertir", con "Invertir" / "Rescatar". Invertir pasa plata del saldo de una cuenta a una reserva de inversión, existente o nueva ("+ Nueva inversión"); Rescatar hace lo inverso. Es el único lugar fuera de la reserva donde se invierte. Si las monedas son distintas pide los dos montos. Se guarda como transferencia con intención `INVEST` o `REDEEM` y en la lista se lee "Invertiste $ 150.000 en CEDEARs". Requiere el plan que incluye inversiones.
 - **MOV-08** Cargar un gasto o ingreso con fecha futura (un turno médico el 20 con su costo): queda programado, no toca saldos y aparece en compromisos y en los próximos 30 días. Cuando llega su fecha pasa a "Para confirmar".
 - **MOV-09** La carga rápida entra en la pantalla de un celular sin scroll (360 × 640 como mínimo), también con tarjeta y cuotas. El **motivo** ("¿En qué?") está siempre visible debajo del monto; si queda vacío, el movimiento toma el nombre de la categoría. Desde la iteración 7, la categoría se elige con el mismo selector que el resto de los formularios (búsqueda, ícono y color, recientes primero y "+ Nueva categoría"), en lugar de la fila de chips.
@@ -275,6 +275,15 @@ Cargar un movimiento escribiendo una línea corta ("super 45k visa 3c", "turno m
 - **BOT-05** **Comandos**: `/libre`, `/hoy`, `/pendientes`, `/proximos`, `/deshacer`, `/ayuda` y `/desvincular` (regla "Bot de Telegram").
 - **BOT-06** **Mensajes no entendidos**: lo que el bot no pudo interpretar se guarda 90 días para mejorar el parser. La persona los ve y los borra en Perfil › Telegram; el administrador solo ve conteos.
 - **BOT-07** **IA de respaldo** (fase 34, a diseñar): interpretar con IA lo que el parser no entiende (texto libre, varios gastos en un mensaje, fotos de tickets, audios). Opcional, del plan Pro y con límite diario.
+
+### 16. Legal y privacidad
+
+Lo necesario para abrir platin al público: textos legales, aceptación, y los derechos de acceso y supresión de la Ley 25.326. Los textos están en `docs/legal/` y los revisa un abogado antes del lanzamiento.
+
+- **LEG-01** **Páginas legales** `/privacidad` y `/terminos`, públicas, prerenderizadas y generadas desde `docs/legal/privacidad.md` y `docs/legal/terminos.md`. Enlazadas desde el pie de la landing, el registro, el ingreso, la barra lateral (junto al perfil) y Perfil y ajustes. Cada página muestra su versión (fecha).
+- **LEG-02** **Aceptación**: el registro con contraseña tiene un checkbox obligatorio "Acepto los [términos] y la [política de privacidad]" (con enlaces que abren en otra pestaña); sin marcarlo no se puede crear la cuenta, y el botón "Continuar con Google" del registro también queda deshabilitado. Se guarda la versión aceptada y la fecha. Si la versión vigente es más nueva que la aceptada (o no hay ninguna), al entrar a la app se muestra "Actualizamos los términos" y no se puede seguir sin aceptar; esa pantalla ofrece descargar los datos y eliminar la cuenta.
+- **LEG-03** **Eliminar mi cuenta**, en la zona peligrosa de Perfil, junto a "Empezar de cero": la hoja explica qué se borra y que no se puede deshacer, ofrece descargar los datos antes, y pide escribir "ELIMINAR" y, si la cuenta tiene contraseña, la contraseña. Borra todo lo del usuario, le manda un último mensaje por Telegram si estaba vinculado, cierra la sesión y lleva a `/cuenta-eliminada`.
+- **LEG-04** **Descargar mis datos**, en Perfil: "Todo (JSON)" con todas las entidades del usuario y "Movimientos (CSV)" (cubre MOV-06). Se generan en el momento.
 
 ## Reglas de negocio
 
@@ -476,6 +485,26 @@ Ejemplo (tests literales): tenías al empezar $ 300.000; cobraste $ 1.600.000 y 
 
 Ejemplo (hoy 8/11): Efectivo $ 0, Mercado Pago $ 459.880 y Santander $ 900; una tarjeta sin consumos; fijos Sueldo $ 1.600.000 el día 1 (ya pasó: empieza en diciembre), Alquiler $ 380.000 el día 10 y Spotify $ 3.300 el día 7 en la Visa (ya pasó). Tu libre = 460.780 − 380.000 = $ 80.780, ≈ $ 3.512 por día hasta el 30/11.
 
+### Privacidad y datos personales
+
+**Versión de los textos legales**
+- La versión es la fecha del documento (`2026-12-01`), la misma para la política y los términos. Se guarda en el usuario la última versión aceptada y cuándo.
+- Una cuenta sin versión aceptada (todas las anteriores a esta iteración) o con una versión anterior a la vigente ve "Actualizamos los términos" al entrar. Mientras no acepte, solo puede usar Perfil (descargar sus datos y eliminar la cuenta) y cerrar sesión.
+- Una cuenta nueva con Google desde "Ingresar" (sin pasar por el checkbox del registro) se crea y ve esa misma pantalla antes de usar la app.
+- Platin es para mayores de 18 años; lo dicen los términos y el checkbox no lo pregunta aparte.
+
+**Eliminar la cuenta**
+- Se borra, en una transacción, todo lo que tiene al usuario: lo que borra "Empezar de cero" sin conservar categorías, más sesiones, formas de ingreso, vínculo y códigos de Telegram, días de actividad, plan, pedidos de plan, preferencias, el registro de auditoría donde es el destinatario y el usuario. Si fue actor de una acción de auditoría (solo administradores), el actor queda vacío.
+- El bot manda "Tu cuenta de platin se eliminó. Este chat ya no está vinculado." y desde ese momento trata el chat como no vinculado.
+- Un administrador no puede eliminar su propia cuenta si es el único administrador (`LAST_ADMIN`).
+- **Copias de respaldo**: la base guarda el historial de cambios por 6 horas (plan gratuito de Neon) y no hay snapshots manuales; pasado ese plazo los datos borrados no se pueden recuperar. Si se cambia de plan o se saca un snapshot, se actualiza este punto y la política.
+- No se puede deshacer, ni siquiera desde administración.
+
+**Descargar mis datos**
+- JSON: un objeto con la versión del formato, la fecha y una clave por entidad del usuario (perfil sin hash de contraseña ni tokens, formas de ingreso sin secretos, cuentas, reservas, movimientos, transferencias, valuaciones, categorías, reglas de comercio, alias, tarjetas, resúmenes, consumos, cuotas, ajustes de resumen, fijos y sus montos, metas, plan, pedidos de plan, vínculo de Telegram sin códigos, mensajes no entendidos). Montos como string decimal y fechas `YYYY-MM-DD`, como en la API.
+- CSV de movimientos: fecha, tipo, cuenta o tarjeta, categoría, motivo, moneda, monto, cotización y monto en moneda base, estado y origen; separador `;`, coma decimal y UTF-8 con BOM, para que Excel en español lo abra bien.
+- Hasta 5 descargas por hora por usuario.
+
 ### Empezar de cero
 
 - Está en el perfil, en una sección "Zona peligrosa" al final, separada del resto.
@@ -606,7 +635,7 @@ El MVP es lo mínimo para dejar de usar la versión actual: cuentas, movimientos
 | --- | --- | --- |
 | Autenticación y perfil | AUTH-01, 02, 04 | AUTH-03 recuperar contraseña, AUTH-05 onboarding (iteración 13) |
 | Cuentas | CTA-01, 02, 03, 04 | — |
-| Movimientos | MOV-01 a 05 | MOV-06 exportar CSV |
+| Movimientos | MOV-01 a 05; MOV-06 en la iteración 14 (LEG-04) | — |
 | Tarjetas | TAR-01 a 05, 07, 08 | TAR-06 corregir fechas, TAR-09 fijos en tarjeta, TAR-10 límite disponible |
 | Fijos | FIJ-01 a 04 | — |
 | Compromisos | COM-01, 02 | COM-03 liberación de cuotas |
@@ -715,6 +744,13 @@ Menos secciones y mejor agrupadas, y pantallas que usan el ancho del escritorio.
 ### Iteración 13 (noviembre 2026)
 
 - Onboarding de cuatro pasos (cuentas, tarjetas con sus consumos actuales, fijos y tu libre), todo salteable, con la tarjeta "Terminá de configurar platin" en el inicio (AUTH-05, AUTH-11).
+
+### Iteración 14 (noviembre 2026)
+
+Lo legal y la privacidad antes de abrir platin al público en enero.
+
+- Política de privacidad y términos públicos y versionados, con aceptación en el registro y cuando cambian (LEG-01, LEG-02).
+- Eliminar la cuenta y descargar los datos desde Perfil (LEG-03, LEG-04; cubre MOV-06).
 
 ## Identidad visual y UX
 
