@@ -1,0 +1,28 @@
+{
+  "name": "platin-video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "platin promo video (Remotion). Outside the Nx workspace.",
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "seed": "node scripts/seed-demo.mjs",
+    "capture": "node scripts/capture.mjs",
+    "render:30": "remotion render src/index.ts Platin30 out/platin-30s.mp4 --codec=h264 --crf=18",
+    "render:15": "remotion render src/index.ts Platin15 out/platin-15s.mp4 --codec=h264 --crf=18",
+    "still": "remotion still src/index.ts Portada out/portada.png",
+    "render": "pnpm render:30 && pnpm render:15 && pnpm still",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.545",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.545"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "playwright": "1.65.1",
+    "typescript": "5.9.3"
+  }
+}

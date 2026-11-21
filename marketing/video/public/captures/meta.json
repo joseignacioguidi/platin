@@ -1,0 +1,114 @@
+{
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "scale": 3,
+  "screens": {
+    "inicio": {
+      "file": "inicio.png",
+      "viewport": "inicio-viewport.png",
+      "height": 1809,
+      "barTop": 775,
+      "boxes": {
+        "toggle": {
+          "x": 326,
+          "y": 16,
+          "width": 44,
+          "height": 44
+        }
+      },
+      "headline": {
+        "x": 40,
+        "y": 150,
+        "width": 310,
+        "height": 50,
+        "text": "$ 2.279.592",
+        "fontSize": 40,
+        "fontWeight": "700",
+        "letterSpacing": "-1px",
+        "color": "rgb(24, 24, 24)",
+        "background": "rgb(255, 255, 255)"
+      }
+    },
+    "tarjeta-cuotas": {
+      "file": "tarjeta-cuotas.png",
+      "viewport": "tarjeta-cuotas-viewport.png",
+      "height": 1611,
+      "barTop": 775,
+      "boxes": {},
+      "chart": {
+        "x": 20,
+        "y": 495.5,
+        "width": 350,
+        "height": 213.5,
+        "background": "rgb(255, 255, 255)"
+      },
+      "bars": [
+        {
+          "label": "Noviembre 2026, 6 cuotas: $ 253.810",
+          "x": 84,
+          "y": 549,
+          "width": 32,
+          "height": 144
+        },
+        {
+          "label": "Diciembre 2026, 3 cuotas: $ 168.990",
+          "x": 122,
+          "y": 549,
+          "width": 32,
+          "height": 144
+        },
+        {
+          "label": "Enero 2027, 2 cuotas: $ 106.490",
+          "x": 160,
+          "y": 549,
+          "width": 32,
+          "height": 144
+        },
+        {
+          "label": "Febrero 2027, 2 cuotas: $ 106.490",
+          "x": 198,
+          "y": 549,
+          "width": 32,
+          "height": 144
+        },
+        {
+          "label": "Marzo 2027, 2 cuotas: $ 106.490",
+          "x": 236,
+          "y": 549,
+          "width": 32,
+          "height": 144
+        },
+        {
+          "label": "Abril 2027, 2 cuotas: $ 106.490",
+          "x": 274,
+          "y": 549,
+          "width": 32,
+          "height": 144
+        }
+      ]
+    },
+    "compromisos": {
+      "file": "compromisos.png",
+      "viewport": "compromisos-viewport.png",
+      "height": 1365,
+      "barTop": 775,
+      "boxes": {}
+    },
+    "metas": {
+      "file": "metas.png",
+      "viewport": "metas-viewport.png",
+      "height": 938,
+      "barTop": 775,
+      "boxes": {}
+    },
+    "inicio-oculto": {
+      "file": "inicio-oculto.png",
+      "viewport": "inicio-oculto-viewport.png",
+      "height": 1809,
+      "barTop": 775,
+      "boxes": {}
+    }
+  }
+}
