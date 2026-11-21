@@ -1400,6 +1400,51 @@ Forma de trabajo:
 - Rama feat/fase-39-onboarding. Todo en verde antes del PR, con capturas de cada paso en celular y escritorio, de la hoja de consumos y del inicio a medias.
 ```
 
+## Iteración 14: legal y privacidad
+
+Una fase para poder abrir platin al público en enero: textos legales, aceptación, eliminar la cuenta y descargar los datos.
+
+**Antes de lanzar (vos):** completar los `[COMPLETAR]` de `docs/legal/` y revisar los dos textos con un abogado (responsable, email de contacto, región de los servidores, transferencia internacional, plazos, inscripción en el Registro Nacional de Bases de Datos). Cada cambio de texto es cambiar la fecha de versión.
+
+| Fase | Qué se construye | Casos de uso | Terminado cuando |
+| --- | --- | --- | --- |
+| 40 | Páginas legales, aceptación, eliminar cuenta y descargar datos | LEG-01 a 04, MOV-06 | Las páginas son públicas, no hay registro sin aceptar, borrar no deja filas del usuario y la exportación tiene todas sus entidades |
+
+## Fase 40 — Legal y privacidad
+
+**Terminado cuando:**
+- `/privacidad` y `/terminos` se ven sin ingresar, prerenderizadas, con su versión, y están enlazadas desde la landing, el registro, el ingreso, la barra lateral y Perfil;
+- no se puede crear una cuenta (con contraseña ni con Google desde el registro) sin marcar el checkbox, y queda guardada la versión y la fecha;
+- al cambiar `LEGAL_VERSION`, una cuenta existente ve "Actualizamos los términos" y la API responde `LEGAL_ACCEPTANCE_REQUIRED` hasta que acepta, salvo descargar datos y eliminar la cuenta;
+- eliminar la cuenta pide "ELIMINAR" (y la contraseña si hay), cierra la sesión, lleva a `/cuenta-eliminada`, el bot manda su último mensaje y después trata el chat como no vinculado;
+- el test que recorre el modelo de Prisma confirma que no queda ninguna fila del usuario borrado y que los datos de otro usuario siguen intactos;
+- la descarga en JSON tiene una clave por cada entidad con datos del usuario (verificado contra el modelo) y no incluye hashes ni tokens; el CSV de movimientos abre bien en Excel;
+- el último administrador no puede eliminar su cuenta.
+
+```
+Leé CLAUDE.md; el módulo 16 (LEG-01 a 04), MOV-06 y la regla "Privacidad y datos personales" de docs/especificacion.md; en docs/arquitectura.md "Iteración 14: legal y privacidad" y "Componentes y patrones de la iteración 14"; docs/adr/0037-legal-y-privacidad.md; y los borradores de docs/legal/.
+
+Vamos a hacer la Fase 40 de docs/plan.md. Hay una dependencia nueva (marked, solo para el build); confirmame la versión antes de agregarla.
+
+Contratos y esquema:
+1. LEGAL_VERSION, los cambios de registerRequestSchema, exportSchema y los esquemas de los endpoints nuevos en libs/contracts. Test que compara LEGAL_VERSION con el front matter de docs/legal/*.md.
+2. Migración: acceptedLegalVersion y acceptedLegalAt en User, AuditLog.actorId opcional. Mostrámela antes de aplicarla.
+
+Backend:
+3. Registro con aceptación (contraseña y Google con el state firmado), POST /users/me/legal, legalAccepted en /auth/me y el guard global con sus excepciones. Tests e2e: registro sin aceptar, con versión vieja, Google desde registro y desde ingresar, cuenta vieja bloqueada y excepciones.
+4. DELETE /users/me según la arquitectura, con deleteUser completando el registro de auditoría y el último mensaje de Telegram (TelegramClient falso en tests). Test que recorre Prisma.dmmf y confirma 0 filas del usuario, más aislamiento, confirmación incorrecta, LAST_ADMIN y que el bot trata el chat como no vinculado.
+5. GET /users/me/export.json y export.csv con su límite. Test que verifica una clave por modelo con datos del usuario (misma lista del punto 4), sin hashes ni tokens, y el formato del CSV.
+
+Web:
+6. Script de build que convierte docs/legal/*.md a HTML; rutas públicas /privacidad, /terminos y /cuenta-eliminada, prerenderizadas.
+7. Checkbox del registro (también habilita "Continuar con Google"), LegalUpdateGate en el guard de /app, DeleteAccountSheet en la zona peligrosa, DataExportCard en Perfil y los enlaces legales en los pies.
+8. Textos en los archivos de textos de cada feature.
+
+Forma de trabajo:
+- Plan primero, esperame. Si conviene, dividila en 40a (esquema, backend y tests) y 40b (web).
+- Rama feat/fase-40-legal. Todo en verde antes del PR, con capturas de las dos páginas, del registro, de "Actualizamos los términos", de la hoja de eliminar y de /cuenta-eliminada.
+```
+
 ## Después del MVP
 
 La segunda tanda de la especificación, en fases chicas que se pueden hacer en cualquier orden. Los prompts siguen el mismo molde que las fases anteriores: leer `CLAUDE.md` y la sección de la especificación, plan primero, rama propia, PR con todo en verde.

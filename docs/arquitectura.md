@@ -599,6 +599,37 @@ Sin cambios de esquema; las decisiones están en `docs/adr/0035-onboarding.md`.
 | `POST /onboarding/dismiss` | AUTH-11 |
 | `POST /fixed` con `startPeriod` | AUTH-05 (fijos cuyo día ya pasó) |
 
+### Iteración 14: legal y privacidad
+
+Cambio de esquema en una migración normal; las decisiones están en `docs/adr/0037-legal-y-privacidad.md`.
+
+```prisma
+// En User:
+//   acceptedLegalVersion String?    // "2026-12-01"
+//   acceptedLegalAt      DateTime?
+```
+
+- **Versión vigente**: `LEGAL_VERSION` en `libs/contracts`. Un test lee el front matter de `docs/legal/*.md` y falla si no coincide.
+- **Páginas**: en el build de la web, un script convierte `docs/legal/*.md` en HTML (con `marked`, dependencia nueva solo de build) y lo deja como un archivo de la app; `/privacidad` y `/terminos` son rutas públicas prerenderizadas que lo muestran con los estilos de la landing. Sin pedidos a la API.
+- **Aceptación**:
+  - `registerRequestSchema` suma `acceptLegal: z.literal(true)` y `legalVersion`; el servicio guarda la versión vigente (no la que manda el cliente) y responde `LEGAL_VERSION_OUTDATED` si no coincide.
+  - El inicio con Google desde el registro pasa `acceptLegal` en el `state` firmado del flujo OAuth; desde "Ingresar", la cuenta nueva queda sin versión.
+  - `GET /auth/me` suma `legalAccepted: boolean`. Un guard global responde 403 `LEGAL_ACCEPTANCE_REQUIRED` a todo pedido autenticado si la versión aceptada no es la vigente, salvo `/auth/*`, `GET /users/me`, `POST /users/me/legal`, `GET /users/me/export*` y `DELETE /users/me`.
+  - `POST /users/me/legal` con `{ version }` acepta la vigente.
+- **Eliminar**: `DELETE /users/me` con `{ confirm: "ELIMINAR", password? }` (`CONFIRMATION_MISMATCH`, `INVALID_CREDENTIALS`, `LAST_ADMIN`), con el límite estricto de intentos de "Empezar de cero".
+  - `deleteUser` (en `common/user-data.ts`) suma el registro de auditoría: borra las filas con `targetUserId` del usuario y deja `actorId` en `null` donde fue actor (la columna pasa a opcional).
+  - Antes de borrar, si hay `TelegramLink`, guarda el `chatId` y, después de confirmar la transacción, `TelegramClient.sendMessage` manda el último mensaje; si falla, se registra y sigue.
+  - Responde 204 y borra la cookie de refresh; el borrado de las sesiones invalida el resto.
+- **Exportar**: `GET /users/me/export.json` y `GET /users/me/export.csv`, con `Content-Disposition: attachment; filename="platin-YYYY-MM-DD.json"`, armados en el momento con consultas por `userId`, con el throttler en 5 por hora. Esquema del JSON en `libs/contracts` (`exportSchema`, con `formatVersion: 1`).
+- **Test de "no queda nada"**: recorre los modelos de `Prisma.dmmf` y, por cada uno con un campo `userId`, `actorId` o `targetUserId` (o relacionado con el usuario por una tabla padre), cuenta las filas del usuario borrado: tienen que ser 0. El de exportar usa la misma lista para verificar que el JSON tenga una clave por cada modelo con datos del usuario. Así, una tabla nueva rompe los dos tests hasta que se la sume.
+
+| Método y ruta | Caso de uso |
+| --- | --- |
+| `POST /auth/register` con `acceptLegal` y `legalVersion` | LEG-02 (`LEGAL_ACCEPTANCE_REQUIRED`, `LEGAL_VERSION_OUTDATED`) |
+| `POST /users/me/legal` | LEG-02 |
+| `DELETE /users/me` | LEG-03 |
+| `GET /users/me/export.json`, `GET /users/me/export.csv` | LEG-04, MOV-06 |
+
 ## Backend
 
 Un módulo de Nest por dominio; los controladores son finos, los servicios orquestan y las reglas viven en `libs/domain`.
@@ -856,6 +887,18 @@ Sin cambios de backend ni de esquema: la landing sigue prerenderizada y sin pedi
 | `FixedStep` | Chips de fijos comunes; cada elegido con monto, día y cuenta o tarjeta, y la nota "Ya pasó este mes" con su botón |
 | `FreeStep` | El libre del mes con `freePerDay`, el desglose corto y los próximos pasos |
 | `OnboardingResumeCard` | En el inicio, arriba de todo: progreso, lo que falta, "Seguir configurando" y "Ahora no" |
+
+### Componentes y patrones de la iteración 14
+
+| Pieza | Uso |
+| --- | --- |
+| `LegalPage` | Ruta pública que muestra el HTML de un documento legal con tipografía de lectura (ancho de 68 caracteres, títulos con ancla), su versión y un enlace al otro documento |
+| Checkbox del registro | `<input type="checkbox">` con `<label>` real y los dos enlaces dentro; el error se anuncia con `aria-live` |
+| `LegalUpdateGate` | Pantalla "Actualizamos los términos" a la que lleva el guard de `/app` si `legalAccepted` es falso: enlaces a los dos documentos, "Acepto", "Descargar mis datos" y "Eliminar mi cuenta" |
+| `DeleteAccountSheet` | En la zona peligrosa: qué se borra, "Descargar mis datos antes", el campo "Escribí ELIMINAR", la contraseña si la cuenta tiene, y el botón en `expense-ink` habilitado solo con el texto exacto |
+| `AccountDeletedPage` | Ruta pública `/cuenta-eliminada`: "Tu cuenta se eliminó", qué pasó con los datos (incluidas las 6 horas de los respaldos) y un enlace a la landing |
+| `DataExportCard` | En Perfil: "Descargar mis datos" con "Todo (JSON)" y "Movimientos (CSV)" |
+| Pie legal | Enlaces "Privacidad" y "Términos" en el pie de la landing, del registro y del ingreso, y en la barra lateral y Perfil de la app |
 
 ## Auth y seguridad
 
