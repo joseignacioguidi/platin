@@ -1,0 +1,178 @@
+{
+  "15-01.mp3": {
+    "key": {
+      "text": "¿Cuánto pagás de tarjeta el mes que viene?",
+      "voice": "5da4nOCHLuswM3TyAUSo",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1
+      },
+      "language": ""
+    },
+    "seconds": 2.67
+  },
+  "15-02.mp3": {
+    "key": {
+      "text": "Con platín cargás tus compras en cuotas y ves cuánto pagás cada mes.",
+      "voice": "5da4nOCHLuswM3TyAUSo",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1
+      },
+      "language": ""
+    },
+    "seconds": 5.65
+  },
+  "15-03.mp3": {
+    "key": {
+      "text": "Platín. Tu plata, más clara.",
+      "voice": "5da4nOCHLuswM3TyAUSo",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1
+      },
+      "language": ""
+    },
+    "seconds": 2.85
+  },
+  "30-01.mp3": {
+    "key": {
+      "text": "¿Cuánto pagás de tarjeta el mes que viene?",
+      "voice": "5da4nOCHLuswM3TyAUSo",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1
+      },
+      "language": ""
+    },
+    "seconds": 2.54
+  },
+  "30-02.mp3": {
+    "key": {
+      "text": "Exacto. Ni idea.",
+      "voice": "5da4nOCHLuswM3TyAUSo",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1
+      },
+      "language": ""
+    },
+    "seconds": 2.61
+  },
+  "30-03.mp3": {
+    "key": {
+      "text": "Total, lo pago el mes que viene.",
+      "voice": "5da4nOCHLuswM3TyAUSo",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1
+      },
+      "language": ""
+    },
+    "seconds": 2.3
+  },
+  "30-04.mp3": {
+    "key": {
+      "text": "Y el mes que viene ya está lleno.",
+      "voice": "5da4nOCHLuswM3TyAUSo",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1
+      },
+      "language": ""
+    },
+    "seconds": 2.38
+  },
+  "30-05.mp3": {
+    "key": {
+      "text": "Con platín cargás tus compras en cuotas y ves cuánto pagás cada mes, antes de que llegue el resumen.",
+      "voice": "5da4nOCHLuswM3TyAUSo",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1
+      },
+      "language": ""
+    },
+    "seconds": 6.74
+  },
+  "30-06.mp3": {
+    "key": {
+      "text": "Pesos, dólares y tarjetas, todo en un lugar.",
+      "voice": "5da4nOCHLuswM3TyAUSo",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1
+      },
+      "language": ""
+    },
+    "seconds": 4.16
+  },
+  "30-07.mp3": {
+    "key": {
+      "text": "Y nadie más los ve.",
+      "voice": "5da4nOCHLuswM3TyAUSo",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1
+      },
+      "language": ""
+    },
+    "seconds": 1.47
+  },
+  "30-08.mp3": {
+    "key": {
+      "text": "Platín. Tu plata, más clara. Empezá gratis.",
+      "voice": "5da4nOCHLuswM3TyAUSo",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1
+      },
+      "language": ""
+    },
+    "seconds": 3.32
+  }
+}

@@ -44,13 +44,43 @@ export const CONFIG = {
     cta: 'Empezá gratis en',
   },
 
+  /**
+   * Voiceover, one line at a time: each starts `at` frames after its scene begins.
+   * `pnpm voiceover` turns them into public/voice/<cut>-<n>.mp3 with ElevenLabs.
+   * Changing a text means generating again. "Platín" (stress on the i) is spelled for the voice
+   * only: on screen the brand stays "platin".
+   */
+  voice: {
+    '30': [
+      { scene: 'hook', at: 4, text: '¿Cuánto pagás de tarjeta el mes que viene?' },
+      { scene: 'pause', at: 30, text: 'Exacto. Ni idea.' },
+      // With the rain caption, which shows at frame 58.
+      { scene: 'tickets', at: 52, text: 'Total, lo pago el mes que viene.' },
+      { scene: 'tickets', at: 128, text: 'Y el mes que viene ya está lleno.' },
+      {
+        scene: 'card',
+        at: 14,
+        text: 'Con platín cargás tus compras en cuotas y ves cuánto pagás cada mes, antes de que llegue el resumen.',
+      },
+      { scene: 'home', at: 8, text: 'Pesos, dólares y tarjetas, todo en un lugar.' },
+      { scene: 'hide', at: 18, text: 'Y nadie más los ve.' },
+      { scene: 'closing', at: 8, text: 'Platín. Tu plata, más clara. Empezá gratis.' },
+    ],
+    '15': [
+      { scene: 'hook', at: 4, text: '¿Cuánto pagás de tarjeta el mes que viene?' },
+      { scene: 'card', at: 14, text: 'Con platín cargás tus compras en cuotas y ves cuánto pagás cada mes.' },
+      { scene: 'closing', at: 14, text: 'Platín. Tu plata, más clara.' },
+    ],
+  },
+
   audio: {
-    /** Optional files in public/. If missing, the video renders silent. */
-    voiceover: 'voiceover.mp3',
+    /** Optional, in public/. Without it the video has no music. */
     music: 'music.mp3',
-    voiceoverVolume: 1,
+    voiceVolume: 1,
     musicVolume: 0.35,
-    /** Music volume while the voiceover exists (ducking). */
-    musicUnderVoiceVolume: 0.15,
+    /** Music volume when there is a voiceover (ducking). */
+    musicUnderVoiceVolume: 0.12,
+    /** Sound effects (public/sfx/, made by `pnpm sfx`). 0 turns them off. */
+    sfxVolume: 0.25,
   },
 } as const;

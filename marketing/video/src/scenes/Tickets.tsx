@@ -1,5 +1,6 @@
 import React from 'react';
 import { AbsoluteFill, interpolate, interpolateColors, spring, useCurrentFrame, useVideoConfig } from 'remotion';
+import { Sfx } from '../components/AudioTracks';
 import { Caption, useExit } from '../components/Text';
 import { TICKET, Ticket } from '../components/Ticket';
 import { CONFIG } from '../config';
@@ -99,6 +100,14 @@ export const Tickets: React.FC<{ duration: number }> = ({ duration }) => {
           />
         );
       })}
+
+      {/* A soft tick as each ticket lands, softer as they pile up. */}
+      {tickets.map((t, i) => (
+        <React.Fragment key={`sfx-${t.label}`}>
+          <Sfx name="tick" at={16 + i * 10} volume={0.8} />
+          <Sfx name="tick" at={RAIN_FRAMES + 20 + i * 6} volume={0.45} />
+        </React.Fragment>
+      ))}
 
       {frame < RAIN_FRAMES ? (
         <Caption

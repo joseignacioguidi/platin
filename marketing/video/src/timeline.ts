@@ -1,4 +1,7 @@
 // Scene lengths in frames (30 fps). The 15 s cut reuses the same scenes.
+// Plain TypeScript with no imports: scripts/voiceover.mjs also loads it with Node.
+export const FPS = 30;
+
 export const DURATION = {
   hook: 90, // 0–3 s
   pause: 60, // 3–5 s
@@ -13,9 +16,22 @@ export const DURATION = {
 export const RAIN_FRAMES = 120;
 
 export type SceneId = keyof typeof DURATION;
+export type CutId = '30' | '15';
 
-export const CUT_30: SceneId[] = ['hook', 'pause', 'tickets', 'card', 'home', 'hide', 'closing'];
-export const CUT_15: SceneId[] = ['hook', 'card', 'closing'];
+export const CUTS: Record<CutId, SceneId[]> = {
+  '30': ['hook', 'pause', 'tickets', 'card', 'home', 'hide', 'closing'],
+  '15': ['hook', 'card', 'closing'],
+};
 
-export const totalFrames = (cut: SceneId[]): number =>
-  cut.reduce((sum, id) => sum + DURATION[id], 0);
+export const totalFrames = (cut: CutId): number =>
+  CUTS[cut].reduce((sum, id) => sum + DURATION[id], 0);
+
+/** First frame of a scene within a cut. */
+export function sceneStart(cut: CutId, scene: SceneId): number {
+  let frame = 0;
+  for (const id of CUTS[cut]) {
+    if (id === scene) return frame;
+    frame += DURATION[id];
+  }
+  throw new Error(`Scene ${scene} is not in the ${cut} s cut`);
+}

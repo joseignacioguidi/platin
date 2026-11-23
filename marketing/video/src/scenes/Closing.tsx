@@ -2,6 +2,7 @@ import React from 'react';
 import { AbsoluteFill } from 'remotion';
 import { WordReveal, useEnter } from '../components/Text';
 import { WinkLogo } from '../components/WinkLogo';
+import { Sfx } from '../components/AudioTracks';
 import { CONFIG } from '../config';
 import { COLORS, FONTS, SAFE, SPRING, VIDEO } from '../theme';
 import { Wipe } from './CardSolution';
@@ -19,6 +20,9 @@ export const Closing: React.FC<{ from?: string }> = ({ from = COLORS.brand }) =>
   return (
     <AbsoluteFill style={{ background: from }}>
       <Wipe color={COLORS.white} />
+      <Sfx name="whoosh" at={0} volume={0.7} />
+      {/* The wink, once drawn. */}
+      <Sfx name="pop" at={WINK_AT + 6} volume={0.7} />
       <AbsoluteFill
         style={{
           alignItems: 'center',

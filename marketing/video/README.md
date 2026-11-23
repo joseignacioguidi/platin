@@ -30,11 +30,15 @@ Abre Remotion Studio en el navegador. Ahí elegís `Platin30` o `Platin15` y rec
 ## Renderizar
 
 ```bash
-pnpm render:30   # out/platin-30s.mp4
-pnpm render:15   # out/platin-15s.mp4
-pnpm still       # out/portada.png (frame 85 del gancho, para miniatura)
-pnpm render      # los tres
+pnpm render:30              # out/platin-30s.mp4: voz, efectos y música
+pnpm render:30:sin-musica   # out/platin-30s-sin-musica.mp4: voz y efectos
+pnpm render:15              # out/platin-15s.mp4
+pnpm render:15:sin-musica   # out/platin-15s-sin-musica.mp4
+pnpm still                  # out/portada.png (frame 85 del gancho, para miniatura)
+pnpm render                 # todo lo anterior
 ```
+
+La versión sin música sirve para Reels y TikTok, donde el audio en tendencia se elige al publicar.
 
 Para sacar un frame suelto y revisarlo:
 
@@ -77,7 +81,7 @@ Las fechas salen del día en que corrés el seed. Si lo corrés otro mes, revis�
 
 | Qué | Dónde |
 |---|---|
-| Textos en pantalla, URL del cierre, montos de los tickets | `src/config.ts` |
+| Textos en pantalla, URL del cierre, montos de los tickets, frases de la voz | `src/config.ts` |
 | Colores, tipografías, márgenes seguros, springs, tamaño del celular | `src/theme.ts` |
 | Duración de cada escena y qué escenas entran en cada versión | `src/timeline.ts` |
 | Escenas | `src/scenes/` |
@@ -85,14 +89,43 @@ Las fechas salen del día en que corrés el seed. Si lo corrés otro mes, revis�
 
 En los textos de `config.ts`, las palabras entre `*asteriscos*` se resaltan. Un espacio duro (U+00A0) mantiene dos palabras en la misma línea.
 
-## Audio (opcional)
+## Audio
 
-Poné los archivos en `public/`:
+Las tres capas son opcionales: si falta un archivo, el video se renderiza igual sin esa capa. Los volúmenes están en `CONFIG.audio` (`src/config.ts`).
 
-- `public/voiceover.mp3`: la voz en off.
-- `public/music.mp3`: la música. Entra y sale con un fundido, y baja de volumen si hay voz en off.
+### Voz en off (ElevenLabs)
 
-Si no están, el video se renderiza igual, en silencio. Los volúmenes se ajustan en `CONFIG.audio` (`src/config.ts`).
+Cada frase es un MP3 aparte (`public/voice/30-01.mp3`, `15-02.mp3`…), y el video la ubica en el frame de su escena. Si cambia la duración de una escena, la voz la sigue sola.
+
+1. Copiá `.env.example` a `.env` y completá:
+   - `ELEVENLABS_API_KEY`: en elevenlabs.io, *Developers › API Keys*, con permiso de Text to Speech.
+   - `ELEVENLABS_VOICE_ID`: en *Voices*, elegí una voz y usá *Copy voice ID*. Conviene una voz de español rioplatense; en la *Voice Library* podés filtrar por acento argentino.
+
+   `.env` no se versiona.
+2. Generá la voz:
+   ```bash
+   pnpm voiceover               # las frases de las dos versiones
+   pnpm voiceover --cut 15      # solo la de 15 s
+   pnpm voiceover --force       # rehace todo, aunque nada haya cambiado
+   ```
+   Solo vuelve a pedir a ElevenLabs las frases que cambiaron (texto, voz, modelo o ajustes), así no gastás créditos de más. Al final muestra cuánto dura cada frase y cuánto lugar tiene. Si una no entra (`!!`), acortá el texto, subí `ELEVENLABS_SPEED` (hasta 1,2) o mové su `at`.
+3. Escuchala en `pnpm studio` y renderizá.
+
+Las frases y el momento de cada una (`scene` + `at`, en frames desde que empieza la escena) están en `CONFIG.voice` (`src/config.ts`). En `.env` podés ajustar el modelo, la estabilidad, el estilo y la velocidad. Si la voz pronuncia mal "platin", probá escribirlo como suena (por ejemplo "pláatin") solo en el texto de la voz.
+
+### Música
+
+`public/music.mp3`. Entra y sale con un fundido, y queda por debajo de la voz. Fuentes libres de derechos: YouTube Audio Library o Pixabay Music (gratis), Artlist o Epidemic Sound (pagas). Buscá algo calmo, de 90 a 110 BPM. Revisá la licencia antes de usarla en anuncios pagos.
+
+### Efectos de sonido
+
+`pnpm sfx` los sintetiza en `public/sfx/`, sin descargas ni licencias:
+- `tick`: cae un ticket;
+- `whoosh`: las transiciones a verde y a blanco;
+- `pop`: cada cuota llega a su mes, y el guiño;
+- `click`: el interruptor de ocultar montos.
+
+Podés reemplazar cualquiera por otro WAV con el mismo nombre. `sfxVolume: 0` los apaga a todos.
 
 ## Márgenes seguros
 

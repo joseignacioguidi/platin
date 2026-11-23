@@ -3,6 +3,7 @@ import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } fr
 import { CAPTURES, screen } from '../captures';
 import { AppScreen, Phone, PHONE_POSITION } from '../components/Phone';
 import { EyeIcon, EyeOffIcon } from '../components/Icons';
+import { Sfx } from '../components/AudioTracks';
 import { Caption } from '../components/Text';
 import { CONFIG } from '../config';
 import { COLORS, FONTS, SPRING } from '../theme';
@@ -77,6 +78,7 @@ export const HideAmounts: React.FC<{ duration: number }> = ({ duration }) => {
 
   return (
     <AbsoluteFill style={{ background: COLORS.brand }}>
+      <Sfx name="click" at={16} />
       <Caption text={CONFIG.hide.caption} delay={20} duration={duration} highlight={COLORS.ink} />
       <Phone>
         <AppScreen name="inicio" scroll={HOME_END_SCROLL} />

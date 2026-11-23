@@ -8,7 +8,7 @@ import { HideAmounts, Home } from './scenes/Home';
 import { Hook, Pause } from './scenes/Hook';
 import { Tickets } from './scenes/Tickets';
 import { COLORS, VIDEO } from './theme';
-import { CUT_15, CUT_30, DURATION, totalFrames, type SceneId } from './timeline';
+import { CUTS, DURATION, totalFrames, type CutId, type SceneId } from './timeline';
 
 loadFonts();
 
@@ -34,16 +34,22 @@ const Scene: React.FC<{ id: SceneId; next?: SceneId }> = ({ id, next }) => {
   }
 };
 
-const Cut: React.FC<{ cut: SceneId[] }> = ({ cut }) => (
+type CutProps = {
+  cut: CutId;
+  /** false renders without music (to pick the platform's audio when publishing). */
+  music: boolean;
+};
+
+const Cut: React.FC<CutProps> = ({ cut, music }) => (
   <>
     <Series>
-      {cut.map((id, i) => (
+      {CUTS[cut].map((id, i) => (
         <Series.Sequence key={id} durationInFrames={DURATION[id]} name={id}>
-          <Scene id={id} next={cut[i + 1]} />
+          <Scene id={id} next={CUTS[cut][i + 1]} />
         </Series.Sequence>
       ))}
     </Series>
-    <AudioTracks />
+    <AudioTracks cut={cut} music={music} />
   </>
 );
 
@@ -52,15 +58,15 @@ export const Root: React.FC = () => (
     <Composition
       id="Platin30"
       component={Cut}
-      defaultProps={{ cut: CUT_30 }}
-      durationInFrames={totalFrames(CUT_30)}
+      defaultProps={{ cut: '30', music: true } satisfies CutProps}
+      durationInFrames={totalFrames('30')}
       {...VIDEO}
     />
     <Composition
       id="Platin15"
       component={Cut}
-      defaultProps={{ cut: CUT_15 }}
-      durationInFrames={totalFrames(CUT_15)}
+      defaultProps={{ cut: '15', music: true } satisfies CutProps}
+      durationInFrames={totalFrames('15')}
       {...VIDEO}
     />
   </>

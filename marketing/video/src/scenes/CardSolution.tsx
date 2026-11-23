@@ -2,6 +2,7 @@ import React from 'react';
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion';
 import { screen } from '../captures';
 import { AppScreen, Phone, SCALE, screenOrigin } from '../components/Phone';
+import { Sfx } from '../components/AudioTracks';
 import { Caption } from '../components/Text';
 import { TICKET, Ticket } from '../components/Ticket';
 import { CONFIG } from '../config';
@@ -85,6 +86,12 @@ export const CardSolution: React.FC<{ duration: number }> = ({ duration }) => {
   return (
     <AbsoluteFill style={{ background: COLORS.ink }}>
       <Wipe color={COLORS.brand} />
+      <Sfx name="whoosh" at={0} />
+      <Sfx name="tick" at={T.ticketIn} volume={0.8} />
+      {/* A pop as each installment reaches its month. */}
+      {chips.map((c) => (
+        <Sfx key={c.i} name="pop" at={T.split + c.i * T.chipStagger + 16} volume={0.55} />
+      ))}
       <Caption text={CONFIG.card.caption} delay={14} duration={duration} highlight={COLORS.ink} />
       <Phone offsetY={offset}>
         <AppScreen name="tarjeta-cuotas" scroll={scroll}>
