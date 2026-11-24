@@ -45,7 +45,7 @@ export const merchantPatternSchema = z
   .max(40)
   .transform(normalizePattern);
 
-export const channelSchema = z.enum(['APP', 'TELEGRAM']);
+export const channelSchema = z.enum(['APP', 'TELEGRAM', 'MERCADO_PAGO']);
 export type ChannelValue = z.infer<typeof channelSchema>;
 
 export const merchantRuleSchema = z.object({

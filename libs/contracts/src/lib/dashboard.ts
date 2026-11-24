@@ -6,6 +6,7 @@ import {
   rateTypeSchema,
   uuidSchema,
 } from './common';
+import { feedProviderSchema } from './feeds';
 import { commitmentCategorySchema, payFromSchema } from './commitments';
 import { movementSchema } from './movements';
 
@@ -124,6 +125,10 @@ export const dashboardSchema = z.object({
   /** As data: saved or invested this month, minus what came back, at each transfer's rate. */
   saved: z.string(),
   pending: z.object({ count: z.number().int(), names: z.array(z.string()) }),
+  /** MPG-04: confirmed incomes and expenses without a category ("Para categorizar"). */
+  uncategorizedCount: z.number().int(),
+  /** MPG-10: connections whose authorization expired or was revoked. */
+  feedsToReconnect: z.array(feedProviderSchema),
   /** Next 30 days: statements due and fixed items. */
   upcoming: z.array(upcomingItemSchema),
   rate: z

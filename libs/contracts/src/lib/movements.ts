@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { colorTokenSchema } from './accounts';
 import { iconNameSchema } from './categories';
 import { currencySchema, localDateSchema, periodSchema, uuidSchema } from './common';
+import { movementExternalSchema } from './feeds';
+import { channelSchema } from './text-entry';
 import { txOriginSchema, txStatusSchema, txTypeSchema } from './transactions';
 import { transferIntentSchema } from './transfers';
 
@@ -27,8 +29,8 @@ export const transactionMovementSchema = z.object({
   type: txTypeSchema,
   status: txStatusSchema,
   origin: txOriginSchema,
-  /** Where it came in: the app or the Telegram bot (ADR 0026). */
-  channel: z.enum(['APP', 'TELEGRAM']),
+  /** Where it came in: the app, the Telegram bot (ADR 0026) or Mercado Pago (ADR 0037). */
+  channel: channelSchema,
   date: z.string(),
   amount: z.string(),
   currency: currencySchema,
@@ -37,6 +39,8 @@ export const transactionMovementSchema = z.object({
   description: z.string().nullable(),
   pocket: pocketRefSchema,
   category: categoryRefSchema.nullable(),
+  /** MPG-02, 06: created by an institution, or loaded by hand and also reported by it. */
+  external: movementExternalSchema.nullable(),
 });
 
 /** A transfer between pockets, or a statement payment. */
@@ -58,6 +62,8 @@ export const transferMovementSchema = z.object({
   statement: z
     .object({ id: uuidSchema, cardId: uuidSchema, cardName: z.string(), period: z.string() })
     .nullable(),
+  /** MPG-05, 08: created by an institution (a reserve, a currency change, a conversion) or linked. */
+  external: movementExternalSchema.nullable(),
 });
 
 /** A purchase with a credit card (its installments live in the statements). */
@@ -72,7 +78,7 @@ export const cardChargeMovementSchema = z.object({
   startInstallment: z.number().int(),
   card: z.object({ id: uuidSchema, name: z.string() }),
   category: categoryRefSchema,
-  channel: z.enum(['APP', 'TELEGRAM']),
+  channel: channelSchema,
 });
 
 export const movementSchema = z.discriminatedUnion('kind', [
@@ -97,6 +103,11 @@ export const movementsQuerySchema = z.object({
   /** Up to this date ("Para confirmar" leaves out scheduled movements whose date has not come). */
   until: localDateSchema.optional(),
   q: z.string().trim().max(60).optional(),
+  /** MPG-04, "Para categorizar": incomes and expenses without a category. */
+  uncategorized: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((value) => value === 'true'),
   cursor: z.string().max(200).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });

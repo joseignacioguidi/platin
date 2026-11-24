@@ -64,6 +64,7 @@ export const UNLIMITED = {
   maxCards: null,
   maxGoals: null,
   maxFixed: null,
+  maxFeedMovementsPerDay: null,
   investments: true,
 };
 

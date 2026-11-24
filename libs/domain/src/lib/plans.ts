@@ -13,6 +13,8 @@ export interface PlanLimits {
   maxCards: number | null;
   maxGoals: number | null;
   maxFixed: number | null;
+  /** Movements a day from connected institutions (MPG-07). */
+  maxFeedMovementsPerDay: number | null;
   investments: boolean;
 }
 
