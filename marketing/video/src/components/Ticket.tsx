@@ -9,12 +9,13 @@ export const Ticket: React.FC<{
   detail: string;
   amount: string;
   color?: string;
+  width?: number;
   style?: React.CSSProperties;
-}> = ({ label, detail, amount, color = COLORS.expense, style }) => (
+}> = ({ label, detail, amount, color = COLORS.expense, width = TICKET.width, style }) => (
   <div
     style={{
       position: 'absolute',
-      width: TICKET.width,
+      width,
       height: TICKET.height,
       borderRadius: 28,
       background: color,

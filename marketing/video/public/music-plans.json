@@ -1,0 +1,146 @@
+{
+  "15": {
+    "positive_global_styles": [
+      "minimal rhythmic electronic",
+      "beat-driven",
+      "no melody",
+      "modern social media ad",
+      "instrumental",
+      "100 bpm",
+      "clean mix"
+    ],
+    "negative_global_styles": [
+      "melody",
+      "piano",
+      "lead synth",
+      "vocals",
+      "orchestral",
+      "epic",
+      "dubstep"
+    ],
+    "sections": [
+      {
+        "section_name": "Problem",
+        "positive_local_styles": [
+          "low sub bass pulse",
+          "clock ticking",
+          "subtle building tension",
+          "sparse and dry",
+          "no drums"
+        ],
+        "negative_local_styles": [
+          "melody",
+          "chords",
+          "drums",
+          "bright"
+        ],
+        "duration_ms": 4667,
+        "lines": []
+      },
+      {
+        "section_name": "Solution",
+        "positive_local_styles": [
+          "beat drops right at the start",
+          "punchy clean kick and claps",
+          "simple repeating bass line",
+          "steady confident groove"
+        ],
+        "negative_local_styles": [
+          "melody",
+          "piano",
+          "aggressive",
+          "busy"
+        ],
+        "duration_ms": 4100,
+        "lines": []
+      },
+      {
+        "section_name": "Closing",
+        "positive_local_styles": [
+          "groove continues under the voice",
+          "stops on a single final hit at the very end",
+          "clean ending"
+        ],
+        "negative_local_styles": [
+          "fade out",
+          "new melody",
+          "long silence"
+        ],
+        "duration_ms": 6233,
+        "lines": []
+      }
+    ]
+  },
+  "30": {
+    "positive_global_styles": [
+      "minimal rhythmic electronic",
+      "beat-driven",
+      "no melody",
+      "modern social media ad",
+      "instrumental",
+      "100 bpm",
+      "clean mix"
+    ],
+    "negative_global_styles": [
+      "melody",
+      "piano",
+      "lead synth",
+      "vocals",
+      "orchestral",
+      "epic",
+      "dubstep"
+    ],
+    "sections": [
+      {
+        "section_name": "Problem",
+        "positive_local_styles": [
+          "low sub bass pulse",
+          "clock ticking",
+          "subtle building tension",
+          "sparse and dry",
+          "no drums"
+        ],
+        "negative_local_styles": [
+          "melody",
+          "chords",
+          "drums",
+          "bright"
+        ],
+        "duration_ms": 11667,
+        "lines": []
+      },
+      {
+        "section_name": "Solution",
+        "positive_local_styles": [
+          "beat drops right at the start",
+          "punchy clean kick and claps",
+          "simple repeating bass line",
+          "steady confident groove"
+        ],
+        "negative_local_styles": [
+          "melody",
+          "piano",
+          "aggressive",
+          "busy"
+        ],
+        "duration_ms": 12167,
+        "lines": []
+      },
+      {
+        "section_name": "Closing",
+        "positive_local_styles": [
+          "groove continues under the voice",
+          "stops on a single final hit at the very end",
+          "clean ending"
+        ],
+        "negative_local_styles": [
+          "fade out",
+          "new melody",
+          "long silence"
+        ],
+        "duration_ms": 6167,
+        "lines": []
+      }
+    ]
+  }
+}

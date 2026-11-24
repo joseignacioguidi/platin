@@ -1,9 +1,11 @@
-// Generates the voiceover with ElevenLabs: one MP3 per line of CONFIG.voice (src/config.ts),
-// in public/voice/<cut>-<n>.mp3. The video places each line at its scene's frame.
+// Generates the voiceover with ElevenLabs: one MP3 per beat of CONFIG.beats (src/config.ts),
+// in public/voice/<cut>-<n>.mp3. The video times each beat by its line, so it always fits.
 //
-//   node scripts/voiceover.mjs              all lines of both cuts (skips unchanged ones)
-//   node scripts/voiceover.mjs --cut 30     only the 30 s cut
-//   node scripts/voiceover.mjs --force      regenerate everything
+//   node scripts/voiceover.mjs                all lines of both cuts (skips unchanged ones)
+//   node scripts/voiceover.mjs --cut 30       only the 30 s cut
+//   node scripts/voiceover.mjs --only 30-07   a single line, to try the voice or the speed
+//   node scripts/voiceover.mjs --force        regenerate, even if nothing changed
+//   node scripts/voiceover.mjs --dry          no requests: estimated timing of each cut
 //
 // Needs ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID in marketing/video/.env (see .env.example).
 import { existsSync, readFileSync } from 'node:fs';
@@ -12,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 // Node strips the types of these two plain-TypeScript files.
 const { CONFIG } = await import('../src/config.ts');
-const { CUTS, DURATION, FPS, sceneStart, totalFrames } = await import('../src/timeline.ts');
+const { FPS, TARGET, buildTimeline } = await import('../src/timeline.ts');
 
 const ROOT = new URL('../', import.meta.url);
 const OUT = new URL('public/voice/', ROOT);
@@ -40,8 +42,15 @@ const env = (name, fallback) => {
   return value;
 };
 
-const API_KEY = env('ELEVENLABS_API_KEY');
-const VOICE_ID = env('ELEVENLABS_VOICE_ID');
+const args = process.argv.slice(2);
+const flag = (name) => args.includes(name);
+const option = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined);
+const dry = flag('--dry');
+const force = flag('--force');
+const only = option('--only');
+const cuts = option('--cut') ? [option('--cut')] : Object.keys(CONFIG.beats);
+
+const VOICE_ID = dry ? '' : env('ELEVENLABS_VOICE_ID');
 const MODEL = env('ELEVENLABS_MODEL', 'eleven_multilingual_v2');
 const LANGUAGE = env('ELEVENLABS_LANGUAGE', '');
 const SETTINGS = {
@@ -49,26 +58,26 @@ const SETTINGS = {
   similarity_boost: Number(env('ELEVENLABS_SIMILARITY', '0.75')),
   style: Number(env('ELEVENLABS_STYLE', '0.15')),
   use_speaker_boost: true,
-  speed: Number(env('ELEVENLABS_SPEED', '1')),
+  // The pace belongs to the video's design, so it lives in src/config.ts.
+  speed: CONFIG.audio.voiceSpeed,
 };
-
-const args = process.argv.slice(2);
-const force = args.includes('--force');
-const cutArg = args.includes('--cut') ? args[args.indexOf('--cut') + 1] : undefined;
-const cuts = cutArg ? [cutArg] : Object.keys(CUTS);
 
 // --- Generation -----------------------------------------------------------------------------
 
-async function speak(text, previous, next) {
+/** The audio and when each word starts (the video anchors animations to words). */
+async function speak(text, previous, next, settings) {
   const res = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}?output_format=mp3_44100_128`,
+    `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}/with-timestamps?output_format=mp3_44100_128`,
     {
       method: 'POST',
-      headers: { 'xi-api-key': API_KEY, 'content-type': 'application/json', accept: 'audio/mpeg' },
+      headers: {
+        'xi-api-key': env('ELEVENLABS_API_KEY'),
+        'content-type': 'application/json',
+      },
       body: JSON.stringify({
         text,
         model_id: MODEL,
-        voice_settings: SETTINGS,
+        voice_settings: settings,
         // Neighbouring lines give the voice a continuous intonation.
         previous_text: previous,
         next_text: next,
@@ -77,61 +86,88 @@ async function speak(text, previous, next) {
     },
   );
   if (!res.ok) throw new Error(`ElevenLabs ${res.status}: ${await res.text()}`);
-  return Buffer.from(await res.arrayBuffer());
+  const data = await res.json();
+  return { audio: Buffer.from(data.audio_base64, 'base64'), words: wordTimes(data.alignment) };
 }
 
-const seconds = (frames) => frames / FPS;
+/** Characters with their start times → words with theirs. */
+function wordTimes(alignment) {
+  const words = [];
+  let word = '';
+  let start = 0;
+  alignment?.characters.forEach((ch, i) => {
+    if (/\s/.test(ch)) {
+      if (word) words.push({ word, start: Number(start.toFixed(3)) });
+      word = '';
+      return;
+    }
+    if (!word) start = alignment.character_start_times_seconds[i];
+    word += ch;
+  });
+  if (word) words.push({ word, start: Number(start.toFixed(3)) });
+  return words;
+}
+
+const fileName = (cut, i) => `${cut}-${String(i + 1).padStart(2, '0')}.mp3`;
 const manifest = existsSync(MANIFEST) ? JSON.parse(await readFile(MANIFEST, 'utf8')) : {};
 await mkdir(OUT, { recursive: true });
-let warnings = 0;
 
 // Errors (an invalid key, a voice the plan does not allow) end with their message only; the
 // lines already generated are kept in the manifest.
 try {
   for (const cut of cuts) {
-    if (!CUTS[cut]) throw new Error(`Unknown cut ${cut} (30 or 15)`);
-    const lines = CONFIG.voice[cut];
-    const starts = lines.map((l) => sceneStart(cut, l.scene) + l.at);
+    const beats = CONFIG.beats[cut];
+    if (!beats) throw new Error(`Unknown cut ${cut} (30 or 15)`);
     console.log(`\n${cut} s cut`);
 
-    for (const [i, line] of lines.entries()) {
-      const name = `${cut}-${String(i + 1).padStart(2, '0')}.mp3`;
+    for (const [i, beat] of beats.entries()) {
+      const name = fileName(cut, i);
+      if (only && only !== name.replace('.mp3', '')) continue;
       const file = new URL(name, OUT);
-      const key = { text: line.text, voice: VOICE_ID, model: MODEL, settings: SETTINGS, language: LANGUAGE };
-      const unchanged = existsSync(file) && JSON.stringify(manifest[name]?.key) === JSON.stringify(key);
+      const settings = { ...SETTINGS, speed: beat.voiceSpeed ?? SETTINGS.speed };
+      const key = { text: beat.voice, voice: VOICE_ID, model: MODEL, settings, language: LANGUAGE };
+      // Lines with word-anchored animations need the word timings too.
+      const needsWords = Object.values(beat.events).some((at) => typeof at === 'string');
+      const current =
+        existsSync(file) &&
+        JSON.stringify(manifest[name]?.key) === JSON.stringify(key) &&
+        (!needsWords || Boolean(manifest[name]?.words));
 
+      if (dry) {
+        const state = manifest[name]?.key?.text === beat.voice ? `${manifest[name].seconds} s` : 'estimated';
+        console.log(`  ${name}  ${state.padEnd(10)}  "${beat.voice}"`);
+        continue;
+      }
       let audio;
-      if (unchanged && !force) {
+      let words = manifest[name]?.words;
+      if (current && !force) {
         audio = await readFile(file);
       } else {
-        audio = await speak(line.text, lines[i - 1]?.text, lines[i + 1]?.text);
+        ({ audio, words } = await speak(beat.voice, beats[i - 1]?.voice, beats[i + 1]?.voice, settings));
         await writeFile(file, audio);
       }
       // Constant bitrate: the length follows from the size.
-      const length = (audio.length * 8) / BITRATE;
-      manifest[name] = { key, seconds: Number(length.toFixed(2)) };
-
-      // Room until the next line (or the end of the cut).
-      const end = i + 1 < lines.length ? starts[i + 1] : totalFrames(cut);
-      const room = seconds(end - starts[i]);
-      const fits = length <= room - 0.1;
-      if (!fits) warnings++;
-      console.log(
-        `${fits ? '  ok ' : '  !! '}${name}  ${length.toFixed(2)} s of ${room.toFixed(2)} s` +
-          `${unchanged && !force ? ' (unchanged)' : ''}  "${line.text}"`,
-      );
+      const seconds = Number(((audio.length * 8) / BITRATE).toFixed(2));
+      manifest[name] = { key, seconds, ...(words ? { words } : {}) };
+      console.log(`  ${name}  ${seconds.toFixed(2)} s${current && !force ? ' (unchanged)' : ''}  "${beat.voice}"`);
     }
+
+    // The timing the video will use: real lengths where the text matches, estimates elsewhere.
+    const entry = (i) => {
+      const e = manifest[fileName(cut, i)];
+      return e && e.key.text === beats[i].voice ? e : undefined;
+    };
+    const timeline = buildTimeline(cut, beats, (i) => entry(i)?.seconds, (i) => entry(i)?.words);
+    const total = (timeline.total / FPS).toFixed(1);
+    console.log(
+      timeline.over > 0
+        ? `  !! ${total} s: ${(timeline.over / FPS).toFixed(1)} s over the ${TARGET[cut] / FPS} s target. Shorten a line or raise voiceSpeed (src/config.ts).`
+        : `  ok ${total} s (the closing stretches to fill ${TARGET[cut] / FPS} s)`,
+    );
   }
 } catch (err) {
-  console.error(`
-${err.message}`);
+  console.error(`\n${err.message}`);
   process.exitCode = 1;
 }
 
-await writeFile(MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`);
-if (warnings) {
-  console.log(
-    `\n${warnings} line(s) longer than their room: shorten the text, raise ELEVENLABS_SPEED ` +
-      `(up to 1.2) or move "at" in src/config.ts. Scene lengths: src/timeline.ts (${Object.keys(DURATION).join(', ')}).`,
-  );
-}
+if (!dry) await writeFile(MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`);

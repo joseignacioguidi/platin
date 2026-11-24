@@ -144,6 +144,39 @@ function installmentsChart() {
   });
 }
 
+/**
+ * Box of the rounded, filled container around a text (a pill or a card), with its background.
+ * `contains`: the container must also include this text (to pick the right "Viaje").
+ */
+function containerOf(text, contains = text) {
+  return page.evaluate(
+    ([text, contains]) => {
+      // The smallest filled, rounded element that holds both texts.
+      let best = null;
+      for (const el of document.querySelectorAll('body *')) {
+        const content = el.textContent ?? '';
+        if (!content.includes(text) || !content.includes(contains)) continue;
+        const cs = getComputedStyle(el);
+        const filled = cs.backgroundColor !== 'rgba(0, 0, 0, 0)' && cs.backgroundColor !== 'transparent';
+        if (!filled || parseFloat(cs.borderTopLeftRadius) < 10) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || (best && r.width * r.height >= best.r.width * best.r.height)) continue;
+        best = { r, cs };
+      }
+      if (!best) return null;
+      return {
+        x: best.r.x + window.scrollX,
+        y: best.r.y + window.scrollY,
+        width: best.r.width,
+        height: best.r.height,
+        radius: parseFloat(best.cs.borderTopLeftRadius),
+        background: best.cs.backgroundColor,
+      };
+    },
+    [text, contains],
+  );
+}
+
 // Sign in through the real login form.
 await page.addInitScript(() => localStorage.setItem('platin.hideAmounts', 'false'));
 await page.goto(`${WEB}/ingresar`);
@@ -153,9 +186,13 @@ await page.locator('input[autocomplete="current-password"]').fill(DEMO.password)
 await page.locator('button[type="submit"]').click();
 await page.waitForURL(/\/app/);
 
-// Home.
+// Home: the free amount and its "por día".
 await page.goto(`${WEB}/app`);
-await shot('inicio', { toggle: page.getByRole('button', { name: /ocultar montos/i }) }, headlineAmount);
+await shot('inicio', {}, async () => ({
+  ...(await headlineAmount()),
+  perDay: await containerOf('por día'),
+  freeCard: await containerOf('Te quedan para gastar'),
+}));
 
 // Card, "Cuotas" tab.
 await page.goto(`${WEB}/app/tarjetas`);
@@ -166,16 +203,9 @@ await settle();
 await page.getByRole('radio', { name: 'Cuotas' }).or(page.getByRole('button', { name: 'Cuotas' })).first().click();
 await shot('tarjeta-cuotas', {}, installmentsChart);
 
-// Commitments and goals.
-await page.goto(`${WEB}/app/compromisos`);
-await shot('compromisos');
+// Goals: the trip.
 await page.goto(`${WEB}/app/ahorros`);
-await shot('metas');
-
-// Home again with "ocultar montos" on.
-await page.addInitScript(() => localStorage.setItem('platin.hideAmounts', 'true'));
-await page.goto(`${WEB}/app`);
-await shot('inicio-oculto', {}, headlineAmount);
+await shot('metas', {}, async () => ({ goal: await containerOf('Viaje', '3.000.000') }));
 
 await writeFile(join(OUT, 'meta.json'), `${JSON.stringify(meta, null, 2)}\n`);
 await browser.close();

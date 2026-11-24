@@ -5,7 +5,7 @@ import { WinkLogo } from '../components/WinkLogo';
 import { Sfx } from '../components/AudioTracks';
 import { CONFIG } from '../config';
 import { COLORS, FONTS, SAFE, SPRING, VIDEO } from '../theme';
-import { Wipe } from './CardSolution';
+import { Wipe } from '../components/Motion';
 
 const LOGO_HEIGHT = 260;
 /** The logo winks once, after the call to action settles. */
@@ -20,7 +20,7 @@ export const Closing: React.FC<{ from?: string }> = ({ from = COLORS.brand }) =>
   return (
     <AbsoluteFill style={{ background: from }}>
       <Wipe color={COLORS.white} />
-      <Sfx name="whoosh" at={0} volume={0.7} />
+      <Sfx name="whoosh" at={0} volume={0.3} />
       {/* The wink, once drawn. */}
       <Sfx name="pop" at={WINK_AT + 6} volume={0.7} />
       <AbsoluteFill

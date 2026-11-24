@@ -1,37 +1,146 @@
-// Scene lengths in frames (30 fps). The 15 s cut reuses the same scenes.
+// The video's timing comes from the voice: each beat lasts as long as its line plus a short
+// breath, and the closing stretches to reach the cut's length. Events can be anchored to a word
+// of the line, so the animation lands when it is said.
 // Plain TypeScript with no imports: scripts/voiceover.mjs also loads it with Node.
+import type { ActId, Beat, CutId, EventId } from './config.ts';
+
 export const FPS = 30;
 
-export const DURATION = {
-  hook: 90, // 0–3 s
-  pause: 60, // 3–5 s
-  tickets: 210, // 5–12 s: rain (5–9 s) and overflow (9–12 s)
-  card: 240, // 12–20 s
-  home: 120, // 20–24 s
-  hide: 60, // 24–26 s
-  closing: 120, // 26–30 s
-} as const;
+/** Target length of each cut, in frames. */
+export const TARGET: Record<CutId, number> = { '30': 30 * FPS, '15': 15 * FPS };
 
-/** Inside the tickets scene, when the rain ends and the overflow begins. */
-export const RAIN_FRAMES = 120;
+/** Frames before the voice starts in a beat, and after it ends. */
+export const LEAD = 3;
+export const TAIL = 6;
+const MIN_BEAT = 36;
+/** Most the closing grows past its own length, so it does not linger. */
+const CLOSING_EXTRA = 40;
+/** Frames an animation anchored to a word starts before the word, so it lands on it. */
+const WORD_LEAD = 4;
 
-export type SceneId = keyof typeof DURATION;
-export type CutId = '30' | '15';
+/** When a word starts in a generated line (ElevenLabs alignment). */
+export type WordTime = { word: string; start: number };
 
-export const CUTS: Record<CutId, SceneId[]> = {
-  '30': ['hook', 'pause', 'tickets', 'card', 'home', 'hide', 'closing'],
-  '15': ['hook', 'card', 'closing'],
+/** ElevenLabs tags like <break time="0.7s" /> are not spoken. */
+export const spokenText = (text: string): string =>
+  text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+/** Lowercase, no accents or punctuation: to match an anchor with a spoken word. */
+const plain = (w: string): string =>
+  w
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+
+/** Seconds of the pause tags in a line. */
+const breakSeconds = (text: string): number =>
+  [...text.matchAll(/<break time="([\d.]+)s"/g)].reduce((sum, m) => sum + Number(m[1]), 0);
+
+/**
+ * Seconds a line takes before it is generated: a brisk Rioplatense read, about 16 characters per
+ * second at speed 1.1 (measured). Pauses for punctuation and break tags.
+ */
+export function estimateSeconds(text: string, speed = 1.1): number {
+  const spoken = spokenText(text);
+  const pauses = (spoken.match(/[.…?!,]/g) ?? []).length * 0.12;
+  return ((spoken.length / 16 + pauses) * 1.1) / speed + breakSeconds(text);
+}
+
+/**
+ * Seconds into the line where `anchor` is said: from the real word timings or, before the line is
+ * generated, in proportion to where the word sits in the text.
+ */
+function anchorSeconds(text: string, anchor: string, seconds: number, words?: WordTime[]): number {
+  const target = plain(anchor);
+  const hit = words?.find((w) => plain(w.word).startsWith(target));
+  if (hit) return hit.start;
+  const spoken = spokenText(text);
+  const at = spoken.toLowerCase().indexOf(anchor.toLowerCase());
+  return at < 0 ? 0 : (at / spoken.length) * seconds;
+}
+
+export type TimedBeat = Beat & {
+  index: number;
+  from: number;
+  frames: number;
+  /** Frame the voice starts at. */
+  voiceFrom: number;
+  voiceFrames: number;
 };
 
-export const totalFrames = (cut: CutId): number =>
-  CUTS[cut].reduce((sum, id) => sum + DURATION[id], 0);
+export type Timeline = {
+  beats: TimedBeat[];
+  /** Global frame of each event. */
+  events: Partial<Record<EventId, number>>;
+  /** First frame and length of each act present in the cut. */
+  acts: Partial<Record<ActId, { from: number; frames: number }>>;
+  total: number;
+  /** Frames over the target, if the voice does not fit (0 when it does). */
+  over: number;
+};
 
-/** First frame of a scene within a cut. */
-export function sceneStart(cut: CutId, scene: SceneId): number {
-  let frame = 0;
-  for (const id of CUTS[cut]) {
-    if (id === scene) return frame;
-    frame += DURATION[id];
+/**
+ * `seconds(i)` is the real length of line i, or undefined to estimate it; `words(i)` its word
+ * timings, if known.
+ */
+export function buildTimeline(
+  cut: CutId,
+  beats: readonly Beat[],
+  seconds: (index: number) => number | undefined,
+  words: (index: number) => WordTime[] | undefined = () => undefined,
+): Timeline {
+  const lengths = beats.map((beat, index) => {
+    const voiceFrames = Math.ceil((seconds(index) ?? estimateSeconds(beat.voice, beat.voiceSpeed)) * FPS);
+    return { voiceFrames, frames: Math.max(beat.minFrames ?? MIN_BEAT, LEAD + voiceFrames + TAIL) };
+  });
+
+  // Time left to reach the target: first the closing (up to CLOSING_EXTRA), then the rest is
+  // shared among the other beats, in proportion to their length, as a breath after each line.
+  let short = TARGET[cut] - lengths.reduce((sum, l) => sum + l.frames, 0);
+  const last = lengths[lengths.length - 1];
+  if (short > 0 && last) {
+    const extra = Math.min(short, CLOSING_EXTRA);
+    last.frames += extra;
+    short -= extra;
   }
-  throw new Error(`Scene ${scene} is not in the ${cut} s cut`);
+  if (short > 0) {
+    const others = lengths.slice(0, -1);
+    const base = others.reduce((sum, l) => sum + l.frames, 0);
+    let given = 0;
+    others.forEach((l, i) => {
+      const add = i === others.length - 1 ? short - given : Math.floor((short * l.frames) / base);
+      l.frames += add;
+      given += add;
+    });
+  }
+
+  let from = 0;
+  const timed: TimedBeat[] = beats.map((beat, index) => {
+    const { frames, voiceFrames } = lengths[index];
+    const t = { ...beat, index, from, frames, voiceFrom: from + LEAD, voiceFrames };
+    from += frames;
+    return t;
+  });
+
+  const events: Timeline['events'] = {};
+  const acts: Timeline['acts'] = {};
+  for (const beat of timed) {
+    for (const [id, at] of Object.entries(beat.events) as [EventId, number | string][]) {
+      events[id] =
+        typeof at === 'number'
+          ? beat.from + Math.round(at * beat.frames)
+          : Math.max(
+              beat.from,
+              beat.voiceFrom +
+                Math.round(anchorSeconds(beat.voice, at, beat.voiceFrames / FPS, words(beat.index)) * FPS) -
+                WORD_LEAD,
+            );
+    }
+    const act = acts[beat.act];
+    if (act) act.frames = beat.from + beat.frames - act.from;
+    else acts[beat.act] = { from: beat.from, frames: beat.frames };
+  }
+
+  return { beats: timed, events, acts, total: from, over: Math.max(0, from - TARGET[cut]) };
 }

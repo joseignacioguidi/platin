@@ -1,38 +1,15 @@
 import React from 'react';
-import { Composition, Series } from 'remotion';
+import { AbsoluteFill, Composition, Sequence } from 'remotion';
 import { AudioTracks } from './components/AudioTracks';
+import type { CutId } from './config';
 import { loadFonts } from './fonts';
-import { CardSolution } from './scenes/CardSolution';
 import { Closing } from './scenes/Closing';
-import { HideAmounts, Home } from './scenes/Home';
-import { Hook, Pause } from './scenes/Hook';
-import { Tickets } from './scenes/Tickets';
+import { Problem } from './scenes/Problem';
+import { Solution } from './scenes/Solution';
 import { COLORS, VIDEO } from './theme';
-import { CUTS, DURATION, totalFrames, type CutId, type SceneId } from './timeline';
+import { TIMELINES } from './voice';
 
 loadFonts();
-
-const Scene: React.FC<{ id: SceneId; next?: SceneId }> = ({ id, next }) => {
-  const duration = DURATION[id];
-  switch (id) {
-    case 'hook':
-      // Into the pause the question stays; into anything else it fades out.
-      return <Hook duration={duration} exit={next !== 'pause'} />;
-    case 'pause':
-      return <Pause duration={duration} />;
-    case 'tickets':
-      return <Tickets duration={duration} />;
-    case 'card':
-      return <CardSolution duration={duration} />;
-    case 'home':
-      return <Home duration={duration} />;
-    case 'hide':
-      return <HideAmounts duration={duration} />;
-    case 'closing':
-      // Both cuts reach the closing from a brand scene (card or hide).
-      return <Closing from={COLORS.brand} />;
-  }
-};
 
 type CutProps = {
   cut: CutId;
@@ -40,18 +17,31 @@ type CutProps = {
   music: boolean;
 };
 
-const Cut: React.FC<CutProps> = ({ cut, music }) => (
-  <>
-    <Series>
-      {CUTS[cut].map((id, i) => (
-        <Series.Sequence key={id} durationInFrames={DURATION[id]} name={id}>
-          <Scene id={id} next={CUTS[cut][i + 1]} />
-        </Series.Sequence>
-      ))}
-    </Series>
-    <AudioTracks cut={cut} music={music} />
-  </>
-);
+/** Three acts (problem on ink, solution on brand, closing on white), timed by the voice. */
+const Cut: React.FC<CutProps> = ({ cut, music }) => {
+  const timeline = TIMELINES[cut];
+  const { problem, solution, closing } = timeline.acts;
+  return (
+    <AbsoluteFill style={{ background: COLORS.ink }}>
+      {problem ? (
+        <Sequence from={problem.from} durationInFrames={problem.frames} name="problem">
+          <Problem timeline={timeline} />
+        </Sequence>
+      ) : null}
+      {solution ? (
+        <Sequence from={solution.from} durationInFrames={solution.frames} name="solution">
+          <Solution timeline={timeline} />
+        </Sequence>
+      ) : null}
+      {closing ? (
+        <Sequence from={closing.from} durationInFrames={closing.frames} name="closing">
+          <Closing from={COLORS.brand} />
+        </Sequence>
+      ) : null}
+      <AudioTracks cut={cut} music={music} />
+    </AbsoluteFill>
+  );
+};
 
 export const Root: React.FC = () => (
   <>
@@ -59,14 +49,14 @@ export const Root: React.FC = () => (
       id="Platin30"
       component={Cut}
       defaultProps={{ cut: '30', music: true } satisfies CutProps}
-      durationInFrames={totalFrames('30')}
+      durationInFrames={TIMELINES['30'].total}
       {...VIDEO}
     />
     <Composition
       id="Platin15"
       component={Cut}
       defaultProps={{ cut: '15', music: true } satisfies CutProps}
-      durationInFrames={totalFrames('15')}
+      durationInFrames={TIMELINES['15'].total}
       {...VIDEO}
     />
   </>

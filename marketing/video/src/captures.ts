@@ -3,6 +3,8 @@ import meta from '../public/captures/meta.json';
 
 export type Box = { x: number; y: number; width: number; height: number };
 
+export type Rounded = Box & { radius: number; background: string };
+
 export type Screen = {
   file: string;
   viewport: string;
@@ -18,10 +20,14 @@ export type Screen = {
     background: string;
   };
   chart?: Box & { background: string };
+  /** Rounded containers: the "por día" pill, the free card, the trip goal. */
+  perDay?: Rounded;
+  freeCard?: Rounded;
+  goal?: Rounded;
   bars?: (Box & { label: string })[];
 };
 
-export type ScreenName = 'inicio' | 'inicio-oculto' | 'tarjeta-cuotas' | 'compromisos' | 'metas';
+export type ScreenName = 'inicio' | 'tarjeta-cuotas' | 'metas';
 
 export const CAPTURES = meta as unknown as {
   viewport: { width: number; height: number };
