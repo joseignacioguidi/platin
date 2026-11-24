@@ -3,13 +3,18 @@
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "apps/api/src",
   "projectType": "application",
-  "tags": ["scope:api", "type:app"],
+  "tags": [
+    "scope:api",
+    "type:app"
+  ],
   "targets": {
     "serve": {
       "continuous": true,
       "executor": "@nx/js:node",
       "defaultConfiguration": "development",
-      "dependsOn": ["build"],
+      "dependsOn": [
+        "build"
+      ],
       "readyWhen": {
         "signal": true
       },
@@ -33,8 +38,12 @@
         "cwd": "apps/api"
       },
       "cache": true,
-      "inputs": ["{projectRoot}/prisma/schema.prisma"],
-      "outputs": ["{projectRoot}/src/generated/prisma"]
+      "inputs": [
+        "{projectRoot}/prisma/schema.prisma"
+      ],
+      "outputs": [
+        "{projectRoot}/src/generated/prisma"
+      ]
     },
     "prisma-migrate": {
       "executor": "nx:run-commands",
@@ -50,6 +59,13 @@
         "cwd": "apps/api"
       }
     },
+    "mp-probe": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsx scripts/mercado-pago-probe.ts",
+        "cwd": "apps/api"
+      }
+    },
     "prisma-deploy": {
       "executor": "nx:run-commands",
       "options": {
@@ -59,23 +75,38 @@
     },
     "typecheck": {
       "executor": "nx:run-commands",
-      "dependsOn": ["prisma-generate"],
+      "dependsOn": [
+        "prisma-generate"
+      ],
       "cache": true,
-      "inputs": ["default", "^default"],
+      "inputs": [
+        "default",
+        "^default"
+      ],
       "options": {
-        "commands": ["tsc -p tsconfig.app.json --noEmit", "tsc -p tsconfig.spec.json --noEmit"],
+        "commands": [
+          "tsc -p tsconfig.app.json --noEmit",
+          "tsc -p tsconfig.spec.json --noEmit"
+        ],
         "cwd": "apps/api",
         "parallel": false
       }
     },
     "build": {
-      "dependsOn": ["prisma-generate", "^build"]
+      "dependsOn": [
+        "prisma-generate",
+        "^build"
+      ]
     },
     "test": {
-      "dependsOn": ["prisma-generate"]
+      "dependsOn": [
+        "prisma-generate"
+      ]
     },
     "lint": {
-      "dependsOn": ["prisma-generate"]
+      "dependsOn": [
+        "prisma-generate"
+      ]
     }
   }
 }

@@ -65,3 +65,6 @@ apps/web/src/env.generated.ts
 # database dumps (real data)
 /dump.*
 /dumps/
+
+# Mercado Pago probe (phase 40): tokens and raw responses of a real account
+apps/api/.mp-probe/
