@@ -14,7 +14,9 @@ export type DataKey =
   /** The onboarding state (AUTH-05). */
   | 'onboarding'
   /** Aliases and merchant rules (TXT-01 to 03). */
-  | 'text-entry';
+  | 'text-entry'
+  /** Connections with institutions: status, reserves, "Para revisar" (MPG-01 to 10). */
+  | 'feeds';
 
 /**
  * After each write, the feature calls `invalidate(...)` with what it affected; stores that

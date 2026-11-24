@@ -100,6 +100,11 @@ type FeatureKey = keyof AdminMetrics['featureUsage'];
         <p class="mt-3 text-sm text-muted">
           {{ t.botSummary(botMessages(), m.bot.unparsedShareLast30Days) }}
         </p>
+        <p class="mt-1 text-sm text-muted">
+          {{
+            t.feedSummary(m.feeds.activeConnections, feedMovements(), m.feeds.heldShareLast30Days)
+          }}
+        </p>
       </section>
     } @else {
       <pl-skeleton [heights]="[96, 220, 260]" />
@@ -122,6 +127,10 @@ export class AdminOverviewPage {
   /** Bot messages in the last 4 weeks (only counts). */
   protected readonly botMessages = computed(() =>
     (this.data()?.bot.messagesByWeek ?? []).slice(-4).reduce((sum, week) => sum + week.count, 0),
+  );
+  /** Iteration 14: Mercado Pago movements in the last 4 weeks (only counts). */
+  protected readonly feedMovements = computed(() =>
+    (this.data()?.feeds.movementsByWeek ?? []).slice(-4).reduce((sum, week) => sum + week.count, 0),
   );
   protected readonly format = formatDate;
 

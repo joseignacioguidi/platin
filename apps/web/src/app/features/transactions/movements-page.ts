@@ -6,7 +6,9 @@ import {
   effect,
   ElementRef,
   inject,
+  input,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { LucideListFilter, LucideSearch, LucideX } from '@lucide/angular';
@@ -32,7 +34,8 @@ import { MovementSheet } from './movement-sheet';
 import { MovementFilters, MovementsList } from './movements-list';
 import { TRANSACTIONS_TEXTS } from './transactions.texts';
 
-type Chip = 'ALL' | 'EXPENSE' | 'INCOME' | 'TRANSFER' | 'INVESTMENT' | 'CARD' | 'PENDING';
+type Chip =
+  'ALL' | 'EXPENSE' | 'INCOME' | 'TRANSFER' | 'INVESTMENT' | 'CARD' | 'PENDING' | 'UNCATEGORIZED';
 
 /** MOV-03: month, totals, filters, search and the list grouped by day. */
 @Component({
@@ -181,6 +184,8 @@ type Chip = 'ALL' | 'EXPENSE' | 'INCOME' | 'TRANSFER' | 'INVESTMENT' | 'CARD' | 
   `,
 })
 export class MovementsPage {
+  /** `?filtro=categorizar` from the home notice (MPG-04). */
+  readonly filtro = input<string>();
   protected readonly texts = TRANSACTIONS_TEXTS;
   protected readonly today = inject(Today);
   protected readonly accounts = inject(AccountsStore);
@@ -198,6 +203,7 @@ export class MovementsPage {
     'INVESTMENT',
     'CARD',
     'PENDING',
+    'UNCATEGORIZED',
   ];
   protected readonly period = signal<Period>(this.today.period());
   protected readonly filter = signal<Chip>('ALL');
@@ -225,10 +231,21 @@ export class MovementsPage {
   constructor() {
     reloadOn(this.bus, ['movements'], () => this.summaryResource.reload());
     effect(() => void this.list.load(this.filters()));
+    effect(() => {
+      if (this.filtro() === 'categorizar') untracked(() => this.filter.set('UNCATEGORIZED'));
+    });
   }
 
   private filters(): MovementFilters {
     const chip = this.filter();
+    // MPG-04: what waits for a category, whatever its month (the home counts them all).
+    if (chip === 'UNCATEGORIZED') {
+      return {
+        uncategorized: 'true',
+        accountId: this.accountId() || undefined,
+        q: this.search() || undefined,
+      };
+    }
     return {
       period: this.period(),
       accountId: this.accountId() || undefined,

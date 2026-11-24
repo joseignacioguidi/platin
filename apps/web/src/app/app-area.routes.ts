@@ -129,5 +129,12 @@ export const appAreaRoutes: Route[] = [
     title: 'Perfil y ajustes · platin',
     loadComponent: () => import('./features/settings/profile-page').then((m) => m.ProfilePage),
   },
+  {
+    // MPG-01: the API sends the browser back here after authorizing.
+    path: 'perfil/mercado-pago',
+    title: 'Mercado Pago · platin',
+    loadComponent: () =>
+      import('./features/feeds/mercado-pago-page').then((m) => m.MercadoPagoPage),
+  },
   { path: '**', redirectTo: '' },
 ];

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core';
 import { PlBottomSheet, PlButton } from '@platin/web-ui';
 import { PlanSummary } from '../plans/plan-summary';
+import { MercadoPagoSettings } from '../feeds/mercado-pago-settings';
 import { CurrenciesSettings } from './currencies-settings';
 import { PersonalizationCard } from './personalization-card';
 import { ProfileHeader } from './profile-header';
@@ -22,6 +23,7 @@ import { TelegramSettings } from './telegram-settings';
     CurrenciesSettings,
     PersonalizationCard,
     TelegramSettings,
+    MercadoPagoSettings,
     PlanSummary,
     SignInMethods,
   ],
@@ -37,6 +39,7 @@ import { TelegramSettings } from './telegram-settings';
         <pl-currencies-settings class="order-1 lg:order-none" />
         <pl-personalization-card class="order-2 lg:order-none" />
         <pl-telegram-settings class="order-4 block lg:order-none" />
+        <pl-mercado-pago-settings class="order-4 block lg:order-none" />
       </div>
       <div class="contents lg:flex lg:min-w-0 lg:flex-[2_1_340px] lg:flex-col lg:gap-5">
         <pl-plan-summary class="order-5 mt-4 lg:order-none lg:mt-0" />
