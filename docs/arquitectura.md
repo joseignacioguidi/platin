@@ -603,6 +603,8 @@ Sin cambios de esquema; las decisiones están en `docs/adr/0035-onboarding.md`.
 
 Cambios de esquema en una migración normal de la fase 41; las razones están en `docs/adr/0037-conexion-con-mercado-pago.md`. La fase 40 no cambia el esquema: confirma qué informa la API y puede ajustar los `kind` de abajo (con su propio ADR).
 
+La implementación (fase 41, `docs/adr/0039-mercado-pago-implementacion.md`) suma `FeedSkippedMovement` (ids que quedaron afuera del límite, para no contarlos dos veces), `direction` y `refundOf` en `ExternalMovement`, la unicidad de `FeedConnection.accountId` y un trigger que pasa a `DISMISSED` lo que se borra. El filtro "Para categorizar" es `GET /movements?uncategorized=true`.
+
 ```prisma
 enum Channel { APP TELEGRAM MERCADO_PAGO }
 
