@@ -5,6 +5,7 @@ import { ChargesService } from '../cards/charges.service';
 import { StatementsService } from '../cards/statements.service';
 import { ClockService } from '../common/clock.service';
 import { toDbDate, toDbPeriod } from '../common/serialize';
+import { FeedIngestService } from '../feeds/feed-ingest.service';
 import { FIXED_INCLUDE, toSchedule } from '../fixed/fixed.mapper';
 import { PrismaService } from '../prisma/prisma.service';
 import { RatesService } from '../rates/rates.service';
@@ -25,6 +26,7 @@ export class SyncService {
     private readonly charges: ChargesService,
     private readonly clock: ClockService,
     private readonly rates: RatesService,
+    private readonly feeds: FeedIngestService,
   ) {}
 
   async sync(userId: string): Promise<SyncResponse> {
@@ -35,6 +37,8 @@ export class SyncService {
     await this.rates.refreshIfStale();
     // Expired bot drafts and old webhook rows go here too (ADR 0026).
     await cleanupTelegram(this.prisma, new Date());
+    // MPG-02: what the webhook did not bring (Render asleep, a lost notice). Never throws.
+    await this.feeds.syncUser(userId);
 
     return this.prisma.$transaction(
       async (tx) => {

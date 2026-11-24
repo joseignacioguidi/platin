@@ -31,8 +31,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UserRates } from '../rates/user-rates.service';
 import { toTransferDto } from '../transfers/transfers.service';
 
-type ParsedQuery = Omit<MovementsQuery, 'limit'> & {
+type ParsedQuery = Omit<MovementsQuery, 'limit' | 'uncategorized'> & {
   limit: number;
+  uncategorized?: boolean;
   period?: Period;
   until?: LocalDate;
 };
@@ -78,10 +79,27 @@ function toPocketRef(row: PocketRefRow) {
 }
 
 /** What a transaction needs to show as a movement. */
+/** MPG-02, 06: whether an institution created the movement or also reported it. */
+const externalRef = {
+  select: { id: true, status: true, connection: { select: { provider: true } } },
+} as const;
+
 export const TRANSACTION_MOVEMENT_INCLUDE = {
   pocket: pocketRef,
   category: { select: { id: true, name: true, icon: true, color: true } },
+  external: externalRef,
 } as const;
+
+function toExternal(
+  row: { id: string; status: string; connection: { provider: 'MERCADO_PAGO' } } | null,
+) {
+  if (!row || (row.status !== 'APPLIED' && row.status !== 'LINKED')) return null;
+  return {
+    id: row.id,
+    provider: row.connection.provider,
+    status: row.status as 'APPLIED' | 'LINKED',
+  };
+}
 
 /** What a transfer needs to show as a movement. */
 export const TRANSFER_MOVEMENT_INCLUDE = {
@@ -90,6 +108,7 @@ export const TRANSFER_MOVEMENT_INCLUDE = {
   statement: {
     select: { id: true, period: true, card: { select: { id: true, name: true } } },
   },
+  external: externalRef,
 } as const;
 
 export type TransactionMovementRow = Prisma.TransactionGetPayload<{
@@ -115,6 +134,7 @@ export function toTransactionMovement(row: TransactionMovementRow): Movement {
     description: row.description,
     pocket: toPocketRef(row.pocket),
     category: row.category ? { ...row.category, color: row.category.color as ColorToken } : null,
+    external: toExternal(row.external),
   };
 }
 
@@ -142,6 +162,7 @@ export function toTransferMovement(row: TransferMovementRow): Movement {
           period: utcToPeriod(row.statement.period),
         }
       : null,
+    external: toExternal(row.external),
   };
 }
 
@@ -170,12 +191,14 @@ export class MovementsService {
     const wantsTransfers =
       (query.type === undefined || query.type === 'TRANSFER' || query.type === 'INVESTMENT') &&
       !query.categoryId &&
+      !query.uncategorized &&
       query.status !== 'PENDING';
     // Card purchases are expenses; they never belong to a pocket (their payment does).
     const wantsCharges =
       (query.type === undefined || query.type === 'EXPENSE' || query.type === 'CARD') &&
       !query.accountId &&
       !query.pocketId &&
+      !query.uncategorized &&
       query.status !== 'PENDING';
 
     const [transactions, transfers, charges] = await Promise.all([
@@ -278,6 +301,12 @@ export class MovementsService {
     if (query.pocketId) filters.pocketId = query.pocketId;
     if (query.categoryId) filters.categoryId = query.categoryId;
     if (query.type === 'INCOME' || query.type === 'EXPENSE') filters.type = query.type;
+    // MPG-04, "Para categorizar": confirmed incomes and expenses without a category.
+    if (query.uncategorized) {
+      filters.categoryId = null;
+      filters.status = 'CONFIRMED';
+      if (!filters.type) filters.type = { in: ['INCOME', 'EXPENSE'] };
+    }
     if (query.status) filters.status = query.status;
     if (query.q) filters.OR = this.transactionSearch(query.q);
     return this.prisma.transaction.findMany({

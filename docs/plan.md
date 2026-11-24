@@ -1400,6 +1400,98 @@ Forma de trabajo:
 - Rama feat/fase-39-onboarding. Todo en verde antes del PR, con capturas de cada paso en celular y escritorio, de la hoja de consumos y del inicio a medias.
 ```
 
+## Iteración 14: Mercado Pago
+
+Que los movimientos de Mercado Pago entren solos, al momento. La 40 es una prueba técnica corta contra una cuenta real, porque la API de Mercado Pago está pensada para vendedores y hay que confirmar qué informa de lo que una persona paga, transfiere o mueve entre reservas. La 41 construye la conexión con lo que se confirme.
+
+**Antes de la 40 (vos):**
+
+1. En [Mercado Pago Developers](https://www.mercadopago.com.ar/developers/panel/app), crear una aplicación ("platin"), con OAuth habilitado y PKCE si lo ofrece.
+2. Cargar como dirección de retorno `https://<app>.vercel.app/api/v1/feeds/mercado-pago/callback` y la de local (`http://localhost:4200/api/v1/feeds/mercado-pago/callback`; si Mercado Pago exige HTTPS, la de un túnel como el de Apple en "Ingreso con proveedores externos").
+3. En Webhooks, la URL de Render `https://<api>.onrender.com/api/v1/feeds/mercado-pago/webhook` con los eventos de pagos y de vinculación de aplicaciones, y copiar la clave secreta.
+4. Cargar en tu `.env` local (nunca en el chat ni en el repo) `MERCADOPAGO_CLIENT_ID`, `MERCADOPAGO_CLIENT_SECRET`, `MERCADOPAGO_WEBHOOK_SECRET` y un `FEED_TOKEN_KEY` generado con `openssl rand -base64 32`.
+5. Durante la 40, usar tu cuenta personal de Mercado Pago unos días con los movimientos de siempre: un pago con QR, una transferencia enviada y una recibida, mover plata a una reserva y sacarla, y si podés, comprar dólares.
+
+| Fase | Qué se construye | Casos de uso | Terminado cuando |
+| --- | --- | --- | --- |
+| 40 | Prueba técnica de la API de Mercado Pago, sin pantallas ni esquema | Pregunta abierta "Mercado Pago" | Hay un ADR con qué movimientos informa la API, cuáles avisa al momento y cómo se reconoce cada tipo, y las reglas y la arquitectura de la iteración quedan ajustadas a eso |
+| 41 | Conexión con Mercado Pago | MPG-01 a 10 | Conecto mi cuenta, pago un café con QR y en segundos aparece en Movimientos con su categoría; lo que no tiene regla queda para categorizar; mover a una reserva es una transferencia; con el plan Gratis entra uno por día |
+
+## Fase 40 — Prueba técnica de Mercado Pago
+
+Responde la pregunta abierta antes de diseñar pantallas: qué llega, por qué camino y cómo se reconoce. No se mergea código de producción salvo `MercadoPagoProvider` si queda listo.
+
+**Terminado cuando:**
+
+- con tu cuenta conectada por OAuth en local, un script lista lo que devuelve cada endpoint candidato (búsqueda de pagos como cobrador y como pagador, movimientos o reportes de la cuenta, reservas) para los últimos 30 días, **anonimizado** (sin nombres, CVU ni montos reales en la salida que se commitea);
+- para cada movimiento de la lista de "Antes de la 40" sabemos si aparece, en qué endpoint, si llega un webhook y con qué tópico, y cómo se distingue (cobro, pago, transferencia, reserva, compra de moneda, rendimiento, devolución);
+- sabemos si el monto informado es bruto o neto, en qué zona horaria vienen las fechas, cuánto tarda y cuántas veces reintenta un webhook que recibe un 500, y si PKCE y la renovación del token funcionan;
+- `docs/adr/0038-api-de-mercado-pago.md` registra lo anterior, y `docs/especificacion.md` (regla "Mercado Pago") y `docs/arquitectura.md` ("Iteración 14") quedan ajustadas; lo que la API no informe figura como "se carga a mano".
+
+```
+Leé CLAUDE.md; el módulo 16 (MPG-01 a 10), la regla "Mercado Pago" y la pregunta abierta "Mercado Pago" de docs/especificacion.md; en docs/arquitectura.md "Iteración 14: Mercado Pago"; y docs/adr/0037-conexion-con-mercado-pago.md.
+
+Vamos a hacer la Fase 40 de docs/plan.md: una prueba técnica para saber qué informa la API de Mercado Pago de una cuenta personal. Las credenciales están en mi .env local; no las pidas ni las imprimas.
+
+1. Un script en apps/api/scripts/mercado-pago-probe.ts (nx run api:mp-probe) que haga el flujo OAuth con PKCE en local (abre la URL, recibe el callback en localhost) y guarde el token solo en memoria o en un archivo ignorado por git.
+2. Con ese token, consultá los endpoints candidatos para los últimos 30 días: búsqueda de pagos como cobrador y como pagador, lo que haya de movimientos o saldo de la cuenta, reservas, y los reportes de liberaciones y de dinero en cuenta por API. Buscá la documentación oficial de cada uno antes de llamarlo.
+3. Un endpoint temporal en local para recibir webhooks por un túnel HTTPS, que valide x-signature y registre tópico, tipo y demora. Probá qué pasa al responder 500.
+4. Escribí la salida anonimizada en docs/adr/anexos/0038-mercado-pago.md y armá una tabla: tipo de movimiento → endpoint → webhook (sí/no, tópico) → cómo se reconoce → bruto o neto.
+5. Con eso, escribí docs/adr/0038-api-de-mercado-pago.md y proponeme los cambios a la regla "Mercado Pago" y a "Iteración 14" de la arquitectura (los enum ExternalMovementKind, listSince y qué cubre la sincronización de respaldo). No los apliques hasta que te diga.
+6. Si MercadoPagoProvider queda razonable, dejalo detrás de AccountFeedProvider con sus tests con respuestas grabadas (anonimizadas). Si no, solo el ADR.
+
+Forma de trabajo:
+- Plan primero, esperame. No agregues el SDK de Mercado Pago: fetch y node:crypto alcanzan.
+- Nada con datos reales en el repo: revisá el diff antes de cada commit.
+- Rama feat/fase-40-mercado-pago-prueba. PR con el ADR, el anexo y los cambios propuestos a los documentos.
+```
+
+## Fase 41 — Conexión con Mercado Pago
+
+La conexión completa: OAuth, webhook, sincronización de respaldo, reservas, duplicados, "Para categorizar", "Para revisar", conversión y el límite del plan Gratis.
+
+**Terminado cuando:**
+
+- todos los ejemplos de la regla "Mercado Pago" son tests literales en `libs/domain` y pasan;
+- en Perfil › Mercado Pago toco "Conectar", autorizo, vuelvo, elijo mi cuenta Mercado Pago y me ofrece ajustar el saldo; un enlace con la cookie de otra sesión no conecta nada; una cuenta de Mercado Pago ya conectada a otro usuario da `FEED_ACCOUNT_TAKEN`;
+- pago un café con QR y en segundos aparece en Movimientos, confirmado, con la marca de Mercado Pago y en Cafés por mi regla; el saldo de la cuenta cambia;
+- un pago a un comercio sin regla entra sin categoría, el inicio dice "1 movimiento para categorizar", lo categorizo y me ofrece la regla;
+- cargo "café 3500 mp" por Telegram, llega el mismo pago de Mercado Pago y no se duplica; "No es el mismo" lo crea aparte;
+- pago el resumen de la Visa desde Mercado Pago en platin y, cuando llega el pago de Mercado Pago, se vincula a ese pago y no cuenta como gasto;
+- muevo plata a la reserva Vacaciones en Mercado Pago: queda en "Para revisar" hasta que la asigno a mi reserva Vacaciones, y entonces se aplica como transferencia;
+- convierto una transferencia a Santander en "Es una transferencia mía" y el pago de la Visa en "Es el pago de una tarjeta", y los saldos y el resumen cierran;
+- con el plan Gratis, el segundo movimiento del día no se crea y el perfil dice "Hoy llegó 1 movimiento más"; con Pro entran todos;
+- un aviso repetido no crea nada, una firma inválida da 401, Render dormido no pierde movimientos (los trae `POST /sync`), y un usuario suspendido no recibe nada;
+- desconecto y dejan de entrar; quitar el permiso desde Mercado Pago deja "Volvé a conectar Mercado Pago"; "Empezar de cero" borra la conexión.
+
+```
+Leé CLAUDE.md; el módulo 16 (MPG-01 a 10) y la regla "Mercado Pago" de docs/especificacion.md; en docs/arquitectura.md "Iteración 14: Mercado Pago", "Componentes y patrones de la iteración 14", "Ingreso con proveedores externos" y las variables de entorno de Mercado Pago; docs/adr/0037-conexion-con-mercado-pago.md y docs/adr/0038-api-de-mercado-pago.md (de la fase 40).
+
+Vamos a hacer la Fase 41 de docs/plan.md. Si el ADR 0038 contradice algo de la arquitectura, gana el ADR: avisame dónde.
+
+Dominio y contratos:
+1. libs/domain/account-feed: planExternalMovement, findDuplicate y checkDailyLimit, reutilizando la búsqueda de reglas de text-entry. Los ejemplos de la regla como tests literales, más los bordes: dos candidatos a la misma distancia, ±2 días justo, devolución de un pago ya traído, FX con los dos montos, reserva sin asignar, moneda no activada, límite 0 y null.
+2. maxFeedMovementsPerDay en el esquema de límites de libs/contracts y los esquemas de /feeds.
+
+Backend:
+3. Migración según la arquitectura (Channel MERCADO_PAGO, FeedConnection, FeedReserve, ExternalMovement, FeedDailyUsage, FeedWebhookEvent y la clave nueva en los planes existentes). Mostrame la migración antes de aplicarla.
+4. Módulo feeds: AccountFeedProvider, MercadoPagoProvider (de la fase 40), FeedTokenCipher, FeedProviderRegistry, connect y callback con la cookie feed_tx, PATCH de la cuenta, reservas, held, usage y DELETE.
+5. Webhook directo a Render con x-signature en tiempo constante, FeedIngestService compartido con POST /sync (cursor, renovación del token, reintento de HELD, limpieza) y el aviso de desvinculación.
+6. POST /transactions/:id/convert, POST /external-movements/:id/unlink, GET /transactions?uncategorized=true y uncategorizedCount en el dashboard. Presupuestos, reportes y gráficos con "Sin categoría".
+7. "Empezar de cero" y el borrado de cuenta borran lo nuevo; métricas del administrador solo con conteos.
+8. Tests e2e con un proveedor falso: aislamiento entre usuarios, cookie feed_tx ajena, FEED_ACCOUNT_TAKEN, firma inválida, aviso duplicado, webhook y sync del mismo movimiento, duplicado vinculado y desvinculado, reserva sin asignar y luego asignada, límite del plan, conversión, borrado que no vuelve a entrar, suspendido, desconexión y revocación.
+
+Web:
+9. Perfil › Mercado Pago con FeedAccountSheet, reservas, "Para revisar" y uso del día con la marca de plan. Si el proveedor no está configurado, la sección no aparece.
+10. UncategorizedNotice en el inicio, filtro "Para categorizar" en Movimientos con la oferta de regla al categorizar, marca de canal y las acciones del detalle (transferencia mía, pago de tarjeta, No es el mismo).
+11. Textos en un archivo de textos de la feature, en español rioplatense.
+
+Forma de trabajo:
+- Plan primero, esperame. Si conviene, dividila en 41a (dominio, migración y backend) y 41b (web).
+- No agregues el SDK de Mercado Pago ni otras dependencias sin consultarme.
+- Rama feat/fase-41-mercado-pago. Todo en verde antes del PR, con capturas del perfil (sin conectar, conectado, con "Para revisar"), del aviso del inicio y del detalle de un movimiento de Mercado Pago.
+```
+
 ## Después del MVP
 
 La segunda tanda de la especificación, en fases chicas que se pueden hacer en cualquier orden. Los prompts siguen el mismo molde que las fases anteriores: leer `CLAUDE.md` y la sección de la especificación, plan primero, rama propia, PR con todo en verde.

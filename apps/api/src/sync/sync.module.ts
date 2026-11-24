@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { CardsModule } from '../cards/cards.module';
+import { FeedsModule } from '../feeds/feeds.module';
 import { SyncController } from './sync.controller';
 import { SyncService } from './sync.service';
 
 @Module({
-  imports: [CardsModule],
+  imports: [CardsModule, FeedsModule],
   controllers: [SyncController],
   providers: [SyncService],
 })

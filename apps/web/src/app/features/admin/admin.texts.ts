@@ -36,6 +36,10 @@ export const ADMIN_TEXTS = {
       (unparsed === null
         ? '.'
         : `; ${String(unparsed).replace('.', ',')} % sin entender en 30 días.`),
+    feedSummary: (connections: number, movements: number, held: number | null) =>
+      `Mercado Pago: ${connections} ${connections === 1 ? 'cuenta conectada' : 'cuentas conectadas'}, ` +
+      `${movements} ${movements === 1 ? 'movimiento' : 'movimientos'} en las últimas 4 semanas` +
+      (held === null ? '.' : `; ${String(held).replace('.', ',')} % para revisar en 30 días.`),
     plans: 'Usuarios por plan',
   },
   users: {
@@ -201,6 +205,7 @@ export const ADMIN_TEXTS = {
       maxCards: 'Tarjetas',
       maxGoals: 'Metas activas',
       maxFixed: 'Fijos activos',
+      maxFeedMovementsPerDay: 'Movimientos de Mercado Pago por día',
     },
     investments: 'Incluye inversiones',
     isPublic: 'Visible en la página de planes',

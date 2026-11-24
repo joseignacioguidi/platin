@@ -1,5 +1,6 @@
 export const TRANSACTIONS_TEXTS = {
   viaTelegram: 'Telegram',
+  viaMercadoPago: 'Mercado Pago',
   title: 'Movimientos',
   search: 'Buscar',
   searchPlaceholder: 'Buscar por descripción o categoría',
@@ -17,6 +18,7 @@ export const TRANSACTIONS_TEXTS = {
     CARD: 'Tarjetas',
     INVESTMENT: 'Inversiones',
     PENDING: 'Pendientes',
+    UNCATEGORIZED: 'Para categorizar',
   },
   pending: 'Pendiente',
   scheduled: (date: string) => `Programado · ${date}`,

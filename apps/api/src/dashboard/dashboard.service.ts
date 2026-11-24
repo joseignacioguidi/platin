@@ -123,7 +123,7 @@ export class DashboardService {
     const core = await this.core(userId, requested);
     const { today, period, past, base, flow, balances, spendable, toBase, todayRates } = core;
     const range = { gte: toDbDate(firstDayOf(period)), lte: toDbDate(lastDayOf(period)) };
-    const [statements, pending] = await Promise.all([
+    const [statements, pending, uncategorizedCount, toReconnect] = await Promise.all([
       this.prisma.cardStatement.findMany({
         where: {
           userId,
@@ -138,6 +138,20 @@ export class DashboardService {
         where: { userId, status: 'PENDING', date: { lte: toDbDate(today) } },
         orderBy: { date: 'asc' },
         select: { description: true },
+      }),
+      // MPG-04, "Para categorizar": what came in without a category.
+      this.prisma.transaction.count({
+        where: {
+          userId,
+          status: 'CONFIRMED',
+          categoryId: null,
+          type: { in: ['INCOME', 'EXPENSE'] },
+        },
+      }),
+      // MPG-10: "Volvé a conectar Mercado Pago".
+      this.prisma.feedConnection.findMany({
+        where: { userId, status: 'NEEDS_RECONNECT' },
+        select: { provider: true },
       }),
     ]);
     const saved = await this.saved(userId, base, core.valuationRate, range);
@@ -170,6 +184,8 @@ export class DashboardService {
         count: pending.length,
         names: pending.slice(0, 3).map((p) => p.description ?? ''),
       },
+      uncategorizedCount,
+      feedsToReconnect: toReconnect.map((row) => row.provider),
       upcoming: this.upcoming(
         today,
         statements,

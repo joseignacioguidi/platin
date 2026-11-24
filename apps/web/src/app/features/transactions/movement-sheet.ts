@@ -1,7 +1,13 @@
 import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import type { Movement } from '@platin/contracts';
-import { CategoryKind, compareDates, LocalDate, parseLocalDate } from '@platin/domain';
+import {
+  CategoryKind,
+  compareDates,
+  LocalDate,
+  parseLocalDate,
+  suggestedRulePattern,
+} from '@platin/domain';
 import {
   displayAmount,
   formatDate,
@@ -21,9 +27,19 @@ import { Today } from '../../core/today';
 import { ChargeFormData, ChargeFormSheet } from '../cards/charge-form-sheet';
 import { CardsStore } from '../cards/cards.store';
 import { CategoriesStore } from '../categories/categories.store';
+import { MerchantRulesStore } from '../categories/merchant-rules.store';
+import { ConvertMovementData, ConvertMovementSheet } from '../feeds/convert-movement-sheet';
+import { FeedsStore } from '../feeds/feeds.store';
+import { FEED_MOVEMENT_TEXTS } from '../feeds/feeds.texts';
 import { MovementRow } from './movement-row';
 import { TransactionsStore } from './transactions.store';
 import { TRANSACTIONS_TEXTS } from './transactions.texts';
+
+interface RuleOffer {
+  pattern: string;
+  category: string;
+  categoryId: string;
+}
 
 const INPUT =
   'min-h-12 w-full rounded-2xl border border-line bg-surface px-4 text-base focus:border-brand focus:outline-none';
@@ -124,11 +140,55 @@ const INPUT =
         </dl>
       }
 
+      @if (linkedExternal; as external) {
+        <!-- MPG-06: loaded by hand, and Mercado Pago reported the same one. -->
+        <div class="flex flex-col gap-2 rounded-2xl bg-transfer-soft px-4 py-3">
+          <p class="text-[15px] font-semibold">{{ feed.alsoFrom }}</p>
+          <p class="text-sm text-muted">{{ feed.notTheSameHint }}</p>
+          <button
+            plButton="secondary"
+            size="sm"
+            type="button"
+            class="self-start"
+            [disabled]="busy()"
+            (click)="unlink(external.id)"
+          >
+            {{ feed.notTheSame }}
+          </button>
+        </div>
+      }
+      @if (convertible() && !ruleOffer()) {
+        <!-- MPG-08: money moved, not spent. -->
+        <div class="flex flex-wrap gap-2">
+          <button plButton="secondary" size="sm" type="button" (click)="convert('TRANSFER')">
+            {{ feed.isTransfer }}
+          </button>
+          @if (categoryKind() === 'EXPENSE') {
+            <button plButton="secondary" size="sm" type="button" (click)="convert('CARD_PAYMENT')">
+              {{ feed.isCardPayment }}
+            </button>
+          }
+        </div>
+      }
+
       @if (error()) {
         <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">{{ error() }}</p>
       }
 
-      @if (confirmingDelete()) {
+      @if (ruleOffer(); as offer) {
+        <!-- MPG-04: categorized what came without a category: platin offers the rule. -->
+        <div class="flex flex-col gap-3 rounded-2xl border border-line p-4" role="status">
+          <p class="text-[15px] font-semibold">{{ feed.rule(offer.pattern, offer.category) }}</p>
+          <div class="grid grid-cols-2 gap-2">
+            <button plButton="secondary" type="button" (click)="ref.close(true)">
+              {{ feed.ruleNo }}
+            </button>
+            <button plButton type="button" [disabled]="busy()" (click)="createRule(offer)">
+              {{ feed.ruleYes }}
+            </button>
+          </div>
+        </div>
+      } @else if (confirmingDelete()) {
         <p class="text-[15px] font-semibold">{{ texts.confirmDelete }}</p>
         <div class="grid grid-cols-2 gap-2">
           <button plButton="secondary" type="button" (click)="confirmingDelete.set(false)">
@@ -181,6 +241,16 @@ export class MovementSheet {
   private readonly cardsStore = inject(CardsStore);
   protected readonly today = inject(Today);
   protected readonly accountsStore = inject(AccountsStore);
+  protected readonly feed = FEED_MOVEMENT_TEXTS;
+  private readonly feeds = inject(FeedsStore);
+  private readonly rules = inject(MerchantRulesStore);
+
+  /** MPG-06: the Mercado Pago movement linked to this one, for "No es el mismo". */
+  protected readonly linkedExternal =
+    this.movement.kind !== 'CARD_CHARGE' && this.movement.external?.status === 'LINKED'
+      ? this.movement.external
+      : null;
+  protected readonly ruleOffer = signal<RuleOffer | null>(null);
 
   /** Statement payments are undone from the card, not from the list. */
   protected readonly deletable = !(this.movement.kind === 'TRANSFER' && this.movement.statement);
@@ -212,6 +282,15 @@ export class MovementSheet {
     (this.movement.type === 'INCOME' || this.movement.type === 'EXPENSE')
       ? this.movement.type
       : null,
+  );
+
+  /** MPG-08: only what Mercado Pago created, as a confirmed income or expense. */
+  protected readonly convertible = computed(
+    () =>
+      this.movement.kind === 'TRANSACTION' &&
+      this.movement.status === 'CONFIRMED' &&
+      this.movement.external?.status === 'APPLIED' &&
+      !!this.categoryKind(),
   );
 
   /** A pending income or expense dated after today stays scheduled (MOV-08). */
@@ -253,17 +332,51 @@ export class MovementSheet {
       this.error.set('Ingresá un monto válido.');
       return;
     }
-    await this.run(() =>
-      this.store.update(this.movement.id, {
-        amount,
-        categoryId: this.categoryId() || undefined,
-        description: this.description().trim() || null,
-        date: this.date(),
-        ...(this.movement.kind === 'TRANSACTION' && this.pocketId() !== this.movement.pocket.id
-          ? { pocketId: this.pocketId() as string }
-          : {}),
-      }),
+    const offer = this.offerFor(this.categoryId());
+    await this.run(
+      () =>
+        this.store.update(this.movement.id, {
+          amount,
+          categoryId: this.categoryId() || undefined,
+          description: this.description().trim() || null,
+          date: this.date(),
+          ...(this.movement.kind === 'TRANSACTION' && this.pocketId() !== this.movement.pocket.id
+            ? { pocketId: this.pocketId() as string }
+            : {}),
+        }),
+      offer ? () => this.ruleOffer.set(offer) : undefined,
     );
+  }
+
+  /** MPG-04: categorizing a Mercado Pago movement that had none offers the rule (like BOT-03). */
+  private offerFor(categoryId: string): RuleOffer | null {
+    const m = this.movement;
+    if (m.kind !== 'TRANSACTION' || m.category || !categoryId || m.channel !== 'MERCADO_PAGO') {
+      return null;
+    }
+    const pattern = suggestedRulePattern(this.description() || m.description || '');
+    const category = this.categoriesStore.categories().find((c) => c.id === categoryId);
+    const exists = this.rules.rules().some((rule) => rule.pattern === pattern);
+    return pattern && category && !exists ? { pattern, category: category.name, categoryId } : null;
+  }
+
+  protected async createRule(offer: RuleOffer): Promise<void> {
+    await this.run(() =>
+      this.rules.create({ pattern: offer.pattern, categoryId: offer.categoryId }),
+    );
+  }
+
+  protected async unlink(id: string): Promise<void> {
+    await this.run(() => this.feeds.unlink(id));
+  }
+
+  protected convert(to: ConvertMovementData['to']): void {
+    if (this.movement.kind !== 'TRANSACTION') return;
+    this.ref.close();
+    this.sheet.open(ConvertMovementSheet, {
+      data: { movement: this.movement, to } satisfies ConvertMovementData,
+      ariaLabel: to === 'TRANSFER' ? this.feed.isTransfer : this.feed.isCardPayment,
+    });
   }
 
   protected async confirm(): Promise<void> {
@@ -281,12 +394,14 @@ export class MovementSheet {
     );
   }
 
-  private async run(action: () => Promise<unknown>): Promise<void> {
+  /** Runs a write and closes; with `instead`, keeps the sheet open (the rule offer). */
+  private async run(action: () => Promise<unknown>, instead?: () => void): Promise<void> {
     this.busy.set(true);
     this.error.set(null);
     try {
       await action();
-      this.ref.close(true);
+      if (instead) instead();
+      else this.ref.close(true);
     } catch (error) {
       this.error.set(errorMessage(error));
     } finally {

@@ -4,15 +4,20 @@ import { LucideChevronRight } from '@lucide/angular';
 import type { Dashboard } from '@platin/contracts';
 import { parseLocalDate } from '@platin/domain';
 import { formatDate } from '@platin/web-ui';
+import { FEED_NOTICE_TEXTS } from '../feeds/feeds.texts';
 import { DASHBOARD_TEXTS } from './dashboard.texts';
 
 /** Whether the home has any alert to show (DAS-07, 2). */
 export const hasAlerts = (d: Dashboard) =>
-  d.pending.count > 0 || !!d.rate?.stale || d.valuationsOverdue;
+  d.pending.count > 0 ||
+  d.uncategorizedCount > 0 ||
+  d.feedsToReconnect.length > 0 ||
+  !!d.rate?.stale ||
+  d.valuationsOverdue;
 
 /**
- * DAS-07 (2): one line per alert that applies: movements to confirm, a stale rate, investment
- * values to update.
+ * DAS-07 (2): one line per alert that applies: movements to confirm, movements to categorize
+ * (MPG-04), a connection to reconnect (MPG-10), a stale rate, investment values to update.
  */
 @Component({
   selector: 'pl-home-alerts',
@@ -32,6 +37,22 @@ export const hasAlerts = (d: Dashboard) =>
         <svg lucideChevronRight class="shrink-0" [size]="18"></svg>
       </a>
     }
+    @if (d.uncategorizedCount > 0) {
+      <!-- MPG-04, UncategorizedNotice: next to "Para confirmar", to Movimientos with the filter. -->
+      <a routerLink="/app/movimientos" [queryParams]="{ filtro: 'categorizar' }" [class]="line">
+        <span class="flex min-w-0 flex-1 flex-col">
+          <span>{{ feedTexts.uncategorized(d.uncategorizedCount) }}</span>
+          <span class="text-[13px] font-normal">{{ feedTexts.uncategorizedHint }}</span>
+        </span>
+        <svg lucideChevronRight class="shrink-0" [size]="18"></svg>
+      </a>
+    }
+    @if (d.feedsToReconnect.length > 0) {
+      <a routerLink="/app/perfil/mercado-pago" [class]="line">
+        <span class="min-w-0 flex-1">{{ feedTexts.reconnect }}</span>
+        <svg lucideChevronRight class="shrink-0" [size]="18"></svg>
+      </a>
+    }
     @if (d.rate?.stale) {
       <p [class]="line" role="status">{{ staleText() }}</p>
     }
@@ -46,6 +67,7 @@ export const hasAlerts = (d: Dashboard) =>
 export class HomeAlerts {
   readonly dashboard = input.required<Dashboard>();
   protected readonly texts = DASHBOARD_TEXTS;
+  protected readonly feedTexts = FEED_NOTICE_TEXTS;
   protected readonly line =
     'flex min-h-[52px] items-center gap-2.5 rounded-2xl bg-pending-soft px-4 py-3 text-[15px] font-semibold text-pending-ink';
 

@@ -272,6 +272,20 @@ export class StatementsService {
    * The expense was already recorded with the purchase; the payment doesn't duplicate it.
    */
   async pay(userId: string, id: string, request: PayStatementRequest): Promise<StatementSummary> {
+    await this.prisma.$transaction((tx) => this.payIn(tx, userId, id, request));
+    return toStatementSummary(await this.getOwned(userId, id));
+  }
+
+  /**
+   * The same inside the caller's transaction, returning the payment's transfer id. Converting a
+   * Mercado Pago expense into a card payment uses it (MPG-08).
+   */
+  async payIn(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    id: string,
+    request: PayStatementRequest,
+  ): Promise<string> {
     // A statement payment is a transfer: dated up to today (MOV-08).
     this.clock.assertNotFuture(request.date);
     const row = await this.getOwned(userId, id);
@@ -306,8 +320,8 @@ export class StatementsService {
       amountOut = request.amountOut;
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.transfer.create({
+    {
+      const payment = await tx.transfer.create({
         data: {
           userId,
           fromPocketId: pocket.id,
@@ -327,8 +341,8 @@ export class StatementsService {
         where: { id },
         data: { status: statusAfterPayment(statementTotals(updated)) },
       });
-    });
-    return toStatementSummary(await this.getOwned(userId, id));
+      return payment.id;
+    }
   }
 
   private async getOwned(userId: string, id: string) {

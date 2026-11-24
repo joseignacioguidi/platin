@@ -105,6 +105,15 @@ export const adminMetricsSchema = z.object({
     messagesByWeek: z.array(z.object({ weekStart: localDateSchema, count: z.number().int() })),
     unparsedShareLast30Days: z.number().nullable(),
   }),
+  /**
+   * Iteration 14, only counts: active Mercado Pago connections, movements that came in per week
+   * (created or linked) and the share waiting in "Para revisar" over the last 30 days.
+   */
+  feeds: z.object({
+    activeConnections: z.number().int(),
+    movementsByWeek: z.array(z.object({ weekStart: localDateSchema, count: z.number().int() })),
+    heldShareLast30Days: z.number().nullable(),
+  }),
   usersByPlan: z.array(z.object({ planId: uuidSchema, name: z.string(), count: z.number().int() })),
   /**
    * AUTH-05, only counts: accounts created in the last 12 weeks with an onboarding, how many

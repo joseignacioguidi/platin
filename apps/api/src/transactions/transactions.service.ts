@@ -93,6 +93,46 @@ export class TransactionsService {
   }
 
   /**
+   * MPG-02: a movement from a connected institution, inside the caller's transaction. It is
+   * confirmed (never scheduled: it already happened), may come without a category (MPG-04) and
+   * freezes the rate of its own day. The caller already placed it in an active account balance.
+   */
+  async createFromFeedIn(
+    client: Prisma.TransactionClient,
+    userId: string,
+    input: {
+      pocketId: string;
+      categoryId: string | null;
+      type: 'INCOME' | 'EXPENSE';
+      amount: string;
+      currency: Currency;
+      date: LocalDate;
+      description: string;
+    },
+  ): Promise<string> {
+    const user = await client.user.findUniqueOrThrow({ where: { id: userId } });
+    const amount = Money.of(input.amount, input.currency);
+    const rate = await this.rateOfDay(userId, amount, user.baseCurrency, input.date);
+    const frozen = freezeBase(amount, user.baseCurrency, rate);
+    const row = await client.transaction.create({
+      data: {
+        userId,
+        channel: 'MERCADO_PAGO',
+        pocketId: input.pocketId,
+        categoryId: input.categoryId,
+        type: input.type,
+        amount: amount.toString(),
+        currency: input.currency,
+        rateToBase: frozen.rateToBase,
+        baseAmount: frozen.baseAmount,
+        date: toDbDate(input.date),
+        description: input.description || null,
+      },
+    });
+    return row.id;
+  }
+
+  /**
    * MOV-04. Changing the amount or rate re-freezes the base value; otherwise the frozen rate is
    * kept (history is not recalculated). The pocket can change to another of the same currency.
    */

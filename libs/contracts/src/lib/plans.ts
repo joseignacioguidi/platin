@@ -14,6 +14,8 @@ export const planLimitsSchema = z.object({
   maxCards: limitSchema,
   maxGoals: limitSchema,
   maxFixed: limitSchema,
+  /** MPG-07: movements a day from a connected institution. Missing in plans saved before it: no limit. */
+  maxFeedMovementsPerDay: limitSchema.default(null),
   investments: z.boolean(),
 });
 

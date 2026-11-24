@@ -60,6 +60,14 @@ export async function deleteFinancialData(
   await tx.sourceAlias.deleteMany({ where });
   await tx.botDraft.deleteMany({ where });
   await tx.unparsedMessage.deleteMany({ where });
+  // Iteration 14: "Empezar de cero" disconnects Mercado Pago, because it deletes its account.
+  const connections = await tx.feedConnection.findMany({ where, select: { id: true } });
+  await tx.feedSkippedMovement.deleteMany({
+    where: { connectionId: { in: connections.map((c) => c.id) } },
+  });
+  await tx.externalMovement.deleteMany({ where });
+  await tx.feedConnection.deleteMany({ where });
+  await tx.feedDailyUsage.deleteMany({ where });
   await tx.pocketValuation.deleteMany({ where: { pocket: { userId } } });
   await tx.goal.deleteMany({ where });
   await tx.transfer.deleteMany({ where });

@@ -6,6 +6,7 @@ const free: PlanLimits = {
   maxCards: 1,
   maxGoals: 1,
   maxFixed: 5,
+  maxFeedMovementsPerDay: 1,
   investments: false,
 };
 const pro: PlanLimits = {
@@ -14,6 +15,7 @@ const pro: PlanLimits = {
   maxCards: null,
   maxGoals: null,
   maxFixed: null,
+  maxFeedMovementsPerDay: null,
   investments: true,
 };
 
