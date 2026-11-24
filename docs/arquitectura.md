@@ -599,6 +599,102 @@ Sin cambios de esquema; las decisiones están en `docs/adr/0035-onboarding.md`.
 | `POST /onboarding/dismiss` | AUTH-11 |
 | `POST /fixed` con `startPeriod` | AUTH-05 (fijos cuyo día ya pasó) |
 
+
+### Iteración 14: inversiones con precio
+
+Las decisiones están en `docs/adr/0037-inversiones-con-precio.md`. Las cantidades usan `Decimal(24, 8)` y los precios `Decimal(18, 6)`, como las cotizaciones.
+
+```prisma
+enum PriceSource      { DATA912 ARGENTINADATOS COINGECKO }
+enum ValuationSource  { MANUAL AUTO }
+enum HoldingDirection { IN OUT }
+
+// Catálogo compartido (no es dato de un usuario, como ExchangeRate).
+model Instrument {
+  id         String         @id @default(uuid()) @db.Uuid
+  source     PriceSource
+  externalId String         // ticker ("AAPL"), nombre del fondo con su clase o id de CoinGecko ("bitcoin")
+  symbol     String         // lo que se muestra: "AAPL", "BTC", "Super Ahorro $"
+  name       String         // "Apple Inc.", "Super Ahorro $ - Clase A", "Bitcoin"
+  type       InstrumentType // CEDEAR, STOCK, MUTUAL_FUND o CRYPTO
+  currency   Currency
+  category   String?        // categoría de FCI en ArgentinaDatos ("mercadoDinero", "rentaVariable"...)
+  active     Boolean        @default(true) // false si dejó de informar precio
+  updatedAt  DateTime       @updatedAt
+  @@unique([source, externalId])
+  @@index([type, active])
+}
+
+model InstrumentPrice {
+  instrumentId String   @db.Uuid
+  date         DateTime @db.Date            // fecha del precio según el proveedor
+  price        Decimal  @db.Decimal(18, 6)
+  fetchedAt    DateTime @default(now())
+  @@id([instrumentId, date])
+}
+
+// Un apartado de inversión vinculado a un instrumento (INV-07). 1 a 1 con el apartado.
+model PocketHolding {
+  pocketId     String   @id @db.Uuid
+  instrumentId String   @db.Uuid
+  initialUnits Decimal  @default(0) @db.Decimal(24, 8)
+  createdAt    DateTime @default(now())
+  @@index([instrumentId])
+}
+
+// Corrección de cantidad sin mover plata (INV-10).
+model HoldingAdjustment {
+  id        String           @id @default(uuid()) @db.Uuid
+  pocketId  String           @db.Uuid
+  date      DateTime         @db.Date
+  units     Decimal          @db.Decimal(24, 8) // siempre positivo; el signo lo da direction
+  direction HoldingDirection
+  note      String?
+  createdAt DateTime         @default(now())
+  @@index([pocketId, date])
+}
+
+// Condiciones de un plazo fijo (INV-12). 1 a 1 con el apartado.
+model TermDeposit {
+  pocketId  String   @id @db.Uuid
+  principal Decimal  @db.Decimal(18, 2)
+  tna       Decimal  @db.Decimal(9, 6)   // 0.300000 = 30 %
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+}
+
+model Transfer {
+  // ...
+  units Decimal? @db.Decimal(24, 8) // solo si un lado es un apartado vinculado (INV-09)
+}
+
+model PocketValuation {
+  // ...
+  source ValuationSource @default(MANUAL) // AUTO = valuación de fin de mes (INV-11)
+}
+```
+
+- `PocketHolding`, `HoldingAdjustment` y `TermDeposit` se borran en cascada con su apartado y se filtran por `userId` a través de él. Un apartado no puede tener `PocketHolding` y `TermDeposit` a la vez (validación en el servicio).
+- `PocketHolding` solo es válido si el apartado es `INVESTMENT`, su `instrument` coincide con el `type` del instrumento y su moneda con `currency` (`INSTRUMENT_TYPE_MISMATCH`, `INSTRUMENT_CURRENCY_MISMATCH`). `TermDeposit` solo si el `instrument` es `TERM_DEPOSIT`.
+- **Endpoints**:
+  - `GET /instruments?type=&q=` busca en el catálogo (activos; por `symbol` o `name`, sin distinguir mayúsculas ni tildes; 20 resultados).
+  - `PUT /pockets/:id/holding` con `{ instrumentId, initialUnits }` vincula o cambia el instrumento; `DELETE /pockets/:id/holding` pasa la inversión a mano (las valuaciones y movimientos quedan).
+  - `POST /pockets/:id/holding/adjustments` con `{ date, units, direction, note? }` y `DELETE /holding-adjustments/:id` (INV-10). Una corrección que deja la cantidad negativa responde `HOLDING_UNITS_NEGATIVE`.
+  - `PUT /pockets/:id/term-deposit` con `{ principal, tna, startDate, endDate }` (INV-12); `endDate` posterior a `startDate` (`TERM_DEPOSIT_DATES`).
+  - `POST /transfers` acepta `units` cuando un lado es un apartado vinculado y lo exige en ese caso (`UNITS_REQUIRED`); rescatar más de lo que hay responde `HOLDING_UNITS_NEGATIVE`.
+  - `GET /investments` suma, en cada apartado, `pricing: { mode: 'MANUAL' | 'MARKET' | 'TERM_DEPOSIT', units?, price?, priceDate?, stale, marketValue, liveYield, liveYieldRate }` y `instrument` (símbolo, nombre, tipo). Los totales y la composición usan `marketValue` en los automáticos. `overdue` solo mira los apartados a mano.
+  - `POST /sync` crea las valuaciones automáticas del mes anterior (INV-11) y refresca los precios de los instrumentos en uso.
+
+| Método y ruta | Caso de uso |
+| --- | --- |
+| `GET /instruments?type=&q=` | INV-07 |
+| `PUT/DELETE /pockets/:id/holding` | INV-07 |
+| `POST /pockets/:id/holding/adjustments`, `DELETE /holding-adjustments/:id` | INV-10 |
+| `PUT /pockets/:id/term-deposit` | INV-12 |
+| `POST /transfers` con `units` | INV-09 |
+| `GET /investments` con `pricing` | INV-08 |
+| `POST /sync` (valuaciones automáticas) | INV-11 |
+
 ## Backend
 
 Un módulo de Nest por dominio; los controladores son finos, los servicios orquestan y las reglas viven en `libs/domain`.
@@ -620,8 +716,9 @@ Un módulo de Nest por dominio; los controladores son finos, los servicios orque
 | `budgets` | Presupuestos y consumo del mes | — |
 | `goals` | Metas y apartados vinculados, simulación | cálculo de metas |
 | `rates` | Cotizaciones: lectura, caché y descarga | — |
+| `prices` | Catálogo de instrumentos y precios: búsqueda, caché y descarga desde los proveedores (iteración 14) | — |
 | `dashboard` | Agrega "libre este mes", próximos 30 días y alertas | varias |
-| `sync` | Al abrir la app: genera pendientes de fijos y resúmenes faltantes | — |
+| `sync` | Al abrir la app: genera pendientes de fijos y resúmenes faltantes; desde la iteración 14, las valuaciones automáticas del mes anterior | `autoValuationsDue` |
 | `prisma` | Cliente de Prisma compartido (global) | — |
 
 ### Convenciones de API
@@ -675,6 +772,10 @@ Todo lo que tiene una regla de la especificación es una función pura en `libs/
 - `pocketBalance(initial, transactions, transfers, at?)` y `accountTotals(pockets)`: saldo de un apartado a una fecha y totales de la cuenta por moneda.
 - `yieldFromValuation(balanceAt, value)`: rendimiento que genera una valuación.
 - `investmentSummary(pocket, transfers, yields)`: invertido neto, valor actual, rendimiento acumulado y del último período.
+- `holdingUnits(initialUnits, transfers, adjustments, at?)`: cantidad de una inversión vinculada a una fecha (iteración 14).
+- `marketValue(units, price, currency)` y `unitsForAmount(amount, price)`: valor a precio de mercado y cantidad propuesta al invertir un monto.
+- `termDepositValue(terms, at)`: valor de un plazo fijo a una fecha, con interés simple y tope en el vencimiento.
+- `autoValuationsDue(pockets, today)`: qué apartados necesitan la valuación automática del mes anterior y con qué fecha.
 - `Money`: suma, resta, conversión y redondeo sobre decimal.js; nunca `number` para montos.
 
 ## Frontend
@@ -976,6 +1077,37 @@ Para cargar movimientos con fechas viejas hace falta histórico; DolarApi deriva
 
 **Otras monedas (iteración 4).** `GET /v1/cotizaciones` de DolarApi devuelve en un pedido la cotización oficial del dólar, el euro, el real, el peso chileno y el peso uruguayo, cada una con `moneda`, `casa`, `compra` y `venta` ([DolarApi](https://dolarapi.com/v1/cotizaciones)). El módulo `rates` la pide junto con `/v1/dolares` y guarda las de EUR, BRL, CLP y UYU con tipo `OFICIAL`. Las cotizaciones de monedas chicas (el peso chileno vale menos de 2 pesos) necesitan los 6 decimales que ya tiene la columna.
 
+## Precios de inversiones
+
+Tres fuentes gratuitas, cada una con lo que hace bien (ADR 0037). El módulo `prices` las usa a través de la interfaz `PriceProvider`, con un registro que elige la implementación por `Instrument.source`:
+
+```ts
+abstract class PriceProvider {
+  abstract readonly source: PriceSource;
+  /** Lista completa para el catálogo (una vez por día). */
+  abstract catalog(): Promise<CatalogItem[]>;
+  /** Últimos precios de los instrumentos pedidos, agrupando en la menor cantidad de pedidos. */
+  abstract latest(instruments: Instrument[]): Promise<FetchedPrice[]>;
+  /** Precio de cierre en una fecha (o el anterior más cercano), para la valuación de fin de mes. */
+  abstract at(instrument: Instrument, date: LocalDate): Promise<FetchedPrice | null>;
+}
+```
+
+| Fuente | Instrumentos | Endpoints | Frescura |
+| --- | --- | --- | --- |
+| [Data912](https://data912.com) | `CEDEAR`, `STOCK` | `GET /live/arg_cedears`, `GET /live/arg_stocks` (catálogo y precios); `GET /historical/cedears/{ticker}`, `GET /historical/stocks/{ticker}` | Se vuelve a pedir si el último tiene más de una hora (la fuente cachea unas 2 horas y no es tiempo real) |
+| [ArgentinaDatos](https://argentinadatos.com/docs/) | `MUTUAL_FUND` | `GET /v1/finanzas/fci/{categoria}/ultimo` por categoría (`mercadoDinero`, `rentaFija`, `rentaVariable`, `rentaMixta`, `retornoTotal`, `otros`); histórico por fondo para fechas pasadas | Un valor por día hábil; se vuelve a pedir si el guardado es de un día hábil anterior al de hoy |
+| [CoinGecko](https://docs.coingecko.com) | `CRYPTO` | `GET /simple/price?ids=…&vs_currencies=usd` (precios), `GET /coins/markets` (catálogo, primeras 250 por capitalización), `GET /coins/{id}/history` | Más de una hora |
+
+Cómo se usan:
+
+1. **Catálogo.** Una vez por día (al primer `GET /instruments` o `POST /sync` del día) se baja la lista de cada fuente y se hace upsert en `Instrument`. Lo que no vino se marca `active = false`, salvo que esté vinculado a un apartado. Los FCI cuyo último valor tiene más de 10 días hábiles no entran.
+2. **Precios.** En `GET /investments` y `POST /sync` se juntan los instrumentos vinculados del usuario que necesitan precio nuevo y se piden en lote a cada fuente; el resultado se guarda en `InstrumentPrice` por fecha.
+3. **Fallas.** Cada fuente es independiente (`Promise.allSettled`): si una falla, sus instrumentos usan el último precio guardado y `pricing.stale` es `true` con su `priceDate`. Sin ningún precio guardado, el apartado se muestra con su saldo y `mode: 'MARKET'` con `price: null`.
+4. **Sin float.** Las tres devuelven números JSON; se citan antes de `JSON.parse` con el mismo helper que usa `rates` (que pasa a `common/`).
+5. **Moneda.** Data912 da los CEDEARs en pesos (`AAPL`) y en dólares (`AAPLD`) como tickers distintos: cada uno es un `Instrument` con su moneda. ArgentinaDatos informa la moneda de cada fondo; CoinGecko se pide siempre en USD.
+6. **Pedidos con tiempo límite** de 5 segundos, como las cotizaciones. Ningún pedido a un proveedor bloquea una escritura del usuario.
+
 ## Infraestructura y deploy
 
 Tres servicios gratuitos conectados por Vercel como único punto de entrada; un push a `main` despliega todo después de pasar el CI.
@@ -1016,6 +1148,10 @@ Vercel y Render despliegan solos al hacer push a `main` (integración con GitHub
 | `TRUST_PROXY_HOPS` | Render, VPS | Cantidad de entradas desde la derecha de `X-Forwarded-For` hasta la del cliente (en Render, 4: Vercel, Cloudflare y Render agregan las suyas; vacía = 0, solo fuera de producción). Respaldo cuando falta `CLIENT_IP_HEADER`. Obligatoria en producción. El rate limiting usa la IP que está a esa distancia desde la derecha; lo que está más a la izquierda lo manda el cliente |
 | `APP_ORIGIN` | Render | Dominio de la app, para CORS de `/health` |
 | `RATES_BASE_URL` | Render | `https://dolarapi.com` |
+| `PRICES_DATA912_URL` | Render, local | `https://data912.com` |
+| `PRICES_ARGENTINADATOS_URL` | Render, local | `https://api.argentinadatos.com` |
+| `PRICES_COINGECKO_URL` | Render, local | `https://api.coingecko.com/api/v3` |
+| `COINGECKO_API_KEY` | Render | Opcional: clave del plan gratuito (Demo) para tener más pedidos por minuto |
 | `ADMIN_EMAILS` | Render | Emails separados por coma que reciben el rol de administrador al ingresar |
 | `PUBLIC_APP_URL` | Render, local | URL pública de la app (`https://<app>.vercel.app`; `http://localhost:4200` en local). Con ella se arman la dirección de retorno de OAuth y las redirecciones después del ingreso |
 | `OAUTH_COOKIE_SECRET` | Render, local | Firma de la cookie `oauth_tx` (32 caracteres o más) |
@@ -1230,13 +1366,15 @@ Los casos de la especificación son tests literales. Por ejemplo: meta de USD 15
 
 ## Preguntas abiertas
 
-Seis puntos a resolver; los tres primeros se verifican en la fase 0 del plan, antes de escribir funcionalidades.
+Ocho puntos a resolver; los tres primeros se verifican en la fase 0 del plan, antes de escribir funcionalidades.
 
 - [ ] **Prisma 7 + Nest en ESM**: Prisma 7 exige ESM y un adaptador de driver. Verificar que el build de Nest dentro de Nx funcione así; si trae fricción, usar Prisma 6 (CommonJS) y migrar después.
 - [ ] **Reenvío de Vercel con el servidor dormido**: la documentación no indica un tiempo máximo para reenvíos externos. Probar un pedido a `/api` con Render dormido; el pedido directo a `/health` ya evita depender de esto.
 - [ ] **Licencia de Uncut Sans**: confirmar que permite autoalojarla en la app.
 - [ ] **Precio para valuar dólares**: venta (propuesta actual), compra o promedio.
 - [ ] **Histórico de cotizaciones**: evaluar ArgentinaDatos para cargar movimientos con fechas viejas.
+- [ ] **Patrimonio con inversiones en vivo** (iteración 14): el inicio usa el saldo de los apartados, que se mueve con la valuación mensual; evaluar si conviene usar el valor en vivo de Inversiones.
+- [ ] **Condiciones de uso de Data912** antes de abrir el precio automático a usuarios pagos; alternativas: API de IOL o BYMA Market Data.
 - [ ] **Dominio**: usar el subdominio gratuito de Vercel (`platin.vercel.app` si está libre) o comprar uno propio.
 
 ## Fuentes

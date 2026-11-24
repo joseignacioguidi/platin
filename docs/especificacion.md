@@ -173,6 +173,12 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
   - **Metas y ahorros**: total ahorrado (incluye lo invertido) con su reparto en pesos y dólares; al lado, una tarjeta "De eso, invertido" con el valor actual y el rendimiento, que lleva a la otra pestaña; debajo, las metas y las **reservas de ahorro** (sin las de inversión).
   - **Inversiones** (INV-03 a 05): valor actual y composición, "Valores cargados a mano" con "Actualizar valores", y las posiciones agrupadas por cuenta; en escritorio, dos cuentas por fila.
   - La pestaña Inversiones conserva la marca de plan: fuera del plan, abre la hoja del plan como hoy.
+- **INV-07** Precio automático (iteración 14): al crear o editar una inversión de tipo CEDEAR, acción, FCI o cripto, se elige el instrumento de una lista (por ticker o nombre; los FCI con su clase, como "Super Ahorro $ - Clase A") y se carga la cantidad que tenés (CEDEARs, acciones, cuotapartes o monedas). La moneda del instrumento tiene que ser la del apartado. "Lo sigo a mano" deja la inversión como hasta ahora; una inversión a mano se puede vincular después y una vinculada se puede pasar a mano sin perder su historial.
+- **INV-08** Valor en vivo: Inversiones muestra en cada inversión vinculada su cantidad, el último precio con su fecha ("Precio al 20/11") y el valor actual (cantidad × precio), y el rendimiento contra lo invertido. Si el precio no se pudo actualizar, se usa el último guardado y se avisa con su fecha. El valor en vivo no crea movimientos.
+- **INV-09** Invertir y rescatar con cantidad: en una inversión vinculada, Invertir y Rescatar (MOV-07 y desde la reserva) piden el monto y la cantidad. La cantidad se propone con el último precio (monto ÷ precio) y se puede corregir con la del comprobante. No se puede rescatar más cantidad de la que hay.
+- **INV-10** Corregir cantidad: en el detalle de una inversión vinculada, "Corregir cantidad" suma o resta unidades con fecha y motivo (un split, un dividendo en especie, una diferencia con el broker), sin mover plata.
+- **INV-11** Valuación automática: al abrir la app por primera vez en el mes, platin registra la valuación del último día del mes anterior de cada inversión vinculada y de cada plazo fijo, con su rendimiento (INV-04). Estas inversiones aparecen en "Actualizar valores" con su valor, sin campo para cargar, y no cuentan para el aviso de INV-03.
+- **INV-12** Plazo fijo: una inversión de tipo plazo fijo se carga con capital, TNA, fecha de constitución y vencimiento. Su valor se calcula día a día; al vencer queda en el valor final y se marca "Vencido" hasta que se rescata. Sus condiciones se pueden editar (para renovarlo).
 
 ### 10. Dashboard, reportes y landing
 
@@ -436,6 +442,17 @@ Ejemplo (tests literales): tenías al empezar $ 300.000; cobraste $ 1.600.000 y 
 - Los rendimientos no cuentan como ingreso en "Libre este mes" ni en presupuestos; sí suman al patrimonio y aparecen en el detalle del apartado.
 - Borrar la última valuación borra su movimiento de rendimiento; las anteriores no se pueden borrar mientras exista una posterior.
 
+### Inversiones con precio automático
+
+- Cantidad de una inversión vinculada = cantidad inicial + unidades de las transferencias que entraron − las de las que salieron + correcciones que suman − correcciones que restan. Se calcula, no se guarda. No puede quedar negativa.
+- Valor a una fecha = cantidad × último precio a esa fecha, redondeado a 2 decimales (mitad hacia arriba). Rendimiento en vivo = valor − invertido neto.
+- Cantidad propuesta al invertir un monto = monto ÷ último precio, con 8 decimales (mitad hacia arriba).
+- Ejemplo FCI: 150 cuotapartes de Super Ahorro $ - Clase A con un valor cuotaparte de $ 20.615,519 valen $ 3.092.327,85. Invertir $ 500.000 a ese valor propone 24,25357324 cuotapartes, que valen $ 500.000,00.
+- Ejemplo CEDEAR: 20 AAPL a $ 13.000 valen $ 260.000. Si invertí $ 240.000, el rendimiento en vivo es $ 20.000 (8,33 %).
+- Valuación automática: el primer día que se abre la app en un mes, por cada inversión vinculada o plazo fijo sin valuación en el último día del mes anterior ni después, se registra una con el valor de ese día (el precio de ese día o el anterior más cercano). Genera su rendimiento como cualquier valuación.
+- Plazo fijo: valor a la fecha F = capital + capital × TNA × días ÷ 365, con días desde la constitución hasta F sin pasar del vencimiento, redondeado a 2 decimales.
+- Ejemplo plazo fijo: $ 1.000.000 al 30 % de TNA, constituido el 01/11/2026 a 30 días. El 16/11 vale $ 1.012.328,77; al vencer, el 01/12, vale $ 1.024.657,53 y queda en ese valor hasta que se rescata.
+
 ### Planes
 
 - Los límites se verifican al crear y al volver a contar: si el usuario está en el límite o por encima, no puede crear otro de ese recurso ni hacer que uno vuelva a contar, pero puede seguir editando, archivando y borrando lo existente.
@@ -612,14 +629,15 @@ El MVP es lo mínimo para dejar de usar la versión actual: cuentas, movimientos
 | Compromisos | COM-01, 02 | COM-03 liberación de cuotas |
 | Presupuestos | — | PRE-01 a 03 |
 | Metas | MET-01, 02, 03 | MET-04 simulación, MET-05 |
-| Inversiones | — | INV-01 a 03 |
+| Inversiones | — | INV-01 a 03, INV-07 a 12 precio automático (iteración 14) |
 | Dashboard y reportes | DAS-01 (versión simple) | DAS-02, DAS-03 |
 | Landing | LAN-01, LAN-02 | — |
 
 Fuera de alcance por ahora:
 
 - Importar extractos bancarios o resúmenes en PDF/CSV.
-- Cotización automática de inversiones.
+- Bonos y ONs con precio automático (cotizan cada 100 de valor nominal y pagan cupones); se siguen a mano.
+- Dividendos y splits automáticos: se cargan como ingreso o como corrección de cantidad.
 - Criptomonedas como moneda (USDT, BTC). Se pueden seguir como apartados de inversión con valuación manual.
 - Cuentas compartidas entre usuarios (pareja, familia).
 - App móvil nativa o modo offline; la web es responsive.
@@ -715,6 +733,12 @@ Menos secciones y mejor agrupadas, y pantallas que usan el ancho del escritorio.
 ### Iteración 13 (noviembre 2026)
 
 - Onboarding de cuatro pasos (cuentas, tarjetas con sus consumos actuales, fijos y tu libre), todo salteable, con la tarjeta "Terminá de configurar platin" en el inicio (AUTH-05, AUTH-11).
+
+### Iteración 14 (noviembre 2026)
+
+- Inversiones con precio automático: CEDEARs y acciones (Data912), FCI con sus clases, incluidos los Superfondos (ArgentinaDatos), y cripto (CoinGecko). Se carga la cantidad y platin calcula el valor (INV-07 a 10).
+- Plazos fijos con valor calculado a partir de capital, TNA y fechas (INV-12).
+- Valuación automática a fin de mes para todo lo que tiene precio (INV-11). Lo demás se sigue actualizando a mano.
 
 ## Identidad visual y UX
 

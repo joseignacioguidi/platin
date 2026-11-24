@@ -1400,6 +1400,123 @@ Forma de trabajo:
 - Rama feat/fase-39-onboarding. Todo en verde antes del PR, con capturas de cada paso en celular y escritorio, de la hoja de consumos y del inicio a medias.
 ```
 
+## Iteración 14: inversiones con precio
+
+Tres fases para que las inversiones dejen de actualizarse a mano: primero el modelo y el plazo fijo, que no necesitan ninguna API; después los FCI, que es lo que más se usa; y al final CEDEARs, acciones y cripto. Cada fase deja algo usable y lo que no tiene precio sigue a mano como hasta ahora. Las decisiones están en `docs/adr/0037-inversiones-con-precio.md`.
+
+| Fase | Qué se construye | Casos de uso | Terminado cuando |
+| --- | --- | --- | --- |
+| 40 | Modelo de tenencias, interfaz de proveedores, plazo fijo calculado y valuación automática de fin de mes | INV-11, INV-12 | Cargo un plazo fijo de $ 1.000.000 al 30 % a 30 días, veo $ 1.012.328,77 a los 15 días, y al empezar el mes siguiente aparece su valuación sola |
+| 41 | FCI con precio automático (ArgentinaDatos), vincular inversiones, invertir con cantidad y corregir cantidad | INV-07 a 10 (FCI) | Vinculo mi apartado a "Super Ahorro $ - Clase A" con 150 cuotapartes y veo su valor del último día hábil sin cargar nada |
+| 42 | CEDEARs y acciones (Data912) y cripto (CoinGecko) | INV-07 a 10 (CEDEAR, acción, cripto) | Mis 20 AAPL y mi BTC muestran su valor con el precio del día; si Data912 no responde, los FCI se siguen actualizando y los CEDEARs avisan "Precio al…" |
+
+**Antes de empezar (vos):** mockups de la pestaña Inversiones con una inversión vinculada (cantidad, precio con fecha, valor en vivo), del selector de instrumento, de Invertir con cantidad y del detalle de un plazo fijo, en `docs/mockups/inversiones-precio/` con su README. Sin mockups, cada fase propone la UI a partir de las pantallas actuales y la mostrás antes de implementar.
+
+## Fase 40 — Tenencias y plazo fijo
+
+Deja listo todo lo que no depende de una API: el esquema, las reglas de dominio, el módulo `prices` con su interfaz (todavía sin proveedores) y el plazo fijo, que se calcula solo.
+
+**Terminado cuando:**
+- los ejemplos de la regla "Inversiones con precio automático" (FCI, CEDEAR y plazo fijo) pasan como tests literales en `libs/domain`, junto con los bordes de la cantidad (rescate total, corrección que resta, cantidad negativa);
+- creo una inversión de tipo plazo fijo con $ 1.000.000, 30 % de TNA, del 01/11/2026 al 01/12/2026, y con "hoy" en 16/11 Inversiones muestra $ 1.012.328,77 y un rendimiento de $ 12.328,77; después del vencimiento muestra $ 1.024.657,53 y "Vencido";
+- con "hoy" en 01/12 el primer `POST /sync` crea su valuación del 30/11 con `source = AUTO` y su movimiento de rendimiento; un segundo sync no crea otra;
+- "Actualizar valores" lista el plazo fijo con su valor y sin campo; si es la única inversión, el inicio no muestra el aviso de actualizar;
+- las inversiones a mano funcionan exactamente igual que antes (los tests de la fase 11 siguen en verde);
+- el aislamiento entre usuarios está probado para los endpoints nuevos.
+
+```
+Leé CLAUDE.md; INV-01 a 05, INV-11 e INV-12 y las reglas "Inversiones" e "Inversiones con precio automático" de docs/especificacion.md; en docs/arquitectura.md "Iteración 14: inversiones con precio", "Precios de inversiones" y "Lógica de dominio"; y docs/adr/0012-inversiones.md y docs/adr/0037-inversiones-con-precio.md.
+
+Vamos a hacer la Fase 40 de docs/plan.md: tenencias, plazo fijo y valuación automática. Todavía sin ningún proveedor de precios.
+
+Dominio y contratos:
+1. holdingUnits, marketValue, unitsForAmount, termDepositValue y autoValuationsDue en libs/domain, con los ejemplos de la especificación como tests literales y los bordes: plazo fijo el día de constitución, el de vencimiento y después; cantidad con rescate total y con una corrección que la dejaría negativa; valuación automática cuando ya hay una en esa fecha o después.
+2. Esquemas en libs/contracts: pricing en el resumen de cada inversión, PUT /pockets/:id/term-deposit y units opcional en POST /transfers.
+
+Backend:
+3. Migración con todo el esquema de la iteración 14 (aunque Instrument y PocketHolding se usen en la fase 41), así no se migra dos veces. Avisame antes de correrla.
+4. Módulo prices con la interfaz PriceProvider y el registro por PriceSource, sin implementaciones; mové el helper que cita números antes de JSON.parse de rates a common/ y que rates lo siga usando.
+5. PUT /pockets/:id/term-deposit con sus validaciones. GET /investments con pricing para plazos fijos (mode TERM_DEPOSIT) y los totales con su valor calculado; overdue solo mira las inversiones a mano.
+6. POST /sync: valuaciones automáticas del mes anterior con autoValuationsDue, reutilizando la creación de valuaciones de InvestmentsService (misma transacción, mismo movimiento YIELD), con source AUTO.
+7. Tests e2e: el recorrido del criterio de terminado con ClockService fijado, idempotencia del sync, validaciones y aislamiento entre usuarios.
+
+Web:
+8. Al crear o editar una inversión de tipo plazo fijo, los campos capital, TNA, constitución y vencimiento. En Inversiones, el valor calculado y "Vencido"; en "Actualizar valores", la fila sin campo con "Se calcula solo".
+9. Textos en investments.texts.ts.
+
+Forma de trabajo:
+- Plan primero, esperame.
+- Rama feat/fase-40-tenencias-y-plazo-fijo. Todo en verde antes del PR, con capturas de Inversiones con un plazo fijo vigente y uno vencido, y de "Actualizar valores".
+```
+
+## Fase 41 — FCI con precio automático
+
+El primer proveedor real: ArgentinaDatos, con todos los FCI que informan a la CAFCI (incluidos los Superfondos, clase por clase). También el vínculo entre una inversión y un instrumento, invertir con cantidad y corregir cantidad, que después reusa la fase 42.
+
+**Terminado cuando:**
+- busco "super ahorro" y aparecen sus clases con su moneda; "Superfondo 2000" y los demás dados de baja no aparecen;
+- vinculo mi apartado en pesos a "Super Ahorro $ - Clase A" con 150 cuotapartes y Inversiones muestra la cantidad, el valor cuotaparte con su fecha y el valor (cantidad × valor cuotaparte), sin cargar nada;
+- vincular un fondo en dólares a un apartado en pesos responde `INSTRUMENT_CURRENCY_MISMATCH`;
+- invierto $ 500.000 desde la carga rápida y me propone 24,25357324 cuotapartes (con el valor cuotaparte del ejemplo), que puedo corregir; rescatar más cuotapartes de las que tengo no se puede;
+- "Corregir cantidad" suma o resta cuotapartes sin crear movimientos de plata;
+- con ArgentinaDatos caído (simulado), Inversiones muestra el último valor guardado con "Precio al…" y nada se rompe;
+- al empezar el mes, la valuación automática usa el valor cuotaparte del último día del mes anterior (o el anterior más cercano);
+- "Pasar a manual" deja el historial y la inversión vuelve a actualizarse a mano;
+- el aislamiento entre usuarios está probado para vincular, corregir y transferir con cantidad.
+
+```
+Leé CLAUDE.md; INV-07 a 11 y la regla "Inversiones con precio automático" de docs/especificacion.md; en docs/arquitectura.md "Iteración 14: inversiones con precio" y "Precios de inversiones"; docs/adr/0037-inversiones-con-precio.md; y docs/mockups/inversiones-precio/ si ya existe.
+
+Vamos a hacer la Fase 41 de docs/plan.md: FCI con precio automático desde ArgentinaDatos.
+
+Backend:
+1. ArgentinaDatosProvider con catalog (todas las categorías de FCI, en paralelo; sin los fondos con último valor de más de 10 días hábiles), latest y at (histórico del fondo). Números citados antes de JSON.parse. Tests unitarios con respuestas guardadas como fixtures, incluida una con un fondo dado de baja y una con números con muchos decimales.
+2. Variable PRICES_ARGENTINADATOS_URL en env.ts y .env.example.
+3. Refresco del catálogo una vez por día y de precios según "Precios de inversiones"; GET /instruments?type=&q= sin distinguir mayúsculas ni tildes.
+4. PUT/DELETE /pockets/:id/holding, POST /pockets/:id/holding/adjustments y DELETE /holding-adjustments/:id, con sus errores.
+5. POST /transfers con units hacia o desde un apartado vinculado (UNITS_REQUIRED, HOLDING_UNITS_NEGATIVE).
+6. GET /investments con pricing MARKET (cantidad, precio, fecha, stale, valor y rendimiento en vivo) y los totales con el valor de mercado. La valuación automática de la fase 40 ahora también cubre las inversiones vinculadas, con el precio de PriceProvider.at.
+7. Tests e2e con el proveedor reemplazado por uno falso: el recorrido del criterio de terminado, el proveedor caído, la valuación automática y el aislamiento entre usuarios.
+
+Web:
+8. Selector de instrumento al crear o editar una inversión de tipo FCI: búsqueda con debounce, clase y moneda visibles, y "Lo sigo a mano". Campo de cuotapartes.
+9. Invertir y Rescatar (carga rápida y desde la reserva) piden cantidad cuando el destino o el origen está vinculado, propuesta con unitsForAmount y editable.
+10. En Inversiones, cantidad, precio con su fecha, valor en vivo y el aviso de precio desactualizado. En el detalle, "Corregir cantidad" y "Pasar a manual".
+11. Textos en investments.texts.ts.
+
+Forma de trabajo:
+- Plan primero, esperame. Si conviene, dividila en 41a (backend) y 41b (web).
+- Rama feat/fase-41-fci-con-precio. Todo en verde antes del PR, con capturas del buscador, de Inversiones con un FCI vinculado, de Invertir con cantidad y del aviso de precio desactualizado.
+```
+
+## Fase 42 — CEDEARs, acciones y cripto
+
+Los otros dos proveedores, sobre lo que ya dejó la fase 41. No hay pantallas nuevas: el selector, la cantidad y la corrección se reusan.
+
+**Terminado cuando:**
+- busco "AAPL" y aparecen AAPL en pesos y AAPLD en dólares, cada uno solo para apartados de su moneda;
+- con 20 AAPL a $ 13.000 Inversiones muestra $ 260.000 y, si invertí $ 240.000, un rendimiento en vivo de $ 20.000 (8,33 %);
+- vinculo un apartado en dólares a Bitcoin con 0,0015 BTC y veo su valor en USD con el precio del día;
+- con Data912 caído (simulado), los CEDEARs muestran "Precio al…" con su último precio y los FCI y la cripto se siguen actualizando;
+- al empezar el mes, la valuación automática de CEDEARs y cripto usa el cierre del último día del mes anterior;
+- un panel de Data912 que cambia de forma (un campo de precio vacío o en cero) no rompe el resumen: ese instrumento queda sin precio nuevo.
+
+```
+Leé CLAUDE.md; INV-07 a 11 de docs/especificacion.md; "Precios de inversiones" en docs/arquitectura.md; docs/adr/0037-inversiones-con-precio.md; y el módulo prices como quedó en la fase 41.
+
+Vamos a hacer la Fase 42 de docs/plan.md: CEDEARs y acciones con Data912 y cripto con CoinGecko.
+
+1. Data912Provider: catálogo y precios de /live/arg_cedears y /live/arg_stocks (un pedido por panel), histórico por ticker para la valuación de fin de mes. Moneda según el ticker (los terminados en D son en dólares; confirmá la regla con los datos reales y explicámela). Usá el último operado y, si viene vacío o en cero, ignorá ese instrumento.
+2. CoinGeckoProvider: catálogo con /coins/markets (las primeras 250 por capitalización), precios con /simple/price en un solo pedido para todos los ids, histórico con /coins/{id}/history; siempre en USD. Clave opcional en COINGECKO_API_KEY.
+3. Variables PRICES_DATA912_URL, PRICES_COINGECKO_URL y COINGECKO_API_KEY en env.ts y .env.example.
+4. Tests unitarios con fixtures reales de cada fuente (incluidos números con muchos decimales y un precio en cero) y tests e2e con proveedores falsos: el criterio de terminado, una fuente caída mientras las otras responden y la valuación automática.
+5. Web: el selector de instrumento habilitado para CEDEAR, acción y cripto, con el símbolo y la moneda; cantidad con hasta 8 decimales en cripto y enteros sugeridos en CEDEARs y acciones.
+
+Forma de trabajo:
+- Plan primero, esperame.
+- Rama feat/fase-42-cedears-acciones-cripto. Todo en verde antes del PR, con capturas de Inversiones con un FCI, un CEDEAR, una cripto y un plazo fijo, y del aviso con Data912 caído.
+```
+
 ## Después del MVP
 
 La segunda tanda de la especificación, en fases chicas que se pueden hacer en cualquier orden. Los prompts siguen el mismo molde que las fases anteriores: leer `CLAUDE.md` y la sección de la especificación, plan primero, rama propia, PR con todo en verde.
