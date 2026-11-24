@@ -92,10 +92,18 @@ export const retryHeldResponseSchema = z.object({
  * MPG-08: an income or expense that came from the institution is really money moved: to
  * (or from) another account of mine, or the payment of a card statement.
  */
-export const convertTransactionRequestSchema = z.discriminatedUnion('to', [
-  z.object({ to: z.literal('TRANSFER'), toAccountId: uuidSchema }),
-  z.object({ to: z.literal('CARD_PAYMENT'), statementId: uuidSchema }),
-]);
+export const convertTransactionRequestSchema = z
+  .object({
+    to: z.enum(['TRANSFER', 'CARD_PAYMENT']),
+    /** TRANSFER: the other account (its balance in the movement currency). */
+    toAccountId: uuidSchema.optional(),
+    /** CARD_PAYMENT: the statement it paid. */
+    statementId: uuidSchema.optional(),
+  })
+  .refine((body) => (body.to === 'TRANSFER' ? !!body.toAccountId : !!body.statementId), {
+    message: 'Elegí la cuenta o el resumen',
+    path: ['to'],
+  });
 
 export const convertTransactionResponseSchema = z.object({ transferId: uuidSchema });
 

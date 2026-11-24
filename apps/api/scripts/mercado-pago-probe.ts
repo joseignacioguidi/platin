@@ -130,8 +130,12 @@ async function auth(): Promise<void> {
   url.searchParams.set('code_challenge', challenge);
   url.searchParams.set('code_challenge_method', 'S256');
 
-  console.log(`Abrí esta URL en el navegador e iniciá sesión con tu cuenta de Mercado Pago:\n\n${url}\n`);
-  console.log(`Esperando la vuelta en ${REDIRECT_URI} (cortá "nx serve web" si está en ${CALLBACK_PORT})…`);
+  console.log(
+    `Abrí esta URL en el navegador e iniciá sesión con tu cuenta de Mercado Pago:\n\n${url}\n`,
+  );
+  console.log(
+    `Esperando la vuelta en ${REDIRECT_URI} (cortá "nx serve web" si está en ${CALLBACK_PORT})…`,
+  );
 
   const code = await new Promise<string>((resolve, reject) => {
     const server = createServer((req, res) => {
@@ -146,7 +150,12 @@ async function auth(): Promise<void> {
       res.end(ok ? 'Listo, volvé a la terminal.' : 'state o code inválidos.');
       server.close();
       if (ok) resolve(received);
-      else reject(new Error(`Callback without a valid code/state: ${incoming.searchParams.get('error') ?? ''}`));
+      else
+        reject(
+          new Error(
+            `Callback without a valid code/state: ${incoming.searchParams.get('error') ?? ''}`,
+          ),
+        );
     });
     server.listen(CALLBACK_PORT);
   });
@@ -230,16 +239,20 @@ function summarizePayments(body: unknown): unknown {
     point_of_interaction_type: (p['point_of_interaction'] as { type?: string } | undefined)?.type,
     has_fee_details: Array.isArray(p['fee_details']) && (p['fee_details'] as unknown[]).length > 0,
     net_differs_from_amount:
-      (p['transaction_details'] as { net_received_amount?: number } | undefined)?.net_received_amount !==
-      p['transaction_amount'],
+      (p['transaction_details'] as { net_received_amount?: number } | undefined)
+        ?.net_received_amount !== p['transaction_amount'],
     refunds: Array.isArray(p['refunds']) ? (p['refunds'] as unknown[]).length : 0,
   }));
 }
 
 async function fetchAll(): Promise<void> {
   const { access_token: token, user_id: userId } = loadToken();
-  writeFileSync(ANON_FILE, `# Mercado Pago: salida anonimizada de la prueba (${new Date().toISOString().slice(0, 10)})\n`);
-  const range = 'range=date_created&begin_date=NOW-30DAYS&end_date=NOW&sort=date_created&criteria=desc&limit=100';
+  writeFileSync(
+    ANON_FILE,
+    `# Mercado Pago: salida anonimizada de la prueba (${new Date().toISOString().slice(0, 10)})\n`,
+  );
+  const range =
+    'range=date_created&begin_date=NOW-30DAYS&end_date=NOW&sort=date_created&criteria=desc&limit=100';
   const candidates: [string, string][] = [
     ['users/me', '/users/me'],
     ['payments/search como cobrador', `/v1/payments/search?${range}&collector.id=${userId}`],
@@ -266,14 +279,17 @@ async function fetchAll(): Promise<void> {
   // One full payment of each search, to see every field (anonymized).
   for (const name of ['payments-search-como-cobrador', 'payments-search-como-pagador']) {
     const file = join(DIR, `${name}.json`);
-    const first = (JSON.parse(readFileSync(file, 'utf8')) as { body?: { results?: { id: number }[] } })
-      .body?.results?.[0];
+    const first = (
+      JSON.parse(readFileSync(file, 'utf8')) as { body?: { results?: { id: number }[] } }
+    ).body?.results?.[0];
     if (!first) continue;
     const { status, body } = await get(token, `/v1/payments/${first.id}`);
     save(`payment-${name}.json`, body);
     anonLog(`v1/payments/{id} (${name}) → ${status}`, body);
   }
-  console.log(`\nSalida anonimizada en apps/api/.mp-probe/anon.md. Revisala antes de copiarla al anexo.`);
+  console.log(
+    `\nSalida anonimizada en apps/api/.mp-probe/anon.md. Revisala antes de copiarla al anexo.`,
+  );
 }
 
 // --- webhooks ------------------------------------------------------------------------------------
@@ -317,8 +333,14 @@ function webhook(fail: boolean): void {
       }
       const dataId = url.searchParams.get('data.id') ?? url.searchParams.get('id') ?? undefined;
       const requestId = req.headers['x-request-id'] as string | undefined;
-      const { ok, ts } = verifySignature(secret, req.headers['x-signature'] as string | undefined, requestId, dataId);
-      const created = typeof body['date_created'] === 'string' ? Date.parse(body['date_created']) : NaN;
+      const { ok, ts } = verifySignature(
+        secret,
+        req.headers['x-signature'] as string | undefined,
+        requestId,
+        dataId,
+      );
+      const created =
+        typeof body['date_created'] === 'string' ? Date.parse(body['date_created']) : NaN;
       const key = `${body['type'] ?? url.searchParams.get('topic')}:${dataId}`;
       const attempt = (seen.get(key) ?? 0) + 1;
       seen.set(key, attempt);
@@ -335,12 +357,18 @@ function webhook(fail: boolean): void {
         answered: fail ? 500 : 200,
       };
       appendFileSync(join(DIR, 'webhooks.jsonl'), JSON.stringify(entry) + '\n');
-      save(`webhook-${Date.now()}.json`, { query: Object.fromEntries(url.searchParams), headers: req.headers, body });
+      save(`webhook-${Date.now()}.json`, {
+        query: Object.fromEntries(url.searchParams),
+        headers: req.headers,
+        body,
+      });
       console.log(JSON.stringify(entry));
       res.writeHead(fail ? 500 : 200).end();
     });
   }).listen(port, () => {
-    console.log(`Webhooks en http://localhost:${port}/ (exponelo con un túnel HTTPS y cargá esa URL en Mercado Pago).`);
+    console.log(
+      `Webhooks en http://localhost:${port}/ (exponelo con un túnel HTTPS y cargá esa URL en Mercado Pago).`,
+    );
     console.log(fail ? 'Respondiendo 500 a todo para ver los reintentos.' : 'Respondiendo 200.');
   });
 }

@@ -172,7 +172,11 @@ describe('planExternalMovement: devoluciones', () => {
 describe('planExternalMovement: reservas y monedas', () => {
   it('del saldo a una reserva asignada es una transferencia (apartar)', () => {
     const plan = planExternalMovement(
-      movement({ kind: 'RESERVE_IN', externalReserveId: 'res-vacaciones', description: 'Vacaciones' }),
+      movement({
+        kind: 'RESERVE_IN',
+        externalReserveId: 'res-vacaciones',
+        description: 'Vacaciones',
+      }),
       context(),
     );
     expect(plan).toEqual({
@@ -249,10 +253,20 @@ describe('planExternalMovement: reservas y monedas', () => {
 
   it('la venta de dólares va del saldo en dólares al de pesos', () => {
     const plan = planExternalMovement(
-      movement({ kind: 'FX', amount: '100.00', currency: 'USD', amountIn: '140000.00', currencyIn: 'ARS' }),
+      movement({
+        kind: 'FX',
+        amount: '100.00',
+        currency: 'USD',
+        amountIn: '140000.00',
+        currencyIn: 'ARS',
+      }),
       context(),
     );
-    expect(plan).toMatchObject({ fromPocketId: 'mp-usd', toPocketId: 'mp-ars', amountIn: '140000.00' });
+    expect(plan).toMatchObject({
+      fromPocketId: 'mp-usd',
+      toPocketId: 'mp-ars',
+      amountIn: '140000.00',
+    });
   });
 
   it('una compra de moneda sin el otro monto queda para revisar', () => {
@@ -373,7 +387,9 @@ describe('Ya lo cargaste (MPG-06)', () => {
 
   it('una devolución también busca lo ya cargado; un rendimiento busca ingresos', () => {
     const income = candidate({ direction: 'IN', id: 'ingreso' });
-    expect(findDuplicate(movement({ kind: 'REFUND', direction: 'IN' }), [income])?.id).toBe('ingreso');
+    expect(findDuplicate(movement({ kind: 'REFUND', direction: 'IN' }), [income])?.id).toBe(
+      'ingreso',
+    );
     expect(findDuplicate(movement({ kind: 'YIELD' }), [income])?.id).toBe('ingreso');
   });
 

@@ -46,6 +46,8 @@ export class AdminMetricsService {
       botTransactions,
       botCharges,
       unparsed,
+      feedConnections,
+      feedMovements,
     ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.user.count({ where: { status: 'SUSPENDED' } }),
@@ -76,6 +78,11 @@ export class AdminMetricsService {
         where: { createdAt: { gte: since } },
         select: { createdAt: true },
       }),
+      this.prisma.feedConnection.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.externalMovement.findMany({
+        where: { createdAt: { gte: since } },
+        select: { createdAt: true, status: true },
+      }),
     ]);
     const understood = [...botTransactions, ...botCharges].map((row) => row.createdAt);
     const notUnderstood = unparsed.map((row) => row.createdAt);
@@ -83,6 +90,8 @@ export class AdminMetricsService {
     const recentUnderstood = understood.filter((at) => at >= monthAgo).length;
     const recentUnparsed = notUnderstood.filter((at) => at >= monthAgo).length;
     const recentTotal = recentUnderstood + recentUnparsed;
+    const recentFeed = feedMovements.filter((row) => row.createdAt >= monthAgo);
+    const recentHeld = recentFeed.filter((row) => row.status === 'HELD').length;
 
     const plans = await this.plans.list();
     const onboarding = { started: 0, finished: 0, stoppedAt: { ...NO_STOPS } };
@@ -123,6 +132,20 @@ export class AdminMetricsService {
         ),
         unparsedShareLast30Days:
           recentTotal === 0 ? null : Math.round((recentUnparsed / recentTotal) * 1000) / 10,
+      },
+      feeds: {
+        activeConnections: feedConnections,
+        movementsByWeek: countByWeek(
+          feedMovements
+            .filter((row) => row.status === 'APPLIED' || row.status === 'LINKED')
+            .map((row) => localDateAt(row.createdAt)),
+          today,
+          SIGNUP_WEEKS,
+        ),
+        heldShareLast30Days:
+          recentFeed.length === 0
+            ? null
+            : Math.round((recentHeld / recentFeed.length) * 1000) / 10,
       },
       onboarding,
     };

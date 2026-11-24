@@ -89,6 +89,8 @@ export interface ExternalMovementInput {
   description: string;
   /** RESERVE_IN / RESERVE_OUT: the provider's reserve. */
   externalReserveId?: string | null;
+  /** The reserve's name in the institution, to show it when assigning it. */
+  reserveName?: string | null;
   /** REFUND: which way the money goes (into the balance for a refunded payment). */
   direction?: 'IN' | 'OUT' | null;
   /** REFUND: the provider's id of the refunded movement. */
@@ -234,7 +236,9 @@ export function suggestedRulePattern(description: string): string | null {
 }
 
 function available(context: FeedPlanContext, currency: Currency): FeedPocket | undefined {
-  return context.pockets.find((pocket) => pocket.kind === 'AVAILABLE' && pocket.currency === currency);
+  return context.pockets.find(
+    (pocket) => pocket.kind === 'AVAILABLE' && pocket.currency === currency,
+  );
 }
 
 /**
@@ -247,9 +251,10 @@ export function planExternalMovement(
   context: FeedPlanContext,
 ): FeedPlan {
   if (!context.accountId) return { action: 'HOLD', reason: 'NO_ACCOUNT' };
-  const currencies = movement.kind === 'FX' && movement.currencyIn
-    ? [movement.currency, movement.currencyIn]
-    : [movement.currency];
+  const currencies =
+    movement.kind === 'FX' && movement.currencyIn
+      ? [movement.currency, movement.currencyIn]
+      : [movement.currency];
   if (currencies.some((currency) => !context.enabledCurrencies.includes(currency))) {
     return { action: 'HOLD', reason: 'CURRENCY_NOT_ENABLED' };
   }
@@ -328,7 +333,9 @@ export function planExternalMovement(
         type,
         pocketId: balance.id,
         categoryId: categoryByMerchantRules(
-          movement.kind === 'REFUND' ? (context.refunded?.description ?? movement.description) : movement.description,
+          movement.kind === 'REFUND'
+            ? (context.refunded?.description ?? movement.description)
+            : movement.description,
           kind,
           context,
         ),

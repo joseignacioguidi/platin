@@ -87,6 +87,18 @@ const baseEnvSchema = z.object({
   ),
   // Pepper of the link codes' hash. Generate with: openssl rand -base64 48
   TELEGRAM_CODE_PEPPER: optionalString.pipe(z.string().min(32).optional()),
+  // Mercado Pago connection (MPG-01 to 10): off without the app credentials.
+  MERCADOPAGO_CLIENT_ID: optionalString,
+  MERCADOPAGO_CLIENT_SECRET: optionalString,
+  // Secret of the application's webhooks, to check x-signature.
+  MERCADOPAGO_WEBHOOK_SECRET: optionalString,
+  // 32 bytes in base64 to encrypt the connections' credentials. Generate with: openssl rand -base64 32
+  FEED_TOKEN_KEY: optionalString.pipe(
+    z
+      .string()
+      .refine((value) => Buffer.from(value, 'base64').length === 32, 'Must be 32 bytes in base64')
+      .optional(),
+  ),
 });
 
 /** Values that must never sign anything in production (.env.example placeholders and the like). */
@@ -143,6 +155,25 @@ export const envSchema = baseEnvSchema.superRefine((env, ctx) => {
     ] as const) {
       if (!env[key]) {
         ctx.addIssue({ code: 'custom', path: [key], message: 'Required with TELEGRAM_BOT_TOKEN' });
+      }
+    }
+  }
+  if (Boolean(env.MERCADOPAGO_CLIENT_ID) !== Boolean(env.MERCADOPAGO_CLIENT_SECRET)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['MERCADOPAGO_CLIENT_SECRET'],
+      message: 'MERCADOPAGO_CLIENT_ID and MERCADOPAGO_CLIENT_SECRET go together',
+    });
+  }
+  if (env.MERCADOPAGO_CLIENT_ID) {
+    for (const key of [
+      'PUBLIC_APP_URL',
+      'OAUTH_COOKIE_SECRET',
+      'MERCADOPAGO_WEBHOOK_SECRET',
+      'FEED_TOKEN_KEY',
+    ] as const) {
+      if (!env[key]) {
+        ctx.addIssue({ code: 'custom', path: [key], message: 'Required to connect Mercado Pago' });
       }
     }
   }
