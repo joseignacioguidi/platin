@@ -47,7 +47,7 @@ import { AuthUser, CurrentUser } from '../common/current-user.decorator';
 import { Public } from '../common/public.decorator';
 import { AppConfig } from '../config/app-config';
 import { PrismaService } from '../prisma/prisma.service';
-import { FeedAuthError } from './account-feed-provider';
+import { type AccountFeedProvider, FeedAuthError, type FeedNotice } from './account-feed-provider';
 import { FeedIngestService } from './feed-ingest.service';
 import {
   FEED_TX_COOKIE,
@@ -240,11 +240,19 @@ export class FeedWebhookController {
     const provider = this.registry.bySlug(slug);
     const notice = provider.verifyWebhook({ headers, query, body, now: this.clock.now() });
     if (!notice) {
+      this.trace(body, 'invalid signature');
       throw new AppException('UNAUTHORIZED', HttpStatus.UNAUTHORIZED, 'Invalid signature');
     }
+    const outcome = await this.handle(provider, notice);
+    this.trace(body, outcome);
+    return { ok: true };
+  }
+
+  /** What the notice turned into, for the log (never amounts nor names). */
+  private async handle(provider: AccountFeedProvider, notice: FeedNotice): Promise<string> {
     if (notice.kind === 'IGNORED') {
       await this.ingest.recordEvent(notice.requestId);
-      return { ok: true };
+      return 'ignored topic';
     }
     const connection = await this.prisma.feedConnection.findUnique({
       where: {
@@ -257,16 +265,16 @@ export class FeedWebhookController {
     if (notice.kind === 'DEAUTHORIZED') {
       if (connection) await this.ingest.needsReconnect(connection.id);
       await this.ingest.recordEvent(notice.requestId);
-      return { ok: true };
+      return connection ? 'deauthorized' : 'deauthorized, not connected';
     }
     if (!connection || connection.status !== 'ACTIVE' || !connection.accessTokenEnc) {
       await this.ingest.recordEvent(notice.requestId);
-      return { ok: true };
+      return connection ? `connection ${connection.status}` : 'not connected';
     }
     const seen = await this.prisma.feedWebhookEvent.findUnique({
       where: { requestId: notice.requestId },
     });
-    if (seen) return { ok: true };
+    if (seen) return 'repeated';
     let movements;
     try {
       movements = await provider.getMovement(
@@ -278,14 +286,31 @@ export class FeedWebhookController {
       if (error instanceof FeedAuthError) {
         await this.ingest.needsReconnect(connection.id);
         await this.ingest.recordEvent(notice.requestId);
-        return { ok: true };
+        return 'token rejected';
       }
       // The institution did not answer: a 500 makes it retry, and the sync covers the rest.
       this.logger.warn(`Feed notice ${notice.requestId} failed: ${(error as Error).name}`);
       throw error;
     }
-    await this.ingest.ingest(connection.id, movements, notice.requestId);
-    return { ok: true };
+    if (movements.length === 0) {
+      await this.ingest.recordEvent(notice.requestId);
+      return 'not a finished movement';
+    }
+    const outcomes = await this.ingest.ingest(connection.id, movements, notice.requestId);
+    return movements.map((m, i) => `${m.kind} ${outcomes[i]}`).join(', ');
+  }
+
+  /**
+   * Phase 40 in production: one line per notice with its topic, action, delay and outcome, to
+   * learn what Mercado Pago sends for each kind of movement. Never amounts, names or ids of people.
+   */
+  private trace(body: unknown, outcome: string): void {
+    const notice = (body ?? {}) as { type?: unknown; action?: unknown; date_created?: unknown };
+    const created = typeof notice.date_created === 'string' ? Date.parse(notice.date_created) : NaN;
+    const delay = Number.isNaN(created) ? '?' : `${Math.round((Date.now() - created) / 1000)}s`;
+    this.logger.log(
+      `Feed notice type=${String(notice.type)} action=${String(notice.action)} delay=${delay}: ${outcome}`,
+    );
   }
 }
 
