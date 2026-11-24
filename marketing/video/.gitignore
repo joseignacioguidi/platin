@@ -1,0 +1,6 @@
+node_modules/
+out/
+entregas/
+ideas/
+public/captures/login-error.png
+.env

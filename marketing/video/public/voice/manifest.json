@@ -1,0 +1,402 @@
+{
+  "15-01.mp3": {
+    "key": {
+      "text": "Mirás el saldo y parece que te sobra.",
+      "voice": "x6gcQQnht9kyuC1BTUOM",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1.1
+      },
+      "language": ""
+    },
+    "seconds": 1.78
+  },
+  "15-02.mp3": {
+    "key": {
+      "text": "Pero falta la tarjeta, los fijos y el ahorro.",
+      "voice": "x6gcQQnht9kyuC1BTUOM",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1.1
+      },
+      "language": ""
+    },
+    "seconds": 2.12,
+    "words": [
+      {
+        "word": "Pero",
+        "start": 0
+      },
+      {
+        "word": "falta",
+        "start": 0.29
+      },
+      {
+        "word": "la",
+        "start": 0.604
+      },
+      {
+        "word": "tarjeta,",
+        "start": 0.697
+      },
+      {
+        "word": "los",
+        "start": 1.068
+      },
+      {
+        "word": "fijos",
+        "start": 1.231
+      },
+      {
+        "word": "y",
+        "start": 1.533
+      },
+      {
+        "word": "el",
+        "start": 1.637
+      },
+      {
+        "word": "ahorro.",
+        "start": 1.753
+      }
+    ]
+  },
+  "15-03.mp3": {
+    "key": {
+      "text": "Platín hace la cuenta y te dice cuánto podés gastar de verdad.",
+      "voice": "x6gcQQnht9kyuC1BTUOM",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1.1
+      },
+      "language": ""
+    },
+    "seconds": 2.85
+  },
+  "30-01.mp3": {
+    "key": {
+      "text": "Mirás el saldo y parece que te sobra la plata.",
+      "voice": "x6gcQQnht9kyuC1BTUOM",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1.1
+      },
+      "language": ""
+    },
+    "seconds": 2.12
+  },
+  "30-02.mp3": {
+    "key": {
+      "text": "Pero se viene el resumen de la tarjeta, el alquiler y los servicios, y lo que querías guardar para el viaje.",
+      "voice": "x6gcQQnht9kyuC1BTUOM",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1.1
+      },
+      "language": ""
+    },
+    "seconds": 4.57,
+    "words": [
+      {
+        "word": "Pero",
+        "start": 0
+      },
+      {
+        "word": "se",
+        "start": 0.267
+      },
+      {
+        "word": "viene",
+        "start": 0.383
+      },
+      {
+        "word": "el",
+        "start": 0.557
+      },
+      {
+        "word": "resumen",
+        "start": 0.662
+      },
+      {
+        "word": "de",
+        "start": 1.08
+      },
+      {
+        "word": "la",
+        "start": 1.173
+      },
+      {
+        "word": "tarjeta,",
+        "start": 1.289
+      },
+      {
+        "word": "el",
+        "start": 1.823
+      },
+      {
+        "word": "alquiler",
+        "start": 1.95
+      },
+      {
+        "word": "y",
+        "start": 2.345
+      },
+      {
+        "word": "los",
+        "start": 2.403
+      },
+      {
+        "word": "servicios,",
+        "start": 2.543
+      },
+      {
+        "word": "y",
+        "start": 3.053
+      },
+      {
+        "word": "lo",
+        "start": 3.146
+      },
+      {
+        "word": "que",
+        "start": 3.251
+      },
+      {
+        "word": "querías",
+        "start": 3.355
+      },
+      {
+        "word": "guardar",
+        "start": 3.611
+      },
+      {
+        "word": "para",
+        "start": 3.924
+      },
+      {
+        "word": "el",
+        "start": 4.063
+      },
+      {
+        "word": "viaje.",
+        "start": 4.145
+      }
+    ]
+  },
+  "30-03.mp3": {
+    "key": {
+      "text": "¿Cuánto te queda de verdad?",
+      "voice": "x6gcQQnht9kyuC1BTUOM",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1.1
+      },
+      "language": ""
+    },
+    "seconds": 1.23
+  },
+  "30-04.mp3": {
+    "key": {
+      "text": "Platín hace esa cuenta por vos.",
+      "voice": "x6gcQQnht9kyuC1BTUOM",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1.1
+      },
+      "language": ""
+    },
+    "seconds": 1.6
+  },
+  "15-04.mp3": {
+    "key": {
+      "text": "Platín. <break time=\"0.7s\" /> Tu plata, más clara. Empezá gratis.",
+      "voice": "x6gcQQnht9kyuC1BTUOM",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 0.8
+      },
+      "language": ""
+    },
+    "seconds": 4.57,
+    "words": [
+      {
+        "word": "Platín.",
+        "start": 0
+      },
+      {
+        "word": "<break",
+        "start": 1.474
+      },
+      {
+        "word": "time=\"0.7s\"",
+        "start": 1.474
+      },
+      {
+        "word": "/>",
+        "start": 1.474
+      },
+      {
+        "word": "Tu",
+        "start": 1.474
+      },
+      {
+        "word": "plata,",
+        "start": 1.741
+      },
+      {
+        "word": "más",
+        "start": 2.345
+      },
+      {
+        "word": "clara.",
+        "start": 2.624
+      },
+      {
+        "word": "Empezá",
+        "start": 3.123
+      },
+      {
+        "word": "gratis.",
+        "start": 3.646
+      }
+    ]
+  },
+  "30-05.mp3": {
+    "key": {
+      "text": "Te dice cuánto podés gastar este mes, y hasta cuánto por día.",
+      "voice": "x6gcQQnht9kyuC1BTUOM",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1.1
+      },
+      "language": ""
+    },
+    "seconds": 2.85
+  },
+  "30-06.mp3": {
+    "key": {
+      "text": "Ves tus cuotas de los próximos meses.",
+      "voice": "x6gcQQnht9kyuC1BTUOM",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1.1
+      },
+      "language": ""
+    },
+    "seconds": 1.7
+  },
+  "30-07.mp3": {
+    "key": {
+      "text": "Y cuánto te falta para el viaje.",
+      "voice": "x6gcQQnht9kyuC1BTUOM",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 1.1
+      },
+      "language": ""
+    },
+    "seconds": 1.65
+  },
+  "30-08.mp3": {
+    "key": {
+      "text": "Platín. <break time=\"0.7s\" /> Tu plata, más clara. Empezá gratis.",
+      "voice": "x6gcQQnht9kyuC1BTUOM",
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.15,
+        "use_speaker_boost": true,
+        "speed": 0.8
+      },
+      "language": ""
+    },
+    "seconds": 4.52,
+    "words": [
+      {
+        "word": "Platín.",
+        "start": 0
+      },
+      {
+        "word": "<break",
+        "start": 1.347
+      },
+      {
+        "word": "time=\"0.7s\"",
+        "start": 1.347
+      },
+      {
+        "word": "/>",
+        "start": 1.347
+      },
+      {
+        "word": "Tu",
+        "start": 1.347
+      },
+      {
+        "word": "plata,",
+        "start": 1.591
+      },
+      {
+        "word": "más",
+        "start": 2.299
+      },
+      {
+        "word": "clara.",
+        "start": 2.577
+      },
+      {
+        "word": "Empezá",
+        "start": 3.274
+      },
+      {
+        "word": "gratis.",
+        "start": 3.727
+      }
+    ]
+  }
+}
