@@ -19,11 +19,12 @@ export const INVESTMENTS_TEXTS = {
   daysAgo: (days: number) => (days === 0 ? 'hoy' : days === 1 ? 'ayer' : `hace ${days} días`),
   pricing: {
     termDeposit: (end: string) => `Plazo fijo · vence el ${end}`,
+    termDepositMatured: (end: string) => `Plazo fijo · venció el ${end}`,
     matured: 'Vencido',
     redeemed: 'Rescatado',
     automatic: 'Se calcula solo',
     priceAt: (date: string) => `Precio al ${date}`,
-    stale: (date: string) => `Precio al ${date}: no se pudo actualizar`,
+    stale: (date: string) => `Precio al ${date} (sin actualizar)`,
     noPrice: 'Todavía sin precio',
   },
   termDeposit: {
@@ -59,7 +60,16 @@ export const INVESTMENTS_TEXTS = {
       `Propuesta con el precio al ${date}; corregila con la del comprobante.`,
     noPrice: 'Todavía no hay precio: cargá la cantidad del comprobante.',
     invalid: 'Revisá la cantidad (hasta 8 decimales).',
-    count: (units: string, name: string) => `${units} ${name.toLowerCase()}`,
+    /** "150 cuotapartes", "20 CEDEARs", "0,0015 BTC". */
+    count: (units: string, name: string) => `${units} ${name}`,
+    countNames: {
+      CEDEAR: 'CEDEARs',
+      STOCK: 'acciones',
+      MUTUAL_FUND: 'cuotapartes',
+      CRYPTO: '',
+      TERM_DEPOSIT: 'unidades',
+      OTHER: 'unidades',
+    },
   },
   link: {
     title: 'Precio automático',

@@ -33,7 +33,7 @@ import { INVESTMENTS_TEXTS } from './investments.texts';
             <span class="font-amount w-24 shrink-0 text-sm text-muted">{{
               dateText(valuation.date)
             }}</span>
-            <span class="flex flex-1 flex-col">
+            <span class="flex min-w-0 flex-1 flex-col">
               <pl-money class="text-[17px]" [amount]="valuation.value" [currency]="currency()" />
               @if (valuation.source === 'AUTO') {
                 <span class="text-xs text-muted">{{ t.auto }}</span>

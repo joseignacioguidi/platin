@@ -250,13 +250,19 @@ export class InvestmentsPage {
   protected subtitle(pocket: InvestmentPocket): string {
     const terms = pocket.pricing.termDeposit;
     if (terms && !terms.redeemed) {
-      return this.t.pricing.termDeposit(formatDate(parseLocalDate(terms.endDate)));
+      const end = formatDate(parseLocalDate(terms.endDate));
+      return terms.matured
+        ? this.t.pricing.termDepositMatured(end)
+        : this.t.pricing.termDeposit(end);
     }
     const pricing = pocket.pricing;
     if (pricing.mode === 'MARKET' && pricing.listing) {
       // "150 cuotapartes · Precio al 24/11" (with the warning when it could not be refreshed).
       const units = pricing.units
-        ? this.t.units.count(formatUnits(pricing.units), this.t.units.names[pricing.listing.type])
+        ? this.t.units.count(
+            formatUnits(pricing.units),
+            this.t.units.countNames[pricing.listing.type] || pricing.listing.symbol,
+          )
         : pricing.listing.symbol;
       const date = pricing.priceDate ? formatDate(parseLocalDate(pricing.priceDate)) : null;
       const price = date

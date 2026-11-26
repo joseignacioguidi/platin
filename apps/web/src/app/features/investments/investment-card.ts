@@ -46,7 +46,7 @@ import { TermDepositSheet } from './term-deposit-sheet';
               <dt class="text-sm text-muted">{{ t.card.value }}</dt>
               <dd>
                 <pl-money
-                  class="text-xl font-semibold"
+                  class="text-lg font-semibold"
                   [amount]="inv.pricing.marketValue"
                   [currency]="inv.currency"
                 />
@@ -54,7 +54,7 @@ import { TermDepositSheet } from './term-deposit-sheet';
             </div>
             <div class="flex flex-col">
               <dt class="text-sm text-muted">{{ t.card.interest }}</dt>
-              <dd class="font-amount text-xl" [class.text-brand-strong]="!negative()">
+              <dd class="font-amount min-w-0 text-lg" [class.text-brand-strong]="!negative()">
                 <pl-money
                   [amount]="inv.pricing.liveYield"
                   [currency]="inv.currency"
@@ -90,7 +90,7 @@ import { TermDepositSheet } from './term-deposit-sheet';
               <dt class="text-sm text-muted">{{ t.card.value }}</dt>
               <dd>
                 <pl-money
-                  class="text-xl font-semibold"
+                  class="text-lg font-semibold"
                   [amount]="inv.pricing.marketValue"
                   [currency]="inv.currency"
                 />
@@ -98,14 +98,14 @@ import { TermDepositSheet } from './term-deposit-sheet';
             </div>
             <div class="flex flex-col">
               <dt class="text-sm text-muted">{{ t.card.yield }}</dt>
-              <dd class="font-amount text-xl" [class.text-brand-strong]="!negative()">
+              <dd class="font-amount min-w-0 text-lg" [class.text-brand-strong]="!negative()">
                 <pl-money
                   [amount]="inv.pricing.liveYield"
                   [currency]="inv.currency"
                   sign="always"
                 />
                 @if (inv.pricing.liveYieldRate) {
-                  <span class="text-sm"> · {{ rate(inv.pricing.liveYieldRate) }}</span>
+                  <span class="block text-sm">{{ rate(inv.pricing.liveYieldRate) }}</span>
                 }
               </dd>
             </div>

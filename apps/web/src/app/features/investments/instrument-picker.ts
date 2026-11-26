@@ -30,7 +30,7 @@ const DEBOUNCE_MS = 300;
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col gap-2' },
   template: `
-    <span class="text-sm font-medium">{{ t.title }}</span>
+    <span class="text-sm font-medium">{{ heading }}</span>
     @if (selected(); as chosen) {
       <div class="flex items-center gap-3 rounded-2xl bg-brand-soft px-4 py-3">
         <svg lucideCheck [size]="20" class="shrink-0 text-brand-strong" aria-hidden="true"></svg>
@@ -106,6 +106,7 @@ const DEBOUNCE_MS = 300;
 export class InstrumentPicker {
   protected readonly t = INVESTMENTS_TEXTS.link;
   protected readonly currencyNames = PL_CURRENCY_NAMES;
+  protected readonly heading = INVESTMENTS_TEXTS.card.listing;
   readonly type = input.required<Instrument>();
   /** The investment's currency: only instruments in it can be linked. */
   readonly currency = input.required<Currency>();
