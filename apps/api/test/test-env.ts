@@ -14,6 +14,9 @@ export function loadTestEnv(): string {
   // Never talk to Google from the tests: suites inject a fake provider instead.
   process.env.GOOGLE_CLIENT_ID = '';
   process.env.GOOGLE_CLIENT_SECRET = '';
+  // Nor to Mercado Pago: suites inject a fake provider (FEED_PROVIDERS).
+  process.env.MERCADOPAGO_CLIENT_ID = '';
+  process.env.MERCADOPAGO_CLIENT_SECRET = '';
   process.env.THROTTLE_AUTH_LIMIT = '1000';
   process.env.THROTTLE_LIMIT = '10000';
   process.env.JWT_ACCESS_SECRET ??= 'test-access-secret-with-at-least-32-chars';

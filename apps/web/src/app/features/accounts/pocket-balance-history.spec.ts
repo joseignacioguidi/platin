@@ -25,6 +25,7 @@ const transfer = (date: string, amount: string, into: boolean): Movement => ({
   toPocket: into ? pocket : other,
   intent: into ? 'SAVE' : 'REDEEM',
   statement: null,
+  external: null,
 });
 
 describe('monthEndBalances', () => {

@@ -15,7 +15,14 @@ import { AdminApi } from './admin.api';
 import { ADMIN_TEXTS } from './admin.texts';
 
 type LimitKey = Exclude<keyof PlanLimitsDto, 'investments'>;
-const LIMIT_KEYS: LimitKey[] = ['maxAccounts', 'maxPockets', 'maxCards', 'maxGoals', 'maxFixed'];
+const LIMIT_KEYS: LimitKey[] = [
+  'maxAccounts',
+  'maxPockets',
+  'maxCards',
+  'maxGoals',
+  'maxFixed',
+  'maxFeedMovementsPerDay',
+];
 const T = ADMIN_TEXTS.plans;
 
 /** Form of a plan (new or existing). Limits are text so an empty field means unlimited. */
@@ -161,6 +168,7 @@ export class AdminPlanForm implements OnInit {
     maxCards: '',
     maxGoals: '',
     maxFixed: '',
+    maxFeedMovementsPerDay: '',
   });
   protected readonly investments = signal(false);
   protected readonly isPublic = signal(true);

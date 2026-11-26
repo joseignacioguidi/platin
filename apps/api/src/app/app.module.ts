@@ -12,6 +12,7 @@ import { CategoriesModule } from '../categories/categories.module';
 import { CommitmentsModule } from '../commitments/commitments.module';
 import { CommonModule } from '../common/common.module';
 import { DashboardModule } from '../dashboard/dashboard.module';
+import { FeedsModule } from '../feeds/feeds.module';
 import { FixedModule } from '../fixed/fixed.module';
 import { OriginSecretMiddleware } from '../common/origin-secret.middleware';
 import { ProblemDetailsFilter } from '../common/problem-details.filter';
@@ -92,6 +93,7 @@ export function clientIpOf(req: Request, header: string | undefined): string {
     CardsModule,
     FixedModule,
     SyncModule,
+    FeedsModule,
     CommitmentsModule,
     DashboardModule,
     GoalsModule,

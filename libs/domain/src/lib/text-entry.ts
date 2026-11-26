@@ -407,6 +407,36 @@ function bestRule<T extends { pattern: string }>(rules: readonly T[], words: str
 }
 
 /**
+ * Steps 1 and 2 of the category alone: the user's merchant rules, then the global ones, by
+ * whole word and without accents. Used for reasons that come from outside (Mercado Pago, MPG-03),
+ * where guessing by the start of a category name would be too loose.
+ */
+export function categoryByMerchantRules(
+  text: string,
+  kind: CategoryKind,
+  context: Pick<TextEntryContext, 'rules' | 'globalRules' | 'categories'>,
+): string | null {
+  const words = normalizeText(text)
+    .replace(/[^\p{L}\p{N} ]+/gu, ' ')
+    .split(' ')
+    .filter(Boolean);
+  if (words.length === 0) return null;
+  const ofKind = context.categories.filter((category) => category.kind === kind);
+  const byId = new Map(ofKind.map((category) => [category.id, category]));
+  const own = bestRule(
+    context.rules.filter((rule) => byId.has(rule.categoryId)),
+    words,
+  );
+  if (own) return own.categoryId;
+  const byName = new Map(ofKind.map((category) => [normalizeText(category.name), category.id]));
+  const global = bestRule(
+    context.globalRules.filter((rule) => byName.has(normalizeText(rule.categoryName))),
+    words,
+  );
+  return global ? (byName.get(normalizeText(global.categoryName)) ?? null) : null;
+}
+
+/**
  * `ruleWords` are the words left by the parser, fillers included ("la anónima");
  * `words` are those of the reason.
  */

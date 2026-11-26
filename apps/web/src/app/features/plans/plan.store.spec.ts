@@ -10,6 +10,7 @@ const limits = (overrides: Partial<PublicPlan['limits']> = {}): PublicPlan['limi
   maxCards: 1,
   maxGoals: 1,
   maxFixed: 5,
+  maxFeedMovementsPerDay: 1,
   investments: false,
   ...overrides,
 });

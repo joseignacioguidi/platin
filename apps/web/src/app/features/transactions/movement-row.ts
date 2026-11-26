@@ -220,8 +220,19 @@ export class MovementRow {
   protected readonly subtitle = computed(() => {
     const m = this.movement();
     // Entered by the Telegram bot (ADR 0026): a small mark at the end.
-    const via = 'channel' in m && m.channel === 'TELEGRAM' ? ` · ${this.texts.viaTelegram}` : '';
-    const subtitle = this.view().subtitle + via;
+    const channel = 'channel' in m ? m.channel : null;
+    // Or by Mercado Pago (MPG-02): created by it, or a transfer it created (reserves, conversions).
+    const fromFeed =
+      channel === 'MERCADO_PAGO' || ('external' in m && m.external?.status === 'APPLIED');
+    const via =
+      channel === 'TELEGRAM'
+        ? ` · ${this.texts.viaTelegram}`
+        : fromFeed
+          ? ` · ${this.texts.viaMercadoPago}`
+          : '';
+    // An account already called "Mercado Pago" says it once.
+    const base = this.view().subtitle;
+    const subtitle = via && base.includes(via.slice(3)) ? base : base + via;
     if (!this.dated()) return subtitle;
     const day = formatShortDay(parseLocalDate(this.movement().date), this.today.date());
     return subtitle ? `${subtitle} · ${day}` : day;

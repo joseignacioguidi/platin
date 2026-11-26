@@ -1,6 +1,6 @@
-# 0037 — Inversiones con precio automático
+# 0040 — Inversiones con precio automático
 
-Fecha: 2026-11-23 · Iteración 14, fases 40 a 42 (INV-07 a INV-12). Completa el ADR 0012.
+Fecha: 2026-11-23 · Iteración 15, fases 42 a 44 (INV-07 a INV-12). Completa el ADR 0012.
 
 ## Contexto
 

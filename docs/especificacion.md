@@ -76,11 +76,12 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
   2. **Monedas y cotización**: moneda base, cotización para valuar dólares y con qué monedas trabajás. Todo se guarda al tocarlo, sin botón.
   3. **Personalización**: Categorías (cuántas de gastos y de ingresos) y Reglas, cada una abre su pantalla.
   4. **Telegram** (BOT-01 a 06): estado del vínculo con "Cambiar de Telegram" y "Desvincular" en la misma fila, y los mensajes no entendidos.
-  5. **Tu plan** (PLN-03) en un renglón: nombre del plan, "Cambiar de plan" y una frase con el uso ("Usás 4 cuentas, 13 reservas…"; con límites, "3 de 5 cuentas").
-  6. **Ingreso y seguridad** (AUTH-07, AUTH-08): Google y Contraseña, cada una en una fila; "Definir" abre el campo de la contraseña. Al final, "Cerrar sesión".
-  7. **Zona peligrosa** (AUTH-09), separada y al final.
+  5. **Mercado Pago** (iteración 14, MPG-01 a 10): estado de la conexión con la cuenta de platin elegida, "Conectar" o "Desconectar", las reservas y a qué reserva de platin va cada una, "Para revisar" y el uso del día en el plan Gratis.
+  6. **Tu plan** (PLN-03) en un renglón: nombre del plan, "Cambiar de plan" y una frase con el uso ("Usás 4 cuentas, 13 reservas…"; con límites, "3 de 5 cuentas").
+  7. **Ingreso y seguridad** (AUTH-07, AUTH-08): Google y Contraseña, cada una en una fila; "Definir" abre el campo de la contraseña. Al final, "Cerrar sesión".
+  8. **Zona peligrosa** (AUTH-09), separada y al final.
 
-  En escritorio, la tarjeta del nombre a todo el ancho y debajo dos columnas: Monedas y cotización, Personalización y Telegram a la izquierda; plan, ingreso y seguridad y zona peligrosa a la derecha. En celular, una columna con el título de cada grupo fuera de su tarjeta. El modo oscuro no está en el perfil: es un botón de ícono al pie de la barra lateral y un interruptor en "Más".
+  En escritorio, la tarjeta del nombre a todo el ancho y debajo dos columnas: Monedas y cotización, Personalización, Telegram y Mercado Pago a la izquierda; plan, ingreso y seguridad y zona peligrosa a la derecha. En celular, una columna con el título de cada grupo fuera de su tarjeta. El modo oscuro no está en el perfil: es un botón de ícono al pie de la barra lateral y un interruptor en "Más".
 
 ### 2. Cuentas y apartados
 
@@ -173,7 +174,7 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
   - **Metas y ahorros**: total ahorrado (incluye lo invertido) con su reparto en pesos y dólares; al lado, una tarjeta "De eso, invertido" con el valor actual y el rendimiento, que lleva a la otra pestaña; debajo, las metas y las **reservas de ahorro** (sin las de inversión).
   - **Inversiones** (INV-03 a 05): valor actual y composición, "Valores cargados a mano" con "Actualizar valores", y las posiciones agrupadas por cuenta; en escritorio, dos cuentas por fila.
   - La pestaña Inversiones conserva la marca de plan: fuera del plan, abre la hoja del plan como hoy.
-- **INV-07** Precio automático (iteración 14): al crear o editar una inversión de tipo CEDEAR, acción, FCI o cripto, se elige el instrumento de una lista (por ticker o nombre; los FCI con su clase, como "Super Ahorro $ - Clase A") y se carga la cantidad que tenés (CEDEARs, acciones, cuotapartes o monedas). La moneda del instrumento tiene que ser la del apartado. "Lo sigo a mano" deja la inversión como hasta ahora; una inversión a mano se puede vincular después y una vinculada se puede pasar a mano sin perder su historial.
+- **INV-07** Precio automático (iteración 15): al crear o editar una inversión de tipo CEDEAR, acción, FCI o cripto, se elige el instrumento de una lista (por ticker o nombre; los FCI con su clase, como "Super Ahorro $ - Clase A") y se carga la cantidad que tenés (CEDEARs, acciones, cuotapartes o monedas). La moneda del instrumento tiene que ser la del apartado. "Lo sigo a mano" deja la inversión como hasta ahora; una inversión a mano se puede vincular después y una vinculada se puede pasar a mano sin perder su historial.
 - **INV-08** Valor en vivo: Inversiones muestra en cada inversión vinculada su cantidad, el último precio con su fecha ("Precio al 20/11") y el valor actual (cantidad × precio), y el rendimiento contra lo invertido. Si el precio no se pudo actualizar, se usa el último guardado y se avisa con su fecha. El valor en vivo no crea movimientos.
 - **INV-09** Invertir y rescatar con cantidad: en una inversión vinculada, Invertir y Rescatar (MOV-07 y desde la reserva) piden el monto y la cantidad. La cantidad se propone con el último precio (monto ÷ precio) y se puede corregir con la del comprobante. No se puede rescatar más cantidad de la que hay.
 - **INV-10** Corregir cantidad: en el detalle de una inversión vinculada, "Corregir cantidad" suma o resta unidades con fecha y motivo (un split, un dividendo en especie, una diferencia con el broker), sin mover plata.
@@ -281,6 +282,21 @@ Cargar un movimiento escribiendo una línea corta ("super 45k visa 3c", "turno m
 - **BOT-05** **Comandos**: `/libre`, `/hoy`, `/pendientes`, `/proximos`, `/deshacer`, `/ayuda` y `/desvincular` (regla "Bot de Telegram").
 - **BOT-06** **Mensajes no entendidos**: lo que el bot no pudo interpretar se guarda 90 días para mejorar el parser. La persona los ve y los borra en Perfil › Telegram; el administrador solo ve conteos.
 - **BOT-07** **IA de respaldo** (fase 34, a diseñar): interpretar con IA lo que el parser no entiende (texto libre, varios gastos en un mensaje, fotos de tickets, audios). Opcional, del plan Pro y con límite diario.
+
+### 16. Mercado Pago
+
+Conectar la cuenta de Mercado Pago para que sus movimientos entren solos a platin, al momento, sin cargarlos a mano. Es la primera conexión con una institución; el diseño admite sumar otras después (Ualá, bancos vía un agregador) sin cambiar este módulo. Para todos los usuarios, con un límite diario en el plan Gratis (MPG-07).
+
+- **MPG-01** **Conectar** desde Perfil › Mercado Pago: "Conectar" abre la autorización de Mercado Pago y, al volver, se elige qué cuenta de platin es Mercado Pago (una existente de tipo billetera o "Crear Mercado Pago"). Una cuenta de Mercado Pago queda conectada a una sola cuenta de platin y viceversa. Lo anterior a la conexión no se trae: después de conectar, platin ofrece ajustar el saldo de la cuenta al de Mercado Pago (CTA-06).
+- **MPG-02** **Movimientos al instante**: cada cobro, pago, transferencia enviada o recibida y rendimiento de Mercado Pago crea un ingreso o un gasto **confirmado** en el saldo de esa cuenta, en su moneda, con la fecha, el monto y el motivo de Mercado Pago (el comercio o la persona). Queda marcado como entrado por Mercado Pago.
+- **MPG-03** **Categoría automática**: la categoría sale de las reglas de comercio del usuario y, si ninguna aplica, de las globales (TXT-03, 04). Los rendimientos van a la categoría de sistema Rendimientos.
+- **MPG-04** **Para categorizar**: lo que no encontró categoría entra igual, confirmado y sin categoría. El inicio muestra el aviso "N movimientos para categorizar" (como "Para confirmar") y Movimientos tiene el filtro "Para categorizar". Al elegir la categoría, platin ofrece la regla con la primera palabra del motivo, como el bot (BOT-03).
+- **MPG-05** **Reservas**: cada reserva de Mercado Pago se asigna a una reserva de platin de esa cuenta (o se crea). Lo que entra o sale de una reserva en Mercado Pago es una **transferencia** entre el saldo de la cuenta y esa reserva. La compra o venta de dólares dentro de Mercado Pago es una transferencia entre el saldo en pesos y el saldo en dólares, con los dos montos.
+- **MPG-06** **Ya lo cargaste**: si llega un movimiento igual a uno cargado a mano o por Telegram (regla "Mercado Pago"), no se crea otro: se vincula al existente y en el detalle se lee "También llegó de Mercado Pago", con "No es el mismo" para crearlo aparte.
+- **MPG-07** **Límite del plan**: en el plan Gratis entra solo **un movimiento de Mercado Pago por día**; con Pro, todos. Lo que pasa el límite no se crea: Perfil › Mercado Pago dice "Hoy llegaron 3 movimientos más. Con Pro se cargan solos." y la marca de PLN-07 lo anticipa ("1 de 1 hoy"). Esos movimientos se cargan a mano como siempre.
+- **MPG-08** **Corregir**: un movimiento de Mercado Pago se edita y se borra como cualquier otro (MOV-04); borrado, no vuelve a entrar. Desde su detalle también se puede convertir en **transferencia a otra cuenta mía** o en **pago de una tarjeta**, para cuando el dinero no se gastó sino que se movió (pasar plata a Santander, pagar la Visa desde Mercado Pago).
+- **MPG-09** **Para revisar**: lo que platin no puede ubicar solo (una reserva sin asignar, una moneda no activada) no se pierde: queda en Perfil › Mercado Pago, "Para revisar", con lo que falta resolver, y se aplica al resolverlo.
+- **MPG-10** **Desconectar** desde Perfil › Mercado Pago, o cuando la persona quita el permiso desde Mercado Pago. Se borran las credenciales y dejan de entrar movimientos; lo que ya entró se conserva. Si la autorización vence o se revoca, el perfil y el inicio muestran "Volvé a conectar Mercado Pago".
 
 ## Reglas de negocio
 
@@ -615,6 +631,50 @@ Ejemplos que tienen que pasar tal cual:
   - `NO_BALANCE_IN_CURRENCY`: "{cuenta} no tiene saldo en {moneda}."
 - Un texto que no es ningún comando ni se entiende se guarda en mensajes no entendidos (BOT-06) y recibe el mensaje de su error.
 
+### Mercado Pago
+
+Lo que la API de Mercado Pago informa de cada tipo de movimiento se confirma en la fase 40; estas reglas valen para lo que efectivamente llegue.
+
+**Qué se crea**
+
+- Cada movimiento de Mercado Pago se procesa **una sola vez**, identificado por su id en Mercado Pago, aunque llegue repetido o por dos caminos (aviso al momento y sincronización al abrir la app).
+- El monto es el **neto**: lo que entró o salió del saldo de Mercado Pago, con las comisiones ya descontadas. Así el saldo de platin coincide con el de Mercado Pago.
+- La fecha es el día en que ocurrió en Mercado Pago, en hora de Argentina, aunque llegue más tarde (servidor dormido).
+- Entrada al saldo → ingreso; salida del saldo → gasto; entre el saldo y una reserva → transferencia (apartar o retirar); compra o venta de moneda → transferencia entre los dos saldos de la cuenta, con los dos montos. Un rendimiento → ingreso en la categoría Rendimientos.
+- Un pago rechazado, cancelado o pendiente en Mercado Pago no crea nada; si después se aprueba, entra en ese momento. Una devolución de un pago ya traído crea el movimiento contrario (un ingreso por la devolución de un gasto), con el motivo "Devolución: {motivo original}".
+- Los movimientos de Mercado Pago no son programados ni pendientes: entran confirmados y cuentan en el libre del mes como cualquier movimiento confirmado.
+
+**Categoría**
+
+- Se busca en el motivo con las mismas reglas de comercio de la carga por texto: primero las del usuario, después las globales, por palabra entera.
+- Sin regla que aplique, queda sin categoría y aparece en "Para categorizar". Un movimiento sin categoría cuenta en el libre y en los saldos; en presupuestos y reportes se ve como "Sin categoría".
+
+**Ya lo cargaste**
+
+- Antes de crear un ingreso o un gasto, se busca uno ya cargado en la misma cuenta y moneda, del mismo tipo, con el **mismo monto exacto**, con fecha hasta **2 días antes o después** y que no esté vinculado a otro movimiento de Mercado Pago. Si hay varios, el de fecha más cercana; si empatan, el más viejo.
+- Si lo encuentra, no crea nada: lo vincula y conserva lo que cargó la persona (categoría, motivo, fecha). "No es el mismo" deshace el vínculo y crea el de Mercado Pago.
+- Ejemplo: el lunes 23/11 cargo por Telegram "café 3500 mp"; el martes 24/11 llega de Mercado Pago un pago de $ 3.500 a "Café Martínez" del 23/11 → se vincula, no se duplica. Si llega uno de $ 3.600, se crea aparte.
+- Un gasto también se vincula a una transferencia o a un pago de tarjeta ya cargado que sale del saldo de esa cuenta, con el mismo monto y en la misma ventana; un ingreso, a una transferencia que entra. Así pagar la Visa en platin y después en Mercado Pago no lo cuenta como gasto.
+- Lo que entra o sale de una reserva y las compras de moneda no se buscan como duplicados.
+
+**Reservas**
+
+- Cada reserva de Mercado Pago se asigna una vez a una reserva de platin de la misma cuenta y moneda. Hasta que se asigna, lo que entra o sale de ella queda en "Para revisar" y no toca saldos; al asignarla se aplica todo lo que estaba esperando, en orden.
+- También queda en "Para revisar" un movimiento en una moneda no activada (MON-01), hasta activarla, y uno en una moneda que la cuenta no tiene, hasta agregarle esa moneda (CTA-02).
+
+**Límite del plan Gratis**
+
+- Cuenta lo que se **crea** desde Mercado Pago (ingresos, gastos y transferencias), por día de su fecha. Lo vinculado a algo ya cargado y lo que queda en "Para revisar" no cuenta; cuenta al aplicarse.
+- Con el límite alcanzado, lo que llega ese día no se crea ni se guarda: solo se cuenta para el aviso "Hoy llegaron N movimientos más". Pasar a Pro no trae lo que quedó afuera.
+- Ejemplo con el Gratis: el 23/11 llegan, en orden, un pago de $ 3.500 (se crea), un cobro de $ 20.000 (no se crea) y un pago de $ 1.200 igual a uno cargado a mano (se vincula, no cuenta). El perfil dice "1 de 1 hoy" y "Hoy llegó 1 movimiento más".
+
+**Conexión**
+
+- Solo la persona conecta y desconecta su cuenta; el administrador ve cuántas cuentas hay conectadas, nunca sus movimientos.
+- Las credenciales de Mercado Pago se guardan cifradas y se renuevan solas antes de vencer. Si la renovación falla, la conexión queda "Para volver a conectar" y no se pierde lo ya traído.
+- "Empezar de cero" (AUTH-09) desconecta Mercado Pago, porque borra la cuenta a la que estaba conectado. Eliminar la cuenta de platin la desconecta y borra todo lo de la conexión.
+- Un usuario suspendido no recibe movimientos: lo que llega mientras tanto no se crea.
+
 ## Alcance: MVP, backlog y fuera de alcance
 
 El MVP es lo mínimo para dejar de usar la versión actual: cuentas, movimientos, tarjetas con cuotas, fijos, compromisos y metas. Presupuestos, inversiones y reportes completos van en una segunda tanda.
@@ -629,13 +689,14 @@ El MVP es lo mínimo para dejar de usar la versión actual: cuentas, movimientos
 | Compromisos | COM-01, 02 | COM-03 liberación de cuotas |
 | Presupuestos | — | PRE-01 a 03 |
 | Metas | MET-01, 02, 03 | MET-04 simulación, MET-05 |
-| Inversiones | — | INV-01 a 03, INV-07 a 12 precio automático (iteración 14) |
+| Inversiones | — | INV-01 a 03, INV-07 a 12 precio automático (iteración 15) |
 | Dashboard y reportes | DAS-01 (versión simple) | DAS-02, DAS-03 |
 | Landing | LAN-01, LAN-02 | — |
 
 Fuera de alcance por ahora:
 
-- Importar extractos bancarios o resúmenes en PDF/CSV.
+- Importar extractos bancarios o resúmenes en PDF/CSV. (La conexión con Mercado Pago de la iteración 14 no es una importación de extractos: trae los movimientos desde que se conecta.)
+- Conexiones con otras billeteras y bancos además de Mercado Pago.
 - Bonos y ONs con precio automático (cotizan cada 100 de valor nominal y pagan cupones); se siguen a mano.
 - Dividendos y splits automáticos: se cargan como ingreso o como corrección de cantidad.
 - Criptomonedas como moneda (USDT, BTC). Se pueden seguir como apartados de inversión con valuación manual.
@@ -736,6 +797,14 @@ Menos secciones y mejor agrupadas, y pantallas que usan el ancho del escritorio.
 
 ### Iteración 14 (noviembre 2026)
 
+Que los movimientos de Mercado Pago entren solos, al momento.
+
+- Conectar Mercado Pago, movimientos confirmados con categoría automática, "Para categorizar", reservas como transferencias, detección de lo ya cargado, conversión en transferencia o pago de tarjeta y desconexión (MPG-01 a 10).
+- Un movimiento por día en el plan Gratis; todos con Pro (MPG-07).
+- Otras billeteras y bancos quedan para más adelante: hoy ninguna otra billetera argentina tiene una API pública para leer los movimientos de una cuenta, y los bancos solo a través de agregadores pagos.
+
+### Iteración 15 (noviembre 2026)
+
 - Inversiones con precio automático: CEDEARs y acciones (Data912), FCI con sus clases, incluidos los Superfondos (ArgentinaDatos), y cripto (CoinGecko). Se carga la cantidad y platin calcula el valor (INV-07 a 10).
 - Plazos fijos con valor calculado a partir de capital, TNA y fechas (INV-12).
 - Valuación automática a fin de mes para todo lo que tiene precio (INV-11). Lo demás se sigue actualizando a mano.
@@ -821,3 +890,4 @@ No usar Postgres de Render: las bases gratuitas vencen a los 30 días.
 - [ ] UI: propuesta Tailwind + Angular CDK en lugar de Material o PrimeNG, que pelean con una identidad propia. Confirmar.
 - [ ] Nombre y logo del producto: pendientes. Paleta y tipografía: decididas, las de Hecho.
 - [ ] Migración: decidido, no se migran datos; se cargan a mano.
+- [ ] Mercado Pago (fase 40): qué movimientos de una cuenta personal informa la API (pagos con QR o con el saldo, transferencias enviadas y recibidas, rendimientos, movimientos de reservas, compra de dólares) y cuáles avisa al momento. Lo que no llegue por ningún camino se sigue cargando a mano.

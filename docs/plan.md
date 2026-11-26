@@ -1400,19 +1400,110 @@ Forma de trabajo:
 - Rama feat/fase-39-onboarding. Todo en verde antes del PR, con capturas de cada paso en celular y escritorio, de la hoja de consumos y del inicio a medias.
 ```
 
-## Iteración 14: inversiones con precio
+## Iteración 14: Mercado Pago
 
-Tres fases para que las inversiones dejen de actualizarse a mano: primero el modelo y el plazo fijo, que no necesitan ninguna API; después los FCI, que es lo que más se usa; y al final CEDEARs, acciones y cripto. Cada fase deja algo usable y lo que no tiene precio sigue a mano como hasta ahora. Las decisiones están en `docs/adr/0037-inversiones-con-precio.md`.
+Que los movimientos de Mercado Pago entren solos, al momento. La 40 es una prueba técnica corta contra una cuenta real, porque la API de Mercado Pago está pensada para vendedores y hay que confirmar qué informa de lo que una persona paga, transfiere o mueve entre reservas. La 41 construye la conexión con lo que se confirme.
+
+**Antes de la 40 (vos):**
+
+1. En [Mercado Pago Developers](https://www.mercadopago.com.ar/developers/panel/app), crear una aplicación ("platin"), con OAuth habilitado y PKCE si lo ofrece.
+2. Cargar como dirección de retorno `https://<app>.vercel.app/api/v1/feeds/mercado-pago/callback` y la de local (`http://localhost:4200/api/v1/feeds/mercado-pago/callback`; si Mercado Pago exige HTTPS, la de un túnel como el de Apple en "Ingreso con proveedores externos").
+3. En Webhooks, la URL de Render `https://<api>.onrender.com/api/v1/feeds/mercado-pago/webhook` con los eventos de pagos y de vinculación de aplicaciones, y copiar la clave secreta.
+4. Cargar en tu `.env` local (nunca en el chat ni en el repo) `MERCADOPAGO_CLIENT_ID`, `MERCADOPAGO_CLIENT_SECRET`, `MERCADOPAGO_WEBHOOK_SECRET` y un `FEED_TOKEN_KEY` generado con `openssl rand -base64 32`.
+5. Durante la 40, usar tu cuenta personal de Mercado Pago unos días con los movimientos de siempre: un pago con QR, una transferencia enviada y una recibida, mover plata a una reserva y sacarla, y si podés, comprar dólares.
 
 | Fase | Qué se construye | Casos de uso | Terminado cuando |
 | --- | --- | --- | --- |
-| 40 | Modelo de tenencias, interfaz de proveedores, plazo fijo calculado y valuación automática de fin de mes | INV-11, INV-12 | Cargo un plazo fijo de $ 1.000.000 al 30 % a 30 días, veo $ 1.012.328,77 a los 15 días, y al empezar el mes siguiente aparece su valuación sola |
-| 41 | FCI con precio automático (ArgentinaDatos), vincular inversiones, invertir con cantidad y corregir cantidad | INV-07 a 10 (FCI) | Vinculo mi apartado a "Super Ahorro $ - Clase A" con 150 cuotapartes y veo su valor del último día hábil sin cargar nada |
-| 42 | CEDEARs y acciones (Data912) y cripto (CoinGecko) | INV-07 a 10 (CEDEAR, acción, cripto) | Mis 20 AAPL y mi BTC muestran su valor con el precio del día; si Data912 no responde, los FCI se siguen actualizando y los CEDEARs avisan "Precio al…" |
+| 40 | Prueba técnica de la API de Mercado Pago, sin pantallas ni esquema | Pregunta abierta "Mercado Pago" | Hay un ADR con qué movimientos informa la API, cuáles avisa al momento y cómo se reconoce cada tipo, y las reglas y la arquitectura de la iteración quedan ajustadas a eso |
+| 41 | Conexión con Mercado Pago | MPG-01 a 10 | Conecto mi cuenta, pago un café con QR y en segundos aparece en Movimientos con su categoría; lo que no tiene regla queda para categorizar; mover a una reserva es una transferencia; con el plan Gratis entra uno por día |
+
+## Fase 40 — Prueba técnica de Mercado Pago
+
+Responde la pregunta abierta antes de diseñar pantallas: qué llega, por qué camino y cómo se reconoce. No se mergea código de producción salvo `MercadoPagoProvider` si queda listo.
+
+**Terminado cuando:**
+
+- con tu cuenta conectada por OAuth en local, un script lista lo que devuelve cada endpoint candidato (búsqueda de pagos como cobrador y como pagador, movimientos o reportes de la cuenta, reservas) para los últimos 30 días, **anonimizado** (sin nombres, CVU ni montos reales en la salida que se commitea);
+- para cada movimiento de la lista de "Antes de la 40" sabemos si aparece, en qué endpoint, si llega un webhook y con qué tópico, y cómo se distingue (cobro, pago, transferencia, reserva, compra de moneda, rendimiento, devolución);
+- sabemos si el monto informado es bruto o neto, en qué zona horaria vienen las fechas, cuánto tarda y cuántas veces reintenta un webhook que recibe un 500, y si PKCE y la renovación del token funcionan;
+- `docs/adr/0038-api-de-mercado-pago.md` registra lo anterior, y `docs/especificacion.md` (regla "Mercado Pago") y `docs/arquitectura.md` ("Iteración 14") quedan ajustadas; lo que la API no informe figura como "se carga a mano".
+
+```
+Leé CLAUDE.md; el módulo 16 (MPG-01 a 10), la regla "Mercado Pago" y la pregunta abierta "Mercado Pago" de docs/especificacion.md; en docs/arquitectura.md "Iteración 14: Mercado Pago"; y docs/adr/0037-conexion-con-mercado-pago.md.
+
+Vamos a hacer la Fase 40 de docs/plan.md: una prueba técnica para saber qué informa la API de Mercado Pago de una cuenta personal. Las credenciales están en mi .env local; no las pidas ni las imprimas.
+
+1. Un script en apps/api/scripts/mercado-pago-probe.ts (nx run api:mp-probe) que haga el flujo OAuth con PKCE en local (abre la URL, recibe el callback en localhost) y guarde el token solo en memoria o en un archivo ignorado por git.
+2. Con ese token, consultá los endpoints candidatos para los últimos 30 días: búsqueda de pagos como cobrador y como pagador, lo que haya de movimientos o saldo de la cuenta, reservas, y los reportes de liberaciones y de dinero en cuenta por API. Buscá la documentación oficial de cada uno antes de llamarlo.
+3. Un endpoint temporal en local para recibir webhooks por un túnel HTTPS, que valide x-signature y registre tópico, tipo y demora. Probá qué pasa al responder 500.
+4. Escribí la salida anonimizada en docs/adr/anexos/0038-mercado-pago.md y armá una tabla: tipo de movimiento → endpoint → webhook (sí/no, tópico) → cómo se reconoce → bruto o neto.
+5. Con eso, escribí docs/adr/0038-api-de-mercado-pago.md y proponeme los cambios a la regla "Mercado Pago" y a "Iteración 14" de la arquitectura (los enum ExternalMovementKind, listSince y qué cubre la sincronización de respaldo). No los apliques hasta que te diga.
+6. Si MercadoPagoProvider queda razonable, dejalo detrás de AccountFeedProvider con sus tests con respuestas grabadas (anonimizadas). Si no, solo el ADR.
+
+Forma de trabajo:
+- Plan primero, esperame. No agregues el SDK de Mercado Pago: fetch y node:crypto alcanzan.
+- Nada con datos reales en el repo: revisá el diff antes de cada commit.
+- Rama feat/fase-40-mercado-pago-prueba. PR con el ADR, el anexo y los cambios propuestos a los documentos.
+```
+
+## Fase 41 — Conexión con Mercado Pago
+
+La conexión completa: OAuth, webhook, sincronización de respaldo, reservas, duplicados, "Para categorizar", "Para revisar", conversión y el límite del plan Gratis.
+
+**Terminado cuando:**
+
+- todos los ejemplos de la regla "Mercado Pago" son tests literales en `libs/domain` y pasan;
+- en Perfil › Mercado Pago toco "Conectar", autorizo, vuelvo, elijo mi cuenta Mercado Pago y me ofrece ajustar el saldo; un enlace con la cookie de otra sesión no conecta nada; una cuenta de Mercado Pago ya conectada a otro usuario da `FEED_ACCOUNT_TAKEN`;
+- pago un café con QR y en segundos aparece en Movimientos, confirmado, con la marca de Mercado Pago y en Cafés por mi regla; el saldo de la cuenta cambia;
+- un pago a un comercio sin regla entra sin categoría, el inicio dice "1 movimiento para categorizar", lo categorizo y me ofrece la regla;
+- cargo "café 3500 mp" por Telegram, llega el mismo pago de Mercado Pago y no se duplica; "No es el mismo" lo crea aparte;
+- pago el resumen de la Visa desde Mercado Pago en platin y, cuando llega el pago de Mercado Pago, se vincula a ese pago y no cuenta como gasto;
+- muevo plata a la reserva Vacaciones en Mercado Pago: queda en "Para revisar" hasta que la asigno a mi reserva Vacaciones, y entonces se aplica como transferencia;
+- convierto una transferencia a Santander en "Es una transferencia mía" y el pago de la Visa en "Es el pago de una tarjeta", y los saldos y el resumen cierran;
+- con el plan Gratis, el segundo movimiento del día no se crea y el perfil dice "Hoy llegó 1 movimiento más"; con Pro entran todos;
+- un aviso repetido no crea nada, una firma inválida da 401, Render dormido no pierde movimientos (los trae `POST /sync`), y un usuario suspendido no recibe nada;
+- desconecto y dejan de entrar; quitar el permiso desde Mercado Pago deja "Volvé a conectar Mercado Pago"; "Empezar de cero" borra la conexión.
+
+```
+Leé CLAUDE.md; el módulo 16 (MPG-01 a 10) y la regla "Mercado Pago" de docs/especificacion.md; en docs/arquitectura.md "Iteración 14: Mercado Pago", "Componentes y patrones de la iteración 14", "Ingreso con proveedores externos" y las variables de entorno de Mercado Pago; docs/adr/0037-conexion-con-mercado-pago.md y docs/adr/0038-api-de-mercado-pago.md (de la fase 40).
+
+Vamos a hacer la Fase 41 de docs/plan.md. Si el ADR 0038 contradice algo de la arquitectura, gana el ADR: avisame dónde.
+
+Dominio y contratos:
+1. libs/domain/account-feed: planExternalMovement, findDuplicate y checkDailyLimit, reutilizando la búsqueda de reglas de text-entry. Los ejemplos de la regla como tests literales, más los bordes: dos candidatos a la misma distancia, ±2 días justo, devolución de un pago ya traído, FX con los dos montos, reserva sin asignar, moneda no activada, límite 0 y null.
+2. maxFeedMovementsPerDay en el esquema de límites de libs/contracts y los esquemas de /feeds.
+
+Backend:
+3. Migración según la arquitectura (Channel MERCADO_PAGO, FeedConnection, FeedReserve, ExternalMovement, FeedDailyUsage, FeedWebhookEvent y la clave nueva en los planes existentes). Mostrame la migración antes de aplicarla.
+4. Módulo feeds: AccountFeedProvider, MercadoPagoProvider (de la fase 40), FeedTokenCipher, FeedProviderRegistry, connect y callback con la cookie feed_tx, PATCH de la cuenta, reservas, held, usage y DELETE.
+5. Webhook directo a Render con x-signature en tiempo constante, FeedIngestService compartido con POST /sync (cursor, renovación del token, reintento de HELD, limpieza) y el aviso de desvinculación.
+6. POST /transactions/:id/convert, POST /external-movements/:id/unlink, GET /transactions?uncategorized=true y uncategorizedCount en el dashboard. Presupuestos, reportes y gráficos con "Sin categoría".
+7. "Empezar de cero" y el borrado de cuenta borran lo nuevo; métricas del administrador solo con conteos.
+8. Tests e2e con un proveedor falso: aislamiento entre usuarios, cookie feed_tx ajena, FEED_ACCOUNT_TAKEN, firma inválida, aviso duplicado, webhook y sync del mismo movimiento, duplicado vinculado y desvinculado, reserva sin asignar y luego asignada, límite del plan, conversión, borrado que no vuelve a entrar, suspendido, desconexión y revocación.
+
+Web:
+9. Perfil › Mercado Pago con FeedAccountSheet, reservas, "Para revisar" y uso del día con la marca de plan. Si el proveedor no está configurado, la sección no aparece.
+10. UncategorizedNotice en el inicio, filtro "Para categorizar" en Movimientos con la oferta de regla al categorizar, marca de canal y las acciones del detalle (transferencia mía, pago de tarjeta, No es el mismo).
+11. Textos en un archivo de textos de la feature, en español rioplatense.
+
+Forma de trabajo:
+- Plan primero, esperame. Si conviene, dividila en 41a (dominio, migración y backend) y 41b (web).
+- No agregues el SDK de Mercado Pago ni otras dependencias sin consultarme.
+- Rama feat/fase-41-mercado-pago. Todo en verde antes del PR, con capturas del perfil (sin conectar, conectado, con "Para revisar"), del aviso del inicio y del detalle de un movimiento de Mercado Pago.
+
+## Iteración 15: inversiones con precio
+
+Tres fases para que las inversiones dejen de actualizarse a mano: primero el modelo y el plazo fijo, que no necesitan ninguna API; después los FCI, que es lo que más se usa; y al final CEDEARs, acciones y cripto. Cada fase deja algo usable y lo que no tiene precio sigue a mano como hasta ahora. Las decisiones están en `docs/adr/0040-inversiones-con-precio.md`.
+
+| Fase | Qué se construye | Casos de uso | Terminado cuando |
+| --- | --- | --- | --- |
+| 42 | Modelo de tenencias, interfaz de proveedores, plazo fijo calculado y valuación automática de fin de mes | INV-11, INV-12 | Cargo un plazo fijo de $ 1.000.000 al 30 % a 30 días, veo $ 1.012.328,77 a los 15 días, y al empezar el mes siguiente aparece su valuación sola |
+| 43 | FCI con precio automático (ArgentinaDatos), vincular inversiones, invertir con cantidad y corregir cantidad | INV-07 a 10 (FCI) | Vinculo mi apartado a "Super Ahorro $ - Clase A" con 150 cuotapartes y veo su valor del último día hábil sin cargar nada |
+| 44 | CEDEARs y acciones (Data912) y cripto (CoinGecko) | INV-07 a 10 (CEDEAR, acción, cripto) | Mis 20 AAPL y mi BTC muestran su valor con el precio del día; si Data912 no responde, los FCI se siguen actualizando y los CEDEARs avisan "Precio al…" |
 
 **Antes de empezar (vos):** mockups de la pestaña Inversiones con una inversión vinculada (cantidad, precio con fecha, valor en vivo), del selector de instrumento, de Invertir con cantidad y del detalle de un plazo fijo, en `docs/mockups/inversiones-precio/` con su README. Sin mockups, cada fase propone la UI a partir de las pantallas actuales y la mostrás antes de implementar.
 
-## Fase 40 — Tenencias y plazo fijo
+## Fase 42 — Tenencias y plazo fijo
 
 Deja listo todo lo que no depende de una API: el esquema, las reglas de dominio, el módulo `prices` con su interfaz (todavía sin proveedores) y el plazo fijo, que se calcula solo.
 
@@ -1425,16 +1516,16 @@ Deja listo todo lo que no depende de una API: el esquema, las reglas de dominio,
 - el aislamiento entre usuarios está probado para los endpoints nuevos.
 
 ```
-Leé CLAUDE.md; INV-01 a 05, INV-11 e INV-12 y las reglas "Inversiones" e "Inversiones con precio automático" de docs/especificacion.md; en docs/arquitectura.md "Iteración 14: inversiones con precio", "Precios de inversiones" y "Lógica de dominio"; y docs/adr/0012-inversiones.md y docs/adr/0037-inversiones-con-precio.md.
+Leé CLAUDE.md; INV-01 a 05, INV-11 e INV-12 y las reglas "Inversiones" e "Inversiones con precio automático" de docs/especificacion.md; en docs/arquitectura.md "Iteración 15: inversiones con precio", "Precios de inversiones" y "Lógica de dominio"; y docs/adr/0012-inversiones.md y docs/adr/0040-inversiones-con-precio.md.
 
-Vamos a hacer la Fase 40 de docs/plan.md: tenencias, plazo fijo y valuación automática. Todavía sin ningún proveedor de precios.
+Vamos a hacer la Fase 42 de docs/plan.md: tenencias, plazo fijo y valuación automática. Todavía sin ningún proveedor de precios.
 
 Dominio y contratos:
 1. holdingUnits, marketValue, unitsForAmount, termDepositValue y autoValuationsDue en libs/domain, con los ejemplos de la especificación como tests literales y los bordes: plazo fijo el día de constitución, el de vencimiento y después; cantidad con rescate total y con una corrección que la dejaría negativa; valuación automática cuando ya hay una en esa fecha o después.
 2. Esquemas en libs/contracts: pricing en el resumen de cada inversión, PUT /pockets/:id/term-deposit y units opcional en POST /transfers.
 
 Backend:
-3. Migración con todo el esquema de la iteración 14 (aunque Instrument y PocketHolding se usen en la fase 41), así no se migra dos veces. Avisame antes de correrla.
+3. Migración con todo el esquema de la iteración 15 (aunque Instrument y PocketHolding se usen en la fase 43), así no se migra dos veces. Avisame antes de correrla.
 4. Módulo prices con la interfaz PriceProvider y el registro por PriceSource, sin implementaciones; mové el helper que cita números antes de JSON.parse de rates a common/ y que rates lo siga usando.
 5. PUT /pockets/:id/term-deposit con sus validaciones. GET /investments con pricing para plazos fijos (mode TERM_DEPOSIT) y los totales con su valor calculado; overdue solo mira las inversiones a mano.
 6. POST /sync: valuaciones automáticas del mes anterior con autoValuationsDue, reutilizando la creación de valuaciones de InvestmentsService (misma transacción, mismo movimiento YIELD), con source AUTO.
@@ -1446,12 +1537,12 @@ Web:
 
 Forma de trabajo:
 - Plan primero, esperame.
-- Rama feat/fase-40-tenencias-y-plazo-fijo. Todo en verde antes del PR, con capturas de Inversiones con un plazo fijo vigente y uno vencido, y de "Actualizar valores".
+- Rama feat/fase-42-tenencias-y-plazo-fijo. Todo en verde antes del PR, con capturas de Inversiones con un plazo fijo vigente y uno vencido, y de "Actualizar valores".
 ```
 
-## Fase 41 — FCI con precio automático
+## Fase 43 — FCI con precio automático
 
-El primer proveedor real: ArgentinaDatos, con todos los FCI que informan a la CAFCI (incluidos los Superfondos, clase por clase). También el vínculo entre una inversión y un instrumento, invertir con cantidad y corregir cantidad, que después reusa la fase 42.
+El primer proveedor real: ArgentinaDatos, con todos los FCI que informan a la CAFCI (incluidos los Superfondos, clase por clase). También el vínculo entre una inversión y un instrumento, invertir con cantidad y corregir cantidad, que después reusa la fase 44.
 
 **Terminado cuando:**
 - busco "super ahorro" y aparecen sus clases con su moneda; "Superfondo 2000" y los demás dados de baja no aparecen;
@@ -1465,9 +1556,9 @@ El primer proveedor real: ArgentinaDatos, con todos los FCI que informan a la CA
 - el aislamiento entre usuarios está probado para vincular, corregir y transferir con cantidad.
 
 ```
-Leé CLAUDE.md; INV-07 a 11 y la regla "Inversiones con precio automático" de docs/especificacion.md; en docs/arquitectura.md "Iteración 14: inversiones con precio" y "Precios de inversiones"; docs/adr/0037-inversiones-con-precio.md; y docs/mockups/inversiones-precio/ si ya existe.
+Leé CLAUDE.md; INV-07 a 11 y la regla "Inversiones con precio automático" de docs/especificacion.md; en docs/arquitectura.md "Iteración 15: inversiones con precio" y "Precios de inversiones"; docs/adr/0040-inversiones-con-precio.md; y docs/mockups/inversiones-precio/ si ya existe.
 
-Vamos a hacer la Fase 41 de docs/plan.md: FCI con precio automático desde ArgentinaDatos.
+Vamos a hacer la Fase 43 de docs/plan.md: FCI con precio automático desde ArgentinaDatos.
 
 Backend:
 1. ArgentinaDatosProvider con catalog (todas las categorías de FCI, en paralelo; sin los fondos con último valor de más de 10 días hábiles), latest y at (histórico del fondo). Números citados antes de JSON.parse. Tests unitarios con respuestas guardadas como fixtures, incluida una con un fondo dado de baja y una con números con muchos decimales.
@@ -1475,7 +1566,7 @@ Backend:
 3. Refresco del catálogo una vez por día y de precios según "Precios de inversiones"; GET /instruments?type=&q= sin distinguir mayúsculas ni tildes.
 4. PUT/DELETE /pockets/:id/holding, POST /pockets/:id/holding/adjustments y DELETE /holding-adjustments/:id, con sus errores.
 5. POST /transfers con units hacia o desde un apartado vinculado (UNITS_REQUIRED, HOLDING_UNITS_NEGATIVE).
-6. GET /investments con pricing MARKET (cantidad, precio, fecha, stale, valor y rendimiento en vivo) y los totales con el valor de mercado. La valuación automática de la fase 40 ahora también cubre las inversiones vinculadas, con el precio de PriceProvider.at.
+6. GET /investments con pricing MARKET (cantidad, precio, fecha, stale, valor y rendimiento en vivo) y los totales con el valor de mercado. La valuación automática de la fase 42 ahora también cubre las inversiones vinculadas, con el precio de PriceProvider.at.
 7. Tests e2e con el proveedor reemplazado por uno falso: el recorrido del criterio de terminado, el proveedor caído, la valuación automática y el aislamiento entre usuarios.
 
 Web:
@@ -1485,13 +1576,13 @@ Web:
 11. Textos en investments.texts.ts.
 
 Forma de trabajo:
-- Plan primero, esperame. Si conviene, dividila en 41a (backend) y 41b (web).
-- Rama feat/fase-41-fci-con-precio. Todo en verde antes del PR, con capturas del buscador, de Inversiones con un FCI vinculado, de Invertir con cantidad y del aviso de precio desactualizado.
+- Plan primero, esperame. Si conviene, dividila en 43a (backend) y 43b (web).
+- Rama feat/fase-43-fci-con-precio. Todo en verde antes del PR, con capturas del buscador, de Inversiones con un FCI vinculado, de Invertir con cantidad y del aviso de precio desactualizado.
 ```
 
-## Fase 42 — CEDEARs, acciones y cripto
+## Fase 44 — CEDEARs, acciones y cripto
 
-Los otros dos proveedores, sobre lo que ya dejó la fase 41. No hay pantallas nuevas: el selector, la cantidad y la corrección se reusan.
+Los otros dos proveedores, sobre lo que ya dejó la fase 43. No hay pantallas nuevas: el selector, la cantidad y la corrección se reusan.
 
 **Terminado cuando:**
 - busco "AAPL" y aparecen AAPL en pesos y AAPLD en dólares, cada uno solo para apartados de su moneda;
@@ -1502,9 +1593,9 @@ Los otros dos proveedores, sobre lo que ya dejó la fase 41. No hay pantallas nu
 - un panel de Data912 que cambia de forma (un campo de precio vacío o en cero) no rompe el resumen: ese instrumento queda sin precio nuevo.
 
 ```
-Leé CLAUDE.md; INV-07 a 11 de docs/especificacion.md; "Precios de inversiones" en docs/arquitectura.md; docs/adr/0037-inversiones-con-precio.md; y el módulo prices como quedó en la fase 41.
+Leé CLAUDE.md; INV-07 a 11 de docs/especificacion.md; "Precios de inversiones" en docs/arquitectura.md; docs/adr/0040-inversiones-con-precio.md; y el módulo prices como quedó en la fase 43.
 
-Vamos a hacer la Fase 42 de docs/plan.md: CEDEARs y acciones con Data912 y cripto con CoinGecko.
+Vamos a hacer la Fase 44 de docs/plan.md: CEDEARs y acciones con Data912 y cripto con CoinGecko.
 
 1. Data912Provider: catálogo y precios de /live/arg_cedears y /live/arg_stocks (un pedido por panel), histórico por ticker para la valuación de fin de mes. Moneda según el ticker (los terminados en D son en dólares; confirmá la regla con los datos reales y explicámela). Usá el último operado y, si viene vacío o en cero, ignorá ese instrumento.
 2. CoinGeckoProvider: catálogo con /coins/markets (las primeras 250 por capitalización), precios con /simple/price en un solo pedido para todos los ids, histórico con /coins/{id}/history; siempre en USD. Clave opcional en COINGECKO_API_KEY.
@@ -1514,7 +1605,7 @@ Vamos a hacer la Fase 42 de docs/plan.md: CEDEARs y acciones con Data912 y cript
 
 Forma de trabajo:
 - Plan primero, esperame.
-- Rama feat/fase-42-cedears-acciones-cripto. Todo en verde antes del PR, con capturas de Inversiones con un FCI, un CEDEAR, una cripto y un plazo fijo, y del aviso con Data912 caído.
+- Rama feat/fase-44-cedears-acciones-cripto. Todo en verde antes del PR, con capturas de Inversiones con un FCI, un CEDEAR, una cripto y un plazo fijo, y del aviso con Data912 caído.
 ```
 
 ## Después del MVP

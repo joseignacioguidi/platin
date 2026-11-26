@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app/app.module';
 import { configureApp } from '../src/app/configure-app';
 import { OAUTH_PROVIDERS, OAuthProvider } from '../src/auth/oauth/oauth-provider';
+import { type AccountFeedProvider, FEED_PROVIDERS } from '../src/feeds/account-feed-provider';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { RateProvider } from '../src/rates/rate-provider';
 import { TelegramClient } from '../src/telegram/telegram-client';
@@ -21,6 +22,8 @@ export interface TestAppOptions {
   oauthProviders?: OAuthProvider[];
   /** A fake Telegram API (the real one is never called in tests). */
   telegramClient?: TelegramClient;
+  /** Institution connections to use instead of the ones built from the environment. */
+  feedProviders?: AccountFeedProvider[];
 }
 
 /** Boots the real AppModule against the test database. */
@@ -39,6 +42,9 @@ export async function createTestApp(
   }
   if (options.oauthProviders) {
     builder = builder.overrideProvider(OAUTH_PROVIDERS).useValue(options.oauthProviders);
+  }
+  if (options.feedProviders) {
+    builder = builder.overrideProvider(FEED_PROVIDERS).useValue(options.feedProviders);
   }
   const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication({ logger: false });
@@ -64,6 +70,7 @@ export const UNLIMITED = {
   maxCards: null,
   maxGoals: null,
   maxFixed: null,
+  maxFeedMovementsPerDay: null,
   investments: true,
 };
 

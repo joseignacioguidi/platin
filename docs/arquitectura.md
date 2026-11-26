@@ -599,10 +599,145 @@ Sin cambios de esquema; las decisiones están en `docs/adr/0035-onboarding.md`.
 | `POST /onboarding/dismiss` | AUTH-11 |
 | `POST /fixed` con `startPeriod` | AUTH-05 (fijos cuyo día ya pasó) |
 
+### Iteración 14: Mercado Pago
 
-### Iteración 14: inversiones con precio
+Cambios de esquema en una migración normal de la fase 41; las razones están en `docs/adr/0037-conexion-con-mercado-pago.md`. La fase 40 no cambia el esquema: confirma qué informa la API y puede ajustar los `kind` de abajo (con su propio ADR).
 
-Las decisiones están en `docs/adr/0037-inversiones-con-precio.md`. Las cantidades usan `Decimal(24, 8)` y los precios `Decimal(18, 6)`, como las cotizaciones.
+La implementación (fase 41, `docs/adr/0039-mercado-pago-implementacion.md`) suma `FeedSkippedMovement` (ids que quedaron afuera del límite, para no contarlos dos veces), `direction` y `refundOf` en `ExternalMovement`, la unicidad de `FeedConnection.accountId` y un trigger que pasa a `DISMISSED` lo que se borra. El filtro "Para categorizar" es `GET /movements?uncategorized=true`.
+
+```prisma
+enum Channel { APP TELEGRAM MERCADO_PAGO }
+
+enum FeedProvider { MERCADO_PAGO }
+
+enum FeedStatus {
+  NEEDS_ACCOUNT    // autorizado, falta elegir la cuenta de platin
+  ACTIVE
+  NEEDS_RECONNECT  // la renovación falló o Mercado Pago revocó el permiso
+}
+
+enum ExternalMovementKind {
+  INCOME           // entró al saldo
+  EXPENSE          // salió del saldo
+  YIELD            // rendimiento del saldo
+  RESERVE_IN       // del saldo a una reserva
+  RESERVE_OUT      // de una reserva al saldo
+  FX               // compra o venta de moneda dentro de la cuenta
+  REFUND           // devolución de un movimiento ya traído
+}
+
+enum ExternalMovementStatus {
+  APPLIED          // creó un Transaction o un Transfer
+  LINKED           // se vinculó a uno ya cargado (MPG-06)
+  HELD             // "Para revisar" (MPG-09)
+  DISMISSED        // la persona borró lo que había creado: no vuelve a entrar
+}
+
+model FeedConnection {                    // MPG-01, 10
+  id               String       @id @default(uuid()) @db.Uuid
+  userId           String       @db.Uuid
+  provider         FeedProvider
+  externalUserId   String                    // el user_id de Mercado Pago
+  accountId        String?      @db.Uuid     // la cuenta de platin; null mientras NEEDS_ACCOUNT
+  status           FeedStatus
+  accessTokenEnc   Bytes?                    // AES-256-GCM con FEED_TOKEN_KEY; null al desconectar
+  refreshTokenEnc  Bytes?
+  tokenExpiresAt   DateTime?
+  cursor           String?                   // hasta dónde llegó la sincronización de respaldo
+  connectedAt      DateTime     @default(now())
+  lastEventAt      DateTime?
+  @@unique([userId, provider])
+  @@unique([provider, externalUserId])       // una cuenta de Mercado Pago, un usuario de platin
+}
+
+model FeedReserve {                       // MPG-05
+  id                String  @id @default(uuid()) @db.Uuid
+  connectionId      String  @db.Uuid
+  externalReserveId String
+  name              String                   // el nombre en Mercado Pago, para mostrarlo al asignar
+  currency          Currency
+  pocketId          String? @db.Uuid         // la reserva de platin; null hasta asignarla
+  @@unique([connectionId, externalReserveId])
+}
+
+model ExternalMovement {                  // un movimiento de Mercado Pago ya procesado
+  id            String                 @id @default(uuid()) @db.Uuid
+  userId        String                 @db.Uuid
+  connectionId  String                 @db.Uuid
+  externalId    String                           // id en Mercado Pago
+  kind          ExternalMovementKind
+  status        ExternalMovementStatus
+  holdReason    String?                          // RESERVE_NOT_MAPPED | CURRENCY_NOT_ENABLED | NO_BALANCE_IN_CURRENCY | NO_ACCOUNT
+  amount        Decimal                @db.Decimal(18, 2)   // neto, positivo
+  amountIn      Decimal?               @db.Decimal(18, 2)   // solo FX: lo que entró en la otra moneda
+  currency      Currency
+  currencyIn    Currency?
+  date          DateTime               @db.Date
+  occurredAt    DateTime                         // para ordenar dentro del día
+  description   String                           // comercio o contraparte
+  externalReserveId String?
+  transactionId String?                @db.Uuid @unique
+  transferId    String?                @db.Uuid @unique
+  createdAt     DateTime               @default(now())
+  @@unique([connectionId, externalId])           // idempotencia de webhook y sincronización
+  @@index([userId, status])
+}
+
+model FeedDailyUsage {                    // MPG-07: lo creado y lo que quedó afuera, por día
+  userId    String   @db.Uuid
+  day       DateTime @db.Date
+  created   Int      @default(0)
+  overLimit Int      @default(0)
+  @@id([userId, day])
+}
+
+model FeedWebhookEvent {                  // idempotencia por x-request-id; se limpia a los 3 días
+  requestId  String   @id
+  receivedAt DateTime @default(now())
+}
+```
+
+- **Proveedor**: `AccountFeedProvider` con `buildAuthorizationUrl`, `exchangeCode`, `refresh`, `verifyWebhook(headers, query)`, `getMovement(token, resourceId)` y `listSince(token, cursor)`. Todos devuelven `ExternalMovementInput` (los campos de `ExternalMovement` sin estado) o nada si el recurso no es un movimiento terminado (pendiente, rechazado). `MercadoPagoProvider` lo implementa con `fetch`; en los tests se reemplaza por uno falso. `FeedProviderRegistry` habilita un proveedor solo si sus variables están definidas, como `OAuthProviderRegistry`.
+- **Dominio (`libs/domain/account-feed`)**:
+  - `planExternalMovement(movement, context)` con `context = { account, pockets, enabledCurrencies, reserves, candidates, rules, globalRules, categories, usage, limit }` devuelve `{ action: 'CREATE_TRANSACTION', type, categoryId | null } | { action: 'CREATE_TRANSFER', fromPocketId, toPocketId } | { action: 'LINK', transactionId | transferId } | { action: 'HOLD', reason } | { action: 'OVER_LIMIT' }`.
+  - `findDuplicate(movement, candidates)` con la regla "Ya lo cargaste" (los candidatos son ingresos, gastos y transferencias del saldo de la cuenta en la ventana de ±2 días, sin vínculo) y `checkDailyLimit(limit, usedToday)`.
+  - La búsqueda por reglas de comercio reutiliza la de `text-entry` (palabra entera, sin tildes).
+  - Los ejemplos de la regla "Mercado Pago" son tests literales.
+- **Conectar (MPG-01)**: la web llama a `POST /feeds/:provider/connect` (autenticado). La API genera `state` y el verificador PKCE, los guarda con el `userId` en una cookie firmada `feed_tx` (httpOnly, Secure, `SameSite=Lax`, `Path=/api/v1/feeds`, 10 minutos) **en esa misma respuesta** y devuelve la URL de autorización; la web navega a ella. Mercado Pago vuelve a `GET /feeds/:provider/callback?code=&state=` (por Vercel, en `PUBLIC_APP_URL`), que compara `state` con la cookie, canjea el código, crea la conexión en `NEEDS_ACCOUNT` y redirige a `/app/perfil/mercado-pago`. Como la cookie solo la puede poner una pantalla de platin con sesión, un enlace ajeno no conecta la cuenta de Mercado Pago de otra persona a la suya. Si `externalUserId` ya está conectado a otro usuario: `FEED_ACCOUNT_TAKEN`.
+- **Webhook**: `POST /api/v1/feeds/:provider/webhook` se configura **directo contra Render**, fuera de `ORIGIN_SECRET` y del JWT, como el de Telegram.
+  - Valida `x-signature` (`ts` y `v1`) con HMAC-SHA256 del manifiesto `id:<data.id>;request-id:<x-request-id>;ts:<ts>;` y `MERCADOPAGO_WEBHOOK_SECRET`, en tiempo constante; firma inválida o `ts` de más de 5 minutos → 401.
+  - Busca la conexión por el `user_id` del aviso; si no hay una activa, 200 sin hacer nada.
+  - Lee el movimiento con `getMovement` (el cuerpo del aviso no se usa como dato), corre `planExternalMovement` y escribe todo en una transacción: `FeedWebhookEvent`, `ExternalMovement`, el `Transaction` o `Transfer` y `FeedDailyUsage`. La restricción única `(connectionId, externalId)` hace que un segundo aviso del mismo movimiento no cree nada.
+  - Si Mercado Pago no responde o la transacción falla → 500 y Mercado Pago reintenta. Un problema de datos del usuario nunca es un error: queda `HELD` y se responde 200.
+  - El aviso `mp-connect` de desvinculación pasa la conexión a `NEEDS_RECONNECT` y borra las credenciales.
+- **Sincronización de respaldo**: `POST /sync` renueva el token si vence en menos de 30 días y, para cada conexión activa, llama a `listSince(cursor)` (como mucho los últimos 7 días) y procesa cada movimiento con el mismo servicio que el webhook. Vuelve a intentar los `HELD` cuyo motivo ya se resolvió. Limpia los `FeedWebhookEvent` de más de 3 días.
+- **Servidor dormido**: igual que con Telegram, el primer aviso despierta a Render y puede llegar tarde. Qué reintenta Mercado Pago y por cuánto tiempo se verifica en la fase 40; la sincronización de respaldo cubre lo que no se reintente.
+- **Crear los movimientos**: con los servicios de siempre (`TransactionsService`, `TransfersService`) con `channel: MERCADO_PAGO`, la cotización del día del tipo preferido y sin validar el límite de fecha futura. Los ingresos y gastos van al apartado Disponible de la cuenta en esa moneda; una reserva asignada es la otra punta de `RESERVE_IN`/`RESERVE_OUT`.
+- **Borrar y convertir (MPG-08)**: borrar un movimiento creado desde Mercado Pago deja su `ExternalMovement` en `DISMISSED`. `POST /transactions/:id/convert` con `{ to: 'TRANSFER', toAccountId }` o `{ to: 'CARD_PAYMENT', statementId }` reemplaza el `Transaction` por un `Transfer` en una transacción y mueve el vínculo del `ExternalMovement`. Solo para movimientos con `channel: MERCADO_PAGO` (`NOT_CONVERTIBLE` si no).
+- **Límite (MPG-07)**: `Plan.limits` suma `maxFeedMovementsPerDay: int | null`; la migración lo agrega a los planes existentes (Gratis 1, los demás `null`). `EntitlementsService.feedQuota(userId, day)` lo resuelve y `planExternalMovement` decide; `OVER_LIMIT` solo incrementa `FeedDailyUsage.overLimit`, sin guardar el movimiento.
+- **Para categorizar (MPG-04)**: `GET /transactions?uncategorized=true` y `uncategorizedCount` en `GET /dashboard`. Presupuestos, reportes y gráficos agrupan `categoryId = null` como "Sin categoría".
+- **Privacidad**: los tokens nunca salen del servidor ni van a los logs; los logs del webhook guardan el id del movimiento, no montos ni contrapartes. El módulo `admin` solo ve conteos (conexiones activas, movimientos por semana, porcentaje en "Para revisar").
+- **Borrados**: "Empezar de cero" borra `FeedConnection`, `FeedReserve`, `ExternalMovement` y `FeedDailyUsage` del usuario (pierde la cuenta conectada); eliminar la cuenta, también.
+
+| Método y ruta | Caso de uso |
+| --- | --- |
+| `GET /feeds` | Proveedores habilitados y el estado de cada conexión del usuario |
+| `POST /feeds/:provider/connect` | MPG-01: cookie `feed_tx` y URL de autorización |
+| `GET /feeds/:provider/callback` | MPG-01 (sin JWT; cookie `feed_tx`) |
+| `PATCH /feeds/:provider` con `{ accountId }` | MPG-01: elegir o cambiar la cuenta de platin |
+| `GET /feeds/:provider/reserves`, `PUT /feeds/:provider/reserves/:id` con `{ pocketId }` | MPG-05 |
+| `GET /feeds/:provider/held` | MPG-09: lo retenido, con su motivo |
+| `GET /feeds/:provider/usage` | MPG-07: creados y fuera del límite hoy, y el límite |
+| `DELETE /feeds/:provider` | MPG-10 |
+| `POST /feeds/:provider/webhook` | MPG-02, 05 (sin JWT; firma de Mercado Pago) |
+| `POST /external-movements/:id/unlink` | MPG-06: "No es el mismo" |
+| `POST /transactions/:id/convert` | MPG-08 |
+| `GET /transactions?uncategorized=true` | MPG-04 |
+
+
+### Iteración 15: inversiones con precio
+
+Las decisiones están en `docs/adr/0040-inversiones-con-precio.md`. Las cantidades usan `Decimal(24, 8)` y los precios `Decimal(18, 6)`, como las cotizaciones.
 
 ```prisma
 enum PriceSource      { DATA912 ARGENTINADATOS COINGECKO }
@@ -716,9 +851,10 @@ Un módulo de Nest por dominio; los controladores son finos, los servicios orque
 | `budgets` | Presupuestos y consumo del mes | — |
 | `goals` | Metas y apartados vinculados, simulación | cálculo de metas |
 | `rates` | Cotizaciones: lectura, caché y descarga | — |
-| `prices` | Catálogo de instrumentos y precios: búsqueda, caché y descarga desde los proveedores (iteración 14) | — |
+| `prices` | Catálogo de instrumentos y precios: búsqueda, caché y descarga desde los proveedores (iteración 15) | — |
 | `dashboard` | Agrega "libre este mes", próximos 30 días y alertas | varias |
-| `sync` | Al abrir la app: genera pendientes de fijos y resúmenes faltantes; desde la iteración 14, las valuaciones automáticas del mes anterior | `autoValuationsDue` |
+| `sync` | Al abrir la app: genera pendientes de fijos y resúmenes faltantes; desde la iteración 15, las valuaciones automáticas del mes anterior | `autoValuationsDue` |
+| `feeds` | Conexiones con instituciones (Mercado Pago): OAuth, webhook, sincronización de respaldo, reservas y "Para revisar" | movimiento externo a movimiento, duplicados, límite diario |
 | `prisma` | Cliente de Prisma compartido (global) | — |
 
 ### Convenciones de API
@@ -772,7 +908,7 @@ Todo lo que tiene una regla de la especificación es una función pura en `libs/
 - `pocketBalance(initial, transactions, transfers, at?)` y `accountTotals(pockets)`: saldo de un apartado a una fecha y totales de la cuenta por moneda.
 - `yieldFromValuation(balanceAt, value)`: rendimiento que genera una valuación.
 - `investmentSummary(pocket, transfers, yields)`: invertido neto, valor actual, rendimiento acumulado y del último período.
-- `holdingUnits(initialUnits, transfers, adjustments, at?)`: cantidad de una inversión vinculada a una fecha (iteración 14).
+- `holdingUnits(initialUnits, transfers, adjustments, at?)`: cantidad de una inversión vinculada a una fecha (iteración 15).
 - `marketValue(units, price, currency)` y `unitsForAmount(amount, price)`: valor a precio de mercado y cantidad propuesta al invertir un monto.
 - `termDepositValue(terms, at)`: valor de un plazo fijo a una fecha, con interés simple y tope en el vencimiento.
 - `autoValuationsDue(pockets, today)`: qué apartados necesitan la valuación automática del mes anterior y con qué fecha.
@@ -958,6 +1094,19 @@ Sin cambios de backend ni de esquema: la landing sigue prerenderizada y sin pedi
 | `FreeStep` | El libre del mes con `freePerDay`, el desglose corto y los próximos pasos |
 | `OnboardingResumeCard` | En el inicio, arriba de todo: progreso, lo que falta, "Seguir configurando" y "Ahora no" |
 
+### Componentes y patrones de la iteración 14
+
+Sin mockups propios: siguen el patrón de Perfil › Telegram y de los avisos del inicio.
+
+| Pieza | Uso |
+| --- | --- |
+| Perfil › Mercado Pago | Estado y cuenta de platin conectada, "Conectar" o "Desconectar" (con confirmación), "Volvé a conectar" si corresponde, la lista de reservas con su selector de reserva de platin, "Para revisar" con el motivo y la acción de cada uno, y el uso del día con la marca del plan (PLN-07) |
+| `FeedAccountSheet` | Al volver de Mercado Pago: elegir una cuenta de tipo billetera o "Crear Mercado Pago", y después la oferta de ajustar el saldo |
+| `UncategorizedNotice` | Aviso del inicio "N movimientos para categorizar", junto al de "Para confirmar", que lleva a Movimientos con el filtro |
+| Marca de canal en `pl-list-item` | La misma marca chica de Telegram, con el ícono de Mercado Pago, en Movimientos y en el detalle |
+| Acciones del detalle de un movimiento de Mercado Pago | "Es una transferencia mía", "Es el pago de una tarjeta" y, si está vinculado, "También llegó de Mercado Pago" con "No es el mismo" |
+| Módulo `feeds` de Nest | `FeedsController` (connect, callback, ajustes), `FeedWebhookController`, `FeedIngestService` (lo comparten webhook y sync), `FeedTokenCipher` (AES-256-GCM con `node:crypto`), `FeedProviderRegistry` y `MercadoPagoProvider` |
+
 ## Auth y seguridad
 
 Auth propio con dos tokens: un JWT de acceso corto que vive en memoria y un refresh token largo en una cookie httpOnly, rotado en cada uso. Como Vercel reenvía `/api/*` a Render, la cookie es del mismo dominio que la app y no depende de cookies de terceros.
@@ -1079,7 +1228,7 @@ Para cargar movimientos con fechas viejas hace falta histórico; DolarApi deriva
 
 ## Precios de inversiones
 
-Tres fuentes gratuitas, cada una con lo que hace bien (ADR 0037). El módulo `prices` las usa a través de la interfaz `PriceProvider`, con un registro que elige la implementación por `Instrument.source`:
+Tres fuentes gratuitas, cada una con lo que hace bien (ADR 0040). El módulo `prices` las usa a través de la interfaz `PriceProvider`, con un registro que elige la implementación por `Instrument.source`:
 
 ```ts
 abstract class PriceProvider {
@@ -1160,6 +1309,9 @@ Vercel y Render despliegan solos al hacer push a `main` (integración con GitHub
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME` | Render, local | Token y usuario del bot (de @BotFather). Sin ellos, el bot está apagado y Perfil › Telegram no aparece |
 | `TELEGRAM_WEBHOOK_SECRET` | Render, local | El `secret_token` del webhook (A-Z, a-z, 0-9, `_` y `-`; 32 caracteres o más). Obligatoria si está el token |
 | `TELEGRAM_CODE_PEPPER` | Render, local | Pepper del hash de los códigos de vinculación |
+| `MERCADOPAGO_CLIENT_ID`, `MERCADOPAGO_CLIENT_SECRET` | Render, local | Credenciales de la aplicación de Mercado Pago Developers. Sin ellas, la conexión está apagada y Perfil › Mercado Pago no aparece. Si están, `PUBLIC_APP_URL`, `MERCADOPAGO_WEBHOOK_SECRET` y `FEED_TOKEN_KEY` son obligatorias |
+| `MERCADOPAGO_WEBHOOK_SECRET` | Render, local | Clave secreta de los webhooks de la aplicación, para validar `x-signature` |
+| `FEED_TOKEN_KEY` | Render, local | 32 bytes en base64 para cifrar las credenciales de las conexiones. Cambiarla obliga a volver a conectar |
 
 En local: `docker compose` con Postgres, `.env` a partir de `.env.example`, y `nx serve api` + `nx serve web` con proxy de `/api` al puerto de la API.
 
@@ -1366,14 +1518,15 @@ Los casos de la especificación son tests literales. Por ejemplo: meta de USD 15
 
 ## Preguntas abiertas
 
-Ocho puntos a resolver; los tres primeros se verifican en la fase 0 del plan, antes de escribir funcionalidades.
+Nueve puntos a resolver; los tres primeros se verifican en la fase 0 del plan, antes de escribir funcionalidades.
 
 - [ ] **Prisma 7 + Nest en ESM**: Prisma 7 exige ESM y un adaptador de driver. Verificar que el build de Nest dentro de Nx funcione así; si trae fricción, usar Prisma 6 (CommonJS) y migrar después.
 - [ ] **Reenvío de Vercel con el servidor dormido**: la documentación no indica un tiempo máximo para reenvíos externos. Probar un pedido a `/api` con Render dormido; el pedido directo a `/health` ya evita depender de esto.
 - [ ] **Licencia de Uncut Sans**: confirmar que permite autoalojarla en la app.
 - [ ] **Precio para valuar dólares**: venta (propuesta actual), compra o promedio.
 - [ ] **Histórico de cotizaciones**: evaluar ArgentinaDatos para cargar movimientos con fechas viejas.
-- [ ] **Patrimonio con inversiones en vivo** (iteración 14): el inicio usa el saldo de los apartados, que se mueve con la valuación mensual; evaluar si conviene usar el valor en vivo de Inversiones.
+- [ ] **Mercado Pago** (fase 40): qué movimientos de una cuenta personal informa la API y cuáles avisa al momento; si las fechas vienen con zona horaria; bruto o neto; reintentos del webhook; PKCE.
+- [ ] **Patrimonio con inversiones en vivo** (iteración 15): el inicio usa el saldo de los apartados, que se mueve con la valuación mensual; evaluar si conviene usar el valor en vivo de Inversiones.
 - [ ] **Condiciones de uso de Data912** antes de abrir el precio automático a usuarios pagos; alternativas: API de IOL o BYMA Market Data.
 - [ ] **Dominio**: usar el subdominio gratuito de Vercel (`platin.vercel.app` si está libre) o comprar uno propio.
 
@@ -1384,4 +1537,7 @@ Ocho puntos a resolver; los tres primeros se verifican en la fase 0 del plan, an
 - [Render: plan gratuito](https://render.com/docs/free)
 - [Neon: precios y límites](https://neon.com/pricing)
 - [DolarApi: Dólar Bolsa (MEP)](https://dolarapi.com/docs/argentina/operations/get-dolar-bolsa)
+- [Mercado Pago: OAuth, crear y renovar el token](https://www.mercadopago.com.ar/developers/es/reference/authentication/oauth/_oauth_token/post)
+- [Mercado Pago: webhooks y validación de `x-signature`](https://www.mercadopago.com.ar/developers/es/docs/checkout-pro/additional-content/notifications/webhooks)
+- [Mercado Pago: reporte de liberaciones por API](https://www.mercadopago.com.ar/developers/es/docs/checkout-pro/additional-content/reports/released-money/introduction)
 - [Angular: versión 22](https://www.gitclear.com/open_repos/angular/angular/release/v22.0.6)

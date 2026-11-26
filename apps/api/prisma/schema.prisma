@@ -99,6 +99,7 @@ enum StatementStatus {
 enum Channel {
   APP
   TELEGRAM
+  MERCADO_PAGO // iteration 14 (ADR 0037)
 }
 
 enum DraftStatus {
@@ -142,21 +143,22 @@ model User {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
-  refreshTokens RefreshToken[]
-  identities    AuthIdentity[]
-  accounts      Account[]
-  pockets       Pocket[]
-  categories    Category[]
-  transactions  Transaction[]
-  transfers     Transfer[]
-  creditCards   CreditCard[]
-  statements    CardStatement[]
-  cardCharges   CardCharge[]
-  fixedItems    FixedItem[]
-  goals         Goal[]
-  aliases       SourceAlias[]
-  merchantRules MerchantRule[]
-  telegramLink  TelegramLink?
+  refreshTokens   RefreshToken[]
+  identities      AuthIdentity[]
+  accounts        Account[]
+  pockets         Pocket[]
+  categories      Category[]
+  transactions    Transaction[]
+  transfers       Transfer[]
+  creditCards     CreditCard[]
+  statements      CardStatement[]
+  cardCharges     CardCharge[]
+  fixedItems      FixedItem[]
+  goals           Goal[]
+  aliases         SourceAlias[]
+  merchantRules   MerchantRule[]
+  telegramLink    TelegramLink?
+  feedConnections FeedConnection[]
 }
 
 model RefreshToken {
@@ -201,9 +203,10 @@ model Account {
   archivedAt DateTime?
   createdAt  DateTime    @default(now())
 
-  user    User          @relation(fields: [userId], references: [id], onDelete: Restrict)
-  pockets Pocket[]
-  aliases SourceAlias[]
+  user            User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  pockets         Pocket[]
+  aliases         SourceAlias[]
+  feedConnections FeedConnection[]
 
   @@unique([userId, name])
   @@index([userId])
@@ -233,6 +236,7 @@ model Pocket {
   fixedItems   FixedItem[]
   goalLinks    GoalPocket[]
   valuations   PocketValuation[]
+  feedReserves FeedReserve[]
 
   @@unique([accountId, name, currency])
   @@index([userId])
@@ -298,11 +302,12 @@ model Transaction {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  user      User             @relation(fields: [userId], references: [id], onDelete: Restrict)
-  pocket    Pocket           @relation(fields: [pocketId], references: [id], onDelete: Restrict)
-  category  Category?        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  fixed     FixedItem?       @relation(fields: [fixedId], references: [id], onDelete: Restrict)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  pocket    Pocket            @relation(fields: [pocketId], references: [id], onDelete: Restrict)
+  category  Category?         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  fixed     FixedItem?        @relation(fields: [fixedId], references: [id], onDelete: Restrict)
   valuation PocketValuation?
+  external  ExternalMovement?
 
   @@unique([fixedId, fixedPeriod]) // fixed items idempotency
   @@index([userId, date])
@@ -324,10 +329,11 @@ model Transfer {
   description  String?
   createdAt    DateTime @default(now())
 
-  user       User           @relation(fields: [userId], references: [id], onDelete: Restrict)
-  fromPocket Pocket         @relation("TransferFrom", fields: [fromPocketId], references: [id], onDelete: Restrict)
-  toPocket   Pocket?        @relation("TransferTo", fields: [toPocketId], references: [id], onDelete: Restrict)
-  statement  CardStatement? @relation(fields: [statementId], references: [id], onDelete: Restrict)
+  user       User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  fromPocket Pocket            @relation("TransferFrom", fields: [fromPocketId], references: [id], onDelete: Restrict)
+  toPocket   Pocket?           @relation("TransferTo", fields: [toPocketId], references: [id], onDelete: Restrict)
+  statement  CardStatement?    @relation(fields: [statementId], references: [id], onDelete: Restrict)
+  external   ExternalMovement?
 
   @@index([userId, date])
   @@index([fromPocketId])
@@ -533,7 +539,7 @@ model Plan {
   name        String
   description String
   priceArs    Decimal?  @db.Decimal(18, 2) // reference only, never charged
-  limits      Json // validated with Zod: { maxAccounts, maxPockets, maxCards, maxGoals, maxFixed: int | null; investments: boolean }
+  limits      Json // validated with Zod: { maxAccounts, maxPockets, maxCards, maxGoals, maxFixed, maxFeedMovementsPerDay: int | null; investments: boolean }
   isDefault   Boolean   @default(false) // exactly one (partial unique index in the migration)
   isPublic    Boolean   @default(true) // listed on the public plans page
   sortOrder   Int       @default(0)
@@ -701,4 +707,131 @@ model UnparsedMessage {
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+// ---------- Connections with institutions (iteration 14, ADR 0037 and 0039) ----------
+enum FeedProvider {
+  MERCADO_PAGO
+}
+
+enum FeedStatus {
+  NEEDS_ACCOUNT // authorized, the platin account is not chosen yet
+  ACTIVE
+  NEEDS_RECONNECT // the renewal failed or the person revoked the permission
+}
+
+enum ExternalMovementKind {
+  INCOME // into the balance
+  EXPENSE // out of the balance
+  YIELD // yield of the balance
+  RESERVE_IN // from the balance to a reserve
+  RESERVE_OUT // from a reserve to the balance
+  FX // buying or selling a currency inside the account
+  REFUND // refund of a movement
+}
+
+enum ExternalMovementStatus {
+  APPLIED // created a Transaction or a Transfer
+  LINKED // linked to one already loaded (MPG-06)
+  HELD // "Para revisar" (MPG-09)
+  DISMISSED // the person deleted what it created: it never comes in again
+}
+
+// MPG-01, 10: one institution account per platin user and vice versa.
+model FeedConnection {
+  id              String       @id @default(uuid()) @db.Uuid
+  userId          String       @db.Uuid
+  provider        FeedProvider
+  externalUserId  String // the provider's user id
+  accountId       String?      @db.Uuid // the platin account; null while NEEDS_ACCOUNT
+  status          FeedStatus
+  accessTokenEnc  Bytes? // AES-256-GCM with FEED_TOKEN_KEY; null once disconnected
+  refreshTokenEnc Bytes?
+  tokenExpiresAt  DateTime?
+  cursor          String? // how far the backup sync got
+  connectedAt     DateTime     @default(now())
+  lastEventAt     DateTime?
+
+  user      User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  account   Account?           @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  reserves  FeedReserve[]
+  movements ExternalMovement[]
+
+  @@unique([userId, provider])
+  @@unique([provider, externalUserId])
+  @@unique([accountId]) // one platin account, one connection
+}
+
+// MPG-05: each reserve of the institution goes to a platin reserve of the same account.
+model FeedReserve {
+  id                String   @id @default(uuid()) @db.Uuid
+  connectionId      String   @db.Uuid
+  externalReserveId String
+  name              String // the institution's name, shown when assigning it
+  currency          Currency
+  pocketId          String?  @db.Uuid // null until assigned
+
+  connection FeedConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  pocket     Pocket?        @relation(fields: [pocketId], references: [id], onDelete: SetNull)
+
+  @@unique([connectionId, externalReserveId])
+}
+
+// A movement of the institution already processed: its row is what keeps it from coming in twice.
+model ExternalMovement {
+  id                String                 @id @default(uuid()) @db.Uuid
+  userId            String                 @db.Uuid
+  connectionId      String                 @db.Uuid
+  externalId        String // the institution's id
+  kind              ExternalMovementKind
+  status            ExternalMovementStatus
+  holdReason        String? // RESERVE_NOT_MAPPED | CURRENCY_NOT_ENABLED | NO_BALANCE_IN_CURRENCY | NO_ACCOUNT
+  amount            Decimal                @db.Decimal(18, 2) // net, positive
+  amountIn          Decimal?               @db.Decimal(18, 2) // FX only: what came in
+  currency          Currency
+  currencyIn        Currency?
+  date              DateTime               @db.Date
+  occurredAt        DateTime // to order within the day
+  description       String
+  externalReserveId String?
+  direction         String? // REFUND: IN | OUT
+  refundOf          String? // REFUND: externalId of the refunded movement
+  transactionId     String?                @unique @db.Uuid
+  transferId        String?                @unique @db.Uuid
+  createdAt         DateTime               @default(now())
+
+  connection  FeedConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  transaction Transaction?   @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  transfer    Transfer?      @relation(fields: [transferId], references: [id], onDelete: SetNull)
+
+  @@unique([connectionId, externalId]) // webhook and sync idempotency
+  @@index([userId, status])
+}
+
+// MPG-07: what was created and what was left out, per user and day of the movement.
+model FeedDailyUsage {
+  userId    String   @db.Uuid
+  day       DateTime @db.Date
+  created   Int      @default(0)
+  overLimit Int      @default(0)
+
+  @@id([userId, day])
+}
+
+// MPG-07 (ADR 0039): ids left out by the daily limit, so a repeated notice or the sync does not
+// count them twice. Only the opaque id, never the movement; cleaned after 8 days.
+model FeedSkippedMovement {
+  connectionId String   @db.Uuid
+  externalId   String
+  day          DateTime @db.Date
+  createdAt    DateTime @default(now())
+
+  @@id([connectionId, externalId])
+  @@index([createdAt])
+}
+
+// Webhook idempotency by x-request-id; cleaned after 3 days.
+model FeedWebhookEvent {
+  requestId  String   @id
+  receivedAt DateTime @default(now())
 }

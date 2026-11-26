@@ -16,7 +16,9 @@ export class OriginSecretMiddleware implements NestMiddleware {
 
   use(req: Request, _res: Response, next: NextFunction): void {
     const secret = this.config.env.ORIGIN_SECRET;
-    if (!secret || isHealth(req.originalUrl) || isTelegramWebhook(req.originalUrl)) return next();
+    if (!secret || isHealth(req.originalUrl) || isTelegramWebhook(req.originalUrl) || isFeedWebhook(req.originalUrl)) {
+      return next();
+    }
 
     const received = req.header(ORIGIN_SECRET_HEADER) ?? '';
     if (!safeEqual(received, secret)) {
@@ -33,6 +35,11 @@ function isHealth(url: string): boolean {
 /** Telegram calls Render directly; the route checks Telegram's own secret (ADR 0026). */
 function isTelegramWebhook(url: string): boolean {
   return url.split('?')[0].replace(/\/$/, '') === '/api/v1/telegram/webhook';
+}
+
+/** Mercado Pago calls Render directly; the route checks its x-signature (ADR 0037). */
+function isFeedWebhook(url: string): boolean {
+  return /^\/api\/v1\/feeds\/[a-z0-9-]+\/webhook\/?$/.test(url.split('?')[0]);
 }
 
 function safeEqual(a: string, b: string): boolean {
