@@ -1,6 +1,12 @@
 import { HttpClient, httpResource } from '@angular/common/http';
 import { computed, inject, Injectable } from '@angular/core';
-import type { CreateValuationsRequest, Investments, ValuationsResponse } from '@platin/contracts';
+import type {
+  CreateValuationsRequest,
+  InvestmentPocket,
+  Investments,
+  TermDepositRequest,
+  ValuationsResponse,
+} from '@platin/contracts';
 import { firstValueFrom, Observable } from 'rxjs';
 import { API } from '../../core/api';
 import { DataKey, RefreshBus, reloadOn } from '../../core/data/refresh-bus';
@@ -33,6 +39,18 @@ export class InvestmentsStore {
 
   saveValuations(request: CreateValuationsRequest): Promise<ValuationsResponse> {
     return this.write(this.http.post<ValuationsResponse>(`${API}/investments/valuations`, request));
+  }
+
+  /** One investment with its pricing (also archived), for its detail. */
+  pocket(pocketId: string): Promise<InvestmentPocket> {
+    return firstValueFrom(this.http.get<InvestmentPocket>(`${API}/pockets/${pocketId}/investment`));
+  }
+
+  /** INV-12: the terms of a term deposit; changing them renews it. */
+  saveTermDeposit(pocketId: string, request: TermDepositRequest): Promise<InvestmentPocket> {
+    return this.write(
+      this.http.put<InvestmentPocket>(`${API}/pockets/${pocketId}/term-deposit`, request),
+    );
   }
 
   removeValuation(id: string): Promise<void> {

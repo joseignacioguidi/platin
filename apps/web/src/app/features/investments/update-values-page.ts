@@ -66,7 +66,7 @@ import { INVESTMENTS_TEXTS } from './investments.texts';
         />
       </pl-form-field>
 
-      @for (account of store.investments()?.accounts ?? []; track account.id) {
+      @for (account of manualAccounts(); track account.id) {
         <section class="flex flex-col gap-2">
           <h2 class="text-lg font-bold">{{ account.name }}</h2>
           <ul class="flex flex-col gap-2">
@@ -110,6 +110,26 @@ import { INVESTMENTS_TEXTS } from './investments.texts';
         </section>
       }
 
+      @if (automatic().length > 0) {
+        <section class="flex flex-col gap-2" [attr.aria-label]="t.automaticTitle">
+          <h2 class="text-lg font-bold">{{ t.automaticTitle }}</h2>
+          <p class="text-sm text-muted">{{ t.automaticHint }}</p>
+          <ul class="rounded-tile bg-surface px-4">
+            @for (pocket of automatic(); track pocket.id) {
+              <li
+                class="flex min-h-[64px] items-center justify-between gap-3 border-b border-line-soft py-3 last:border-b-0"
+              >
+                <span class="flex min-w-0 flex-col">
+                  <span class="truncate font-semibold">{{ pocket.name }}</span>
+                  <span class="text-sm text-muted">{{ automaticText }}</span>
+                </span>
+                <pl-money [amount]="pocket.pricing.marketValue" [currency]="pocket.currency" />
+              </li>
+            }
+          </ul>
+        </section>
+      }
+
       @if (error()) {
         <p class="rounded-2xl bg-expense-soft px-4 py-3 text-sm" role="alert">{{ error() }}</p>
       }
@@ -122,6 +142,7 @@ import { INVESTMENTS_TEXTS } from './investments.texts';
 export class UpdateValuesPage {
   protected readonly t = INVESTMENTS_TEXTS.updatePage;
   protected readonly back = INVESTMENTS_TEXTS.title;
+  protected readonly automaticText = INVESTMENTS_TEXTS.pricing.automatic;
   protected readonly input = INPUT_CLASS;
   protected readonly store = inject(InvestmentsStore);
   protected readonly today = inject(Today);
@@ -134,10 +155,24 @@ export class UpdateValuesPage {
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
 
+  /** Only the investments valued by hand get a field (INV-11). */
+  protected readonly manualAccounts = computed(() =>
+    (this.store.investments()?.accounts ?? [])
+      .map((account) => ({
+        ...account,
+        pockets: account.pockets.filter((p) => p.pricing.mode === 'MANUAL'),
+      }))
+      .filter((account) => account.pockets.length > 0),
+  );
+  protected readonly automatic = computed(() =>
+    this.store.pockets().filter((p) => p.pricing.mode !== 'MANUAL'),
+  );
+
   /** Pockets with a value typed, ready to send. */
   private readonly entries = computed(() =>
     this.store
       .pockets()
+      .filter((pocket) => pocket.pricing.mode === 'MANUAL')
       .map((pocket) => ({ pocket, raw: (this.typed()[pocket.id] ?? '').trim() }))
       .filter((entry) => entry.raw !== ''),
   );

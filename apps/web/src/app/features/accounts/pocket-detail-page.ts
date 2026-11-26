@@ -34,6 +34,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { RefreshBus, reloadOn } from '../../core/data/refresh-bus';
 import { errorMessage } from '../../core/errors';
 import { Today } from '../../core/today';
+import { InvestmentCard } from '../investments/investment-card';
 import { ValuationHistory } from '../investments/valuation-history';
 import { PlanGate } from '../plans/plan-gate';
 import type { PlanGateKey } from '../plans/plan.store';
@@ -65,6 +66,7 @@ import { PocketFormData, PocketFormSheet } from './pocket-form-sheet';
     PlErrorState,
     MovementGroups,
     ValuationHistory,
+    InvestmentCard,
     LucideChevronLeft,
     LucideDynamicIcon,
     PlanGate,
@@ -153,6 +155,7 @@ import { PocketFormData, PocketFormSheet } from './pocket-form-sheet';
       }
 
       @if (pocket.kind === 'INVESTMENT') {
+        <pl-investment-card [pocketId]="pocket.id" [archived]="pocket.archived" />
         <pl-valuation-history [pocketId]="pocket.id" [currency]="pocket.currency" />
       }
 

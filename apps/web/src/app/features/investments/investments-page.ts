@@ -4,6 +4,7 @@ import { LucideRefreshCw } from '@lucide/angular';
 import type { Instrument, InvestmentPocket } from '@platin/contracts';
 import { daysBetween, parseLocalDate } from '@platin/domain';
 import {
+  formatDate,
   HideAmounts,
   moneyText,
   PlBottomSheet,
@@ -166,15 +167,19 @@ import { INVESTMENTS_TEXTS } from './investments.texts';
                     <span class="flex flex-col items-end">
                       <pl-money
                         class="text-[17px]"
-                        [amount]="pocket.summary.value"
+                        [amount]="pocket.pricing.marketValue"
                         [currency]="pocket.currency"
                         [decimals]="false"
                       />
-                      @if (pocket.summary.yieldRate) {
+                      @if (pocket.pricing.termDeposit?.matured) {
+                        <span class="text-sm font-semibold text-pending-ink">{{
+                          t.pricing.matured
+                        }}</span>
+                      } @else if (pocket.pricing.liveYieldRate; as liveRate) {
                         <span
                           class="font-amount text-sm"
-                          [class.text-brand-strong]="!pocket.summary.yieldRate.startsWith('-')"
-                          >{{ rate(pocket.summary.yieldRate) }}</span
+                          [class.text-brand-strong]="!liveRate.startsWith('-')"
+                          >{{ rate(liveRate) }}</span
                         >
                       }
                     </span>
@@ -243,6 +248,10 @@ export class InvestmentsPage {
   }
 
   protected subtitle(pocket: InvestmentPocket): string {
+    const terms = pocket.pricing.termDeposit;
+    if (terms && !terms.redeemed) {
+      return this.t.pricing.termDeposit(formatDate(parseLocalDate(terms.endDate)));
+    }
     const instrument = ACCOUNTS_TEXTS.instruments[pocket.instrument ?? 'OTHER'];
     const invested = moneyText(pocket.summary.invested, pocket.currency, this.hideAmounts.hidden());
     return `${instrument} · ${this.t.invested(invested)}`;

@@ -29,3 +29,16 @@ export function formatRate(rate: string): string {
   const sign = percent.isNegative() ? '−' : '+';
   return `${sign}${percent.abs().toFixed(1).replace('.', ',')} %`;
 }
+
+/** "30" or "29,5" (a percentage as typed) → "0.300000"; undefined if it is not a rate. */
+export function tnaFromPercent(typed: string): string | undefined {
+  const value = typed.trim().replace(',', '.');
+  if (!/^\d{1,3}(\.\d{1,4})?$/.test(value)) return undefined;
+  const ratio = toDecimal(value).dividedBy(100);
+  return ratio.greaterThanOrEqualTo(100) ? undefined : ratio.toFixed(6);
+}
+
+/** "0.300000" → "30"; "0.295000" → "29,5". */
+export function percentFromTna(tna: string): string {
+  return toDecimal(tna).times(100).toDecimalPlaces(4).toString().replace('.', ',');
+}

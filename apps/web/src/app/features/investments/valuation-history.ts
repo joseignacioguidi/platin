@@ -33,11 +33,12 @@ import { INVESTMENTS_TEXTS } from './investments.texts';
             <span class="font-amount w-24 shrink-0 text-sm text-muted">{{
               dateText(valuation.date)
             }}</span>
-            <pl-money
-              class="flex-1 text-[17px]"
-              [amount]="valuation.value"
-              [currency]="currency()"
-            />
+            <span class="flex flex-1 flex-col">
+              <pl-money class="text-[17px]" [amount]="valuation.value" [currency]="currency()" />
+              @if (valuation.source === 'AUTO') {
+                <span class="text-xs text-muted">{{ t.auto }}</span>
+              }
+            </span>
             <span
               class="font-amount inline-flex gap-[1ch] text-sm"
               [class.text-brand-strong]="!valuation.yield.startsWith('-')"

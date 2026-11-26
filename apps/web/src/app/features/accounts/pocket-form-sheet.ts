@@ -7,7 +7,12 @@ import {
   Injector,
   signal,
 } from '@angular/core';
-import { createPocketRequestSchema, type Instrument, type Pocket } from '@platin/contracts';
+import {
+  createPocketRequestSchema,
+  type Instrument,
+  type Pocket,
+  type TermDepositRequest,
+} from '@platin/contracts';
 import type { Currency, PocketKind } from '@platin/domain';
 import {
   parseTypedAmount,
@@ -24,6 +29,15 @@ import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { showPlanBlock } from '../plans/plan-gate';
 import { PlanStore } from '../plans/plan.store';
 import { PLANS_TEXTS } from '../plans/plans.texts';
+import { InvestmentsStore } from '../investments/investments.store';
+import { INVESTMENTS_TEXTS } from '../investments/investments.texts';
+import {
+  draftFromTerms,
+  emptyTermDepositDraft,
+  TermDepositDraft,
+  TermDepositFields,
+  termDepositRequest,
+} from '../investments/term-deposit-fields';
 import { ACCOUNT_KIND_ICONS } from './account-form-sheet';
 import { AccountsStore } from './accounts.store';
 import { ACCOUNTS_TEXTS } from './accounts.texts';
@@ -59,7 +73,15 @@ const INSTRUMENTS: Instrument[] = [
  */
 @Component({
   selector: 'pl-pocket-form-sheet',
-  imports: [PlSheet, PlButton, PlSegmented, PlSelect, PlCurrencySelect, FormField],
+  imports: [
+    PlSheet,
+    PlButton,
+    PlSegmented,
+    PlSelect,
+    PlCurrencySelect,
+    FormField,
+    TermDepositFields,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="heading">
@@ -108,6 +130,11 @@ const INSTRUMENTS: Instrument[] = [
             (valueChange)="instrument.set($event ?? 'OTHER')"
           />
         </pl-form-field>
+        @if (instrument() === 'TERM_DEPOSIT') {
+          <!-- INV-12: with its terms the value is calculated; without them, it goes by hand. -->
+          <pl-term-deposit-fields [(draft)]="termDeposit" [currency]="currency()" />
+          <p class="-mt-2 text-sm text-muted">{{ td.optionalHint }}</p>
+        }
       }
       @if (!pocket) {
         <div class="flex flex-col gap-1.5">
@@ -151,6 +178,8 @@ const INSTRUMENTS: Instrument[] = [
 })
 export class PocketFormSheet {
   protected readonly f = ACCOUNTS_TEXTS.pocketForm;
+  protected readonly td = INVESTMENTS_TEXTS.termDeposit;
+  private readonly investments = inject(InvestmentsStore);
   protected readonly input = INPUT_CLASS;
   private readonly data = inject<PocketFormData>(DIALOG_DATA);
   protected readonly pocket = this.data.pocket;
@@ -211,8 +240,32 @@ export class PocketFormSheet {
   protected readonly instrument = signal<Instrument>(this.pocket?.instrument ?? 'MUTUAL_FUND');
   protected readonly balance = signal('0');
   protected readonly includeInNetWorth = signal(this.pocket?.includeInNetWorth ?? true);
+  protected readonly termDeposit = signal<TermDepositDraft>(emptyTermDepositDraft());
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
+
+  constructor() {
+    const pocket = this.pocket;
+    if (pocket?.kind === 'INVESTMENT' && pocket.instrument === 'TERM_DEPOSIT') {
+      void this.investments.pocket(pocket.id).then(
+        (investment) => {
+          const terms = investment.pricing.termDeposit;
+          if (terms) this.termDeposit.set(draftFromTerms(terms));
+        },
+        () => undefined,
+      );
+    }
+  }
+
+  /** The terms to save after the pocket, null to leave it by hand, or an error message. */
+  private termsToSave(): { request: TermDepositRequest | null } | { error: string } {
+    if (this.kind() !== 'INVESTMENT' || this.instrument() !== 'TERM_DEPOSIT') return { request: null };
+    const draft = this.termDeposit();
+    if (!draft.principal.trim() && !draft.tna.trim() && !draft.startDate && !draft.endDate) {
+      return { request: null };
+    }
+    return termDepositRequest(draft);
+  }
 
   private initialKind(): PocketKind {
     const kind = this.data.kind ?? 'SAVINGS';
@@ -235,6 +288,8 @@ export class PocketFormSheet {
     );
     if (!name.success) return this.error.set(this.f.errors.name);
     const instrument = this.kind() === 'INVESTMENT' ? this.instrument() : null;
+    const terms = this.termsToSave();
+    if ('error' in terms) return this.error.set(terms.error);
     const pocket = this.pocket;
     if (pocket && this.isBalance) {
       await this.run(() =>
@@ -243,13 +298,16 @@ export class PocketFormSheet {
       return;
     }
     if (pocket) {
-      await this.run(() =>
-        this.store.updatePocket(pocket.id, {
-          name: name.data,
-          kind: this.kind(),
-          instrument,
-          includeInNetWorth: this.includeInNetWorth(),
-        }),
+      await this.run(async () =>
+        this.withTerms(
+          await this.store.updatePocket(pocket.id, {
+            name: name.data,
+            kind: this.kind(),
+            instrument,
+            includeInNetWorth: this.includeInNetWorth(),
+          }),
+          terms.request,
+        ),
       );
       return;
     }
@@ -257,16 +315,27 @@ export class PocketFormSheet {
     if (!accountId) return this.error.set(this.f.errors.account);
     const balance = parseTypedAmount(this.balance() || '0');
     if (balance === undefined) return this.error.set(this.f.errors.balance);
-    await this.run(() =>
-      this.store.createPocket(accountId, {
-        name: name.data,
-        kind: this.kind(),
-        currency: this.currency(),
-        instrument,
-        initialBalance: balance,
-        includeInNetWorth: this.includeInNetWorth(),
-      }),
+    await this.run(async () =>
+      this.withTerms(
+        await this.store.createPocket(accountId, {
+          name: name.data,
+          kind: this.kind(),
+          currency: this.currency(),
+          instrument,
+          initialBalance: balance,
+          includeInNetWorth: this.includeInNetWorth(),
+        }),
+        terms.request,
+      ),
     );
+  }
+
+  private async withTerms(
+    pocket: Pocket,
+    request: TermDepositRequest | null,
+  ): Promise<Pocket> {
+    if (request) await this.investments.saveTermDeposit(pocket.id, request);
+    return pocket;
   }
 
   private async run(action: () => Promise<Pocket>): Promise<void> {
