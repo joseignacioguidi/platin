@@ -109,7 +109,8 @@ export class TransfersService {
     // Deleting a purchase of a linked investment must not leave its units negative (INV-09).
     if (row.units) {
       for (const pocketId of [row.fromPocketId, row.toPocketId]) {
-        if (pocketId) await assertUnitsNotNegative(this.prisma, pocketId, { withoutTransferId: id });
+        if (pocketId)
+          await assertUnitsNotNegative(this.prisma, pocketId, { withoutTransferId: id });
       }
     }
     await this.prisma.transfer.delete({ where: { id } });

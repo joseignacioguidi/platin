@@ -516,7 +516,9 @@ export class InvestmentsService {
   }
 
   /** Overdue since the last valuation or, without any, since the oldest investment. */
-  private isOverdue(pockets: readonly { createdAt: Date; valuations: { date: Date }[] }[]): boolean {
+  private isOverdue(
+    pockets: readonly { createdAt: Date; valuations: { date: Date }[] }[],
+  ): boolean {
     if (pockets.length === 0) return false;
     const since =
       this.lastValuationDate(pockets.flatMap((p) => p.valuations)) ??

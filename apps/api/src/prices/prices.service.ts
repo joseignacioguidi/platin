@@ -220,7 +220,8 @@ export class PricesService {
         await this.storePrices(list, prices);
         // An instrument the source did not price this time keeps its last price, stale.
         const priced = new Set(prices.map((p) => p.externalId));
-        for (const instrument of list) if (!priced.has(instrument.externalId)) failed.add(instrument.id);
+        for (const instrument of list)
+          if (!priced.has(instrument.externalId)) failed.add(instrument.id);
       }),
     );
     [...bySource.entries()].forEach(([source, list], index) => {
@@ -243,7 +244,10 @@ export class PricesService {
    * of that very date; otherwise the source's history is asked, and the stored one is the
    * fallback.
    */
-  async priceAt(instrumentId: string, day: LocalDate): Promise<{ price: string; date: LocalDate } | null> {
+  async priceAt(
+    instrumentId: string,
+    day: LocalDate,
+  ): Promise<{ price: string; date: LocalDate } | null> {
     const find = () =>
       this.prisma.instrumentPrice.findFirst({
         where: { instrumentId, date: { lte: toDbDate(day) } },

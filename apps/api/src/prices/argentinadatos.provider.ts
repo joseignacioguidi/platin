@@ -77,7 +77,8 @@ export function parseFunds(body: string): FundRow[] {
     const name = typeof item['fondo'] === 'string' ? item['fondo'].trim() : '';
     const date = item['fecha'];
     const vcp = item['vcp'];
-    if (!name || typeof date !== 'string' || !isLocalDate(date) || typeof vcp !== 'string') continue;
+    if (!name || typeof date !== 'string' || !isLocalDate(date) || typeof vcp !== 'string')
+      continue;
     if (!/^\d+(\.\d+)?$/.test(vcp) || /^0+(\.0+)?$/.test(vcp)) continue;
     rows.push({ name, date: parseLocalDate(date), vcp });
   }
@@ -146,7 +147,8 @@ export class ArgentinaDatosProvider implements PriceProvider {
         continue;
       }
       for (const row of result.value) {
-        if (wanted.has(row.name)) prices.push({ externalId: row.name, date: row.date, price: row.vcp });
+        if (wanted.has(row.name))
+          prices.push({ externalId: row.name, date: row.date, price: row.vcp });
       }
     }
     if (failures === results.length && results.length > 0) {

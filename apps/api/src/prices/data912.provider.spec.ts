@@ -106,7 +106,10 @@ describe('Data912Provider', () => {
       { ...aapl, id: 'i3', externalId: 'BMYC', currency: 'USD' },
       { ...aapl, id: 'i4', externalId: 'GGAL', type: 'STOCK' },
     ]);
-    expect(urls.sort()).toEqual(['https://d912.test/live/arg_cedears', 'https://d912.test/live/arg_stocks']);
+    expect(urls.sort()).toEqual([
+      'https://d912.test/live/arg_cedears',
+      'https://d912.test/live/arg_stocks',
+    ]);
     expect(prices).toEqual([
       { externalId: 'AAPL', date: '2026-11-25', price: '31600' },
       { externalId: 'AAPLD', date: '2026-11-25', price: '18.98' },
@@ -128,7 +131,11 @@ describe('Data912Provider', () => {
 
   it('is stale after an hour', () => {
     const now = new Date('2026-11-25T15:00:00Z');
-    expect(provider.isStale({ date: d('2026-11-25'), fetchedAt: new Date('2026-11-25T14:30:00Z') }, now)).toBe(false);
-    expect(provider.isStale({ date: d('2026-11-25'), fetchedAt: new Date('2026-11-25T13:30:00Z') }, now)).toBe(true);
+    expect(
+      provider.isStale({ date: d('2026-11-25'), fetchedAt: new Date('2026-11-25T14:30:00Z') }, now),
+    ).toBe(false);
+    expect(
+      provider.isStale({ date: d('2026-11-25'), fetchedAt: new Date('2026-11-25T13:30:00Z') }, now),
+    ).toBe(true);
   });
 });

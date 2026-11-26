@@ -35,9 +35,7 @@ const summarySchema = z.object({
 });
 
 /** Nominal annual rate as a ratio with up to 6 decimals ("0.30" = 30 %), below 1000 %. */
-export const tnaSchema = z
-  .string()
-  .regex(/^\d{1,2}(\.\d{1,6})?$/, 'Ingresá una tasa válida');
+export const tnaSchema = z.string().regex(/^\d{1,2}(\.\d{1,6})?$/, 'Ingresá una tasa válida');
 
 /** INV-12: PUT /pockets/:id/term-deposit. The API checks the dates (TERM_DEPOSIT_DATES). */
 export const termDepositRequestSchema = z.object({

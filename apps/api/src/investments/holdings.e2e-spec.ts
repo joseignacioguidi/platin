@@ -52,7 +52,11 @@ describe('linked investments (FCI)', () => {
   beforeAll(async () => {
     ctx = await createTestApp(
       {},
-      { priceProviders: [new ArgentinaDatosProvider('https://ad.test', () => parseLocalDate(today))] },
+      {
+        priceProviders: [
+          new ArgentinaDatosProvider('https://ad.test', () => parseLocalDate(today)),
+        ],
+      },
     );
     const realFetch = globalThis.fetch;
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
@@ -174,7 +178,10 @@ describe('linked investments (FCI)', () => {
       amountOut: '3592327.85',
       units: '174.25357324',
     }).expect(201);
-    expect((await pocketOf(fund.id)).pricing).toMatchObject({ units: '0.00000000', marketValue: '0.00' });
+    expect((await pocketOf(fund.id)).pricing).toMatchObject({
+      units: '0.00000000',
+      marketValue: '0.00',
+    });
 
     // Units only go with a linked investment.
     const savings = await addPocket(ctx.app, user, bank.id, { name: 'Viaje', kind: 'SAVINGS' });
@@ -255,7 +262,11 @@ describe('linked investments (FCI)', () => {
     const valuations = (await api().get(`/api/v1/pockets/${fund.id}/valuations`).expect(200)).body
       .items;
     // 150 × 20.900 (the value of 30/11 from the history).
-    expect(valuations[0]).toMatchObject({ date: '2026-11-30', value: '3135000.00', source: 'AUTO' });
+    expect(valuations[0]).toMatchObject({
+      date: '2026-11-30',
+      value: '3135000.00',
+      source: 'AUTO',
+    });
     expect(requests).toContain('https://ad.test/v1/finanzas/fci/mercadoDinero/2026/11/30');
     expect(await balanceOf(ctx.app, user, fund.id)).toBe('3135000.00');
   });

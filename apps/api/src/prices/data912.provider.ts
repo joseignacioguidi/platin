@@ -92,7 +92,10 @@ export function parseHistory(body: string): { date: LocalDate; close: string }[]
   return (parsed as Record<string, unknown>[]).flatMap((item) => {
     const date = item['date'];
     const close = item['c'];
-    return typeof date === 'string' && isLocalDate(date) && typeof close === 'string' && /[1-9]/.test(close)
+    return typeof date === 'string' &&
+      isLocalDate(date) &&
+      typeof close === 'string' &&
+      /[1-9]/.test(close)
       ? [{ date: parseLocalDate(date), close }]
       : [];
   });
@@ -122,9 +125,13 @@ export class Data912Provider implements PriceProvider {
     const day = marketDay(this.today());
     const panels = await Promise.all(types.map((type) => this.panel(type)));
     // A ticker without a price this time (empty or zero) keeps its last one.
-    return panels.flat().flatMap((row) =>
-      wanted.has(row.symbol) && row.last ? [{ externalId: row.symbol, date: day, price: row.last }] : [],
-    );
+    return panels
+      .flat()
+      .flatMap((row) =>
+        wanted.has(row.symbol) && row.last
+          ? [{ externalId: row.symbol, date: day, price: row.last }]
+          : [],
+      );
   }
 
   async at(instrument: PricedInstrument, date: LocalDate): Promise<FetchedPrice | null> {

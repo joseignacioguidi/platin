@@ -83,7 +83,11 @@ export class InvestmentPricingService {
     for (const t of transfers) {
       const day = date(t.date);
       if (t.units && t.toPocketId && ids.includes(t.toPocketId)) {
-        push(changes, t.toPocketId, { date: day, direction: 'IN', units: t.units.toFixed(UNITS_DECIMALS) });
+        push(changes, t.toPocketId, {
+          date: day,
+          direction: 'IN',
+          units: t.units.toFixed(UNITS_DECIMALS),
+        });
       }
       if (ids.includes(t.fromPocketId)) {
         if (t.units) {
@@ -136,12 +140,15 @@ export class InvestmentPricingService {
   }
 
   /** What has gone out of a term deposit since it started, up to a date. */
-  private redeemed(data: PricingData, pocket: PricingPocket, terms: TermDepositTerms, at: LocalDate) {
+  private redeemed(
+    data: PricingData,
+    pocket: PricingPocket,
+    terms: TermDepositTerms,
+    at: LocalDate,
+  ) {
     return Money.sum(
       (data.outflows.get(pocket.id) ?? [])
-        .filter(
-          (o) => compareDates(o.date, terms.startDate) >= 0 && compareDates(o.date, at) <= 0,
-        )
+        .filter((o) => compareDates(o.date, terms.startDate) >= 0 && compareDates(o.date, at) <= 0)
         .map((o) => Money.of(o.amount, pocket.currency)),
       pocket.currency,
     );
@@ -237,5 +244,4 @@ export class InvestmentPricingService {
     const holding = data.holdings.get(pocketId);
     return holding ? localDateAt(holding.createdAt) : null;
   }
-
 }

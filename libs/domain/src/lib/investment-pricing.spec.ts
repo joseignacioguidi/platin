@@ -59,7 +59,10 @@ describe('holdingUnits', () => {
   });
 
   it('a full redemption leaves zero, never negative', () => {
-    const all = [...changes, { date: d('2026-11-25'), direction: 'OUT' as const, units: '164.75357324' }];
+    const all = [
+      ...changes,
+      { date: d('2026-11-25'), direction: 'OUT' as const, units: '164.75357324' },
+    ];
     expect(holdingUnits('150', all).isZero()).toBe(true);
     expect(firstNegativeHolding('150', all)).toBeNull();
   });

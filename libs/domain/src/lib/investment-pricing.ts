@@ -52,7 +52,8 @@ export function firstNegativeHolding(
 ): LocalDate | null {
   const sorted = [...changes].sort(
     (a, b) =>
-      compareDates(a.date, b.date) || (a.direction === b.direction ? 0 : a.direction === 'IN' ? -1 : 1),
+      compareDates(a.date, b.date) ||
+      (a.direction === b.direction ? 0 : a.direction === 'IN' ? -1 : 1),
   );
   let units = toDecimal(initialUnits);
   if (units.isNegative()) return sorted[0]?.date ?? null;

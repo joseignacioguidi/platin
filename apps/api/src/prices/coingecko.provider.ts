@@ -86,7 +86,9 @@ export class CoinGeckoProvider implements PriceProvider {
     if (instruments.length === 0) return [];
     const ids = [...new Set(instruments.map((i) => i.externalId))];
     const prices = parseSimplePrice(
-      await this.get(`/simple/price?ids=${ids.map(encodeURIComponent).join(',')}&vs_currencies=usd`),
+      await this.get(
+        `/simple/price?ids=${ids.map(encodeURIComponent).join(',')}&vs_currencies=usd`,
+      ),
     );
     const day = this.today();
     return ids.flatMap((id) => {

@@ -69,13 +69,17 @@ describe('CEDEARs, stocks and crypto with automatic prices', () => {
         if (path === '/live/arg_cedears') return new Response(cedears());
         if (path === '/live/arg_stocks') return new Response(stocks);
         if (path === '/historical/cedears/AAPL') {
-          return new Response('[{"date":"2026-11-27","c":13500.0},{"date":"2026-12-01","c":14000.0}]');
+          return new Response(
+            '[{"date":"2026-11-27","c":13500.0},{"date":"2026-12-01","c":14000.0}]',
+          );
         }
         return new Response('{"Error":"Nahh no tengo ese ticker loko"}');
       }
       if (url.hostname === 'cg.test') {
         if (path.startsWith('/coins/markets')) {
-          return new Response('[{"id":"bitcoin","symbol":"btc","name":"Bitcoin"},{"id":"tether","symbol":"usdt","name":"Tether"}]');
+          return new Response(
+            '[{"id":"bitcoin","symbol":"btc","name":"Bitcoin"},{"id":"tether","symbol":"usdt","name":"Tether"}]',
+          );
         }
         if (path.startsWith('/simple/price')) return new Response('{"bitcoin":{"usd":60858.42}}');
         if (path.startsWith('/coins/bitcoin/history')) {
@@ -174,7 +178,9 @@ describe('CEDEARs, stocks and crypto with automatic prices', () => {
     });
     await link(pesos, (await find('CEDEAR', 'AAPL', 'AAPL')).id, '20').expect(200);
     await link(dollars, (await find('CRYPTO', 'bit', 'BTC')).id, '0.0015').expect(200);
-    await link(fundPocket, (await find('MUTUAL_FUND', 'super', 'Super Ahorro $')).id, '150').expect(200);
+    await link(fundPocket, (await find('MUTUAL_FUND', 'super', 'Super Ahorro $')).id, '150').expect(
+      200,
+    );
     await api().get('/api/v1/investments').expect(200);
 
     // Two hours later Data912 fails: only the CEDEAR is stale.
@@ -218,8 +224,16 @@ describe('CEDEARs, stocks and crypto with automatic prices', () => {
     const of = async (id: string) =>
       (await api().get(`/api/v1/pockets/${id}/valuations`).expect(200)).body.items[0];
     // AAPL: no row on 30/11, the closest previous close is 27/11 (13.500).
-    expect(await of(pesos.id)).toMatchObject({ date: '2026-11-30', value: '270000.00', source: 'AUTO' });
+    expect(await of(pesos.id)).toMatchObject({
+      date: '2026-11-30',
+      value: '270000.00',
+      source: 'AUTO',
+    });
     // BTC: 0,0015 × 62.000,5 = 93,00.
-    expect(await of(dollars.id)).toMatchObject({ date: '2026-11-30', value: '93.00', source: 'AUTO' });
+    expect(await of(dollars.id)).toMatchObject({
+      date: '2026-11-30',
+      value: '93.00',
+      source: 'AUTO',
+    });
   });
 });
