@@ -2,6 +2,10 @@ import { HttpClient, httpResource } from '@angular/common/http';
 import { computed, inject, Injectable } from '@angular/core';
 import type {
   CreateValuationsRequest,
+  HoldingAdjustment,
+  HoldingAdjustmentRequest,
+  HoldingAdjustmentsResponse,
+  HoldingRequest,
   InvestmentPocket,
   Investments,
   TermDepositRequest,
@@ -51,6 +55,44 @@ export class InvestmentsStore {
     return this.write(
       this.http.put<InvestmentPocket>(`${API}/pockets/${pocketId}/term-deposit`, request),
     );
+  }
+
+  /** INV-07: links the investment to an instrument with the units it has. */
+  link(pocketId: string, request: HoldingRequest): Promise<InvestmentPocket> {
+    return this.write(
+      this.http.put<InvestmentPocket>(`${API}/pockets/${pocketId}/holding`, request),
+    );
+  }
+
+  /** "Pasar a manual": the history stays. */
+  unlink(pocketId: string): Promise<InvestmentPocket> {
+    return this.write(this.http.delete<InvestmentPocket>(`${API}/pockets/${pocketId}/holding`));
+  }
+
+  adjustments(pocketId: string): Promise<HoldingAdjustmentsResponse> {
+    return firstValueFrom(
+      this.http.get<HoldingAdjustmentsResponse>(`${API}/pockets/${pocketId}/holding/adjustments`),
+    );
+  }
+
+  /** INV-10: corrects the units without moving money. */
+  addAdjustment(pocketId: string, request: HoldingAdjustmentRequest): Promise<HoldingAdjustment> {
+    return this.write(
+      this.http.post<HoldingAdjustment>(
+        `${API}/pockets/${pocketId}/holding/adjustments`,
+        request,
+      ),
+    );
+  }
+
+  removeAdjustment(id: string): Promise<void> {
+    return this.write(this.http.delete<void>(`${API}/holding-adjustments/${id}`));
+  }
+
+  /** The pricing of an investment from the loaded list, when it is linked to an instrument. */
+  marketPricing(pocketId: string | null | undefined) {
+    const pricing = this.pockets().find((p) => p.id === pocketId)?.pricing;
+    return pricing?.mode === 'MARKET' ? pricing : null;
   }
 
   removeValuation(id: string): Promise<void> {

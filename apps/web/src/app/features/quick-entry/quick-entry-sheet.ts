@@ -63,6 +63,10 @@ import { PocketFormData, PocketFormSheet } from '../accounts/pocket-form-sheet';
 import { showPlanBlock } from '../plans/plan-gate';
 import { PlanStore } from '../plans/plan.store';
 import { PLANS_TEXTS } from '../plans/plans.texts';
+import { parseTypedUnits } from '../investments/investment-format';
+import { InvestmentsStore } from '../investments/investments.store';
+import { INVESTMENTS_TEXTS } from '../investments/investments.texts';
+import { UnitsField } from '../investments/units-field';
 import { TransactionsStore } from '../transactions/transactions.store';
 import { QUICK_ENTRY_TEXTS } from './quick-entry.texts';
 import { TextEntryStore } from './text-entry.store';
@@ -92,6 +96,7 @@ type Direction = 'INVEST' | 'REDEEM';
     PlDateField,
     LucideKeyboard,
     LucideType,
+    UnitsField,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -290,6 +295,15 @@ type Direction = 'INVEST' | 'REDEEM';
             @if (!hasInvestments()) {
               <p class="text-center text-xs text-pending-ink">{{ texts.noInvestments }}</p>
             }
+            @if (investmentPricing(); as linked) {
+              <!-- INV-09: a linked investment moves units too, proposed with its last price. -->
+              <pl-units-field
+                inputId="quick-units"
+                [pricing]="linked"
+                [amount]="investmentAmount()"
+                [(units)]="units"
+              />
+            }
           }
           <!-- Date, the amount received between currencies and "+ Nueva inversión", in one row. -->
           <div [class]="row">
@@ -405,6 +419,7 @@ export class QuickEntrySheet {
   private readonly cardsStore = inject(CardsStore);
   private readonly ratesStore = inject(RatesStore);
   private readonly transactions = inject(TransactionsStore);
+  private readonly investmentsStore = inject(InvestmentsStore);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly hideAmounts = inject(HideAmounts);
@@ -495,6 +510,14 @@ export class QuickEntrySheet {
   protected readonly toAccount = computed(() => this.accountsStore.pocketById(this.toAccountId()));
   protected readonly investment = computed(() =>
     this.accountsStore.pocketById(this.investmentId()),
+  );
+  protected readonly units = signal('');
+  protected readonly investmentPricing = computed(() =>
+    this.mode() === 'INVEST' ? this.investmentsStore.marketPricing(this.investmentId()) : null,
+  );
+  /** What the investment receives or gives, in its currency, to propose the units. */
+  protected readonly investmentAmount = computed(() =>
+    this.direction() === 'INVEST' && this.crossCurrency() ? this.receivedText() : this.amount(),
   );
   protected readonly hasInvestments = computed(() =>
     this.pockets().some((p) => p.kind === 'INVESTMENT'),
@@ -780,6 +803,7 @@ export class QuickEntrySheet {
           amountIn: this.crossCurrency() ? parseTypedAmount(this.receivedText()) : undefined,
           date: this.date(),
           description,
+          units: this.investmentPricing() ? parseTypedUnits(this.units()) : undefined,
         });
       } else if (this.card()) {
         const categoryId = this.categoryId() as string;
@@ -827,6 +851,10 @@ export class QuickEntrySheet {
     if (this.mode() === 'INVEST') {
       if (!this.investment()) return errors.investment;
       if (this.crossCurrency() && !parseTypedAmount(this.receivedText())) return errors.received;
+      const units = parseTypedUnits(this.units());
+      if (this.investmentPricing() && (!units || !/[1-9]/.test(units))) {
+        return INVESTMENTS_TEXTS.units.invalid;
+      }
       return null;
     }
     if (!this.categoryId()) return errors.category;

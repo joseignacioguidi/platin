@@ -21,7 +21,7 @@ import { Today } from '../../core/today';
 import { ACCOUNTS_TEXTS } from '../accounts/accounts.texts';
 import { PocketFormData, PocketFormSheet } from '../accounts/pocket-form-sheet';
 import { PlanGate } from '../plans/plan-gate';
-import { formatRate, INSTRUMENT_TONES, TONE_BG } from './investment-format';
+import { formatRate, formatUnits, INSTRUMENT_TONES, TONE_BG } from './investment-format';
 import { InvestmentsStore } from './investments.store';
 import { INVESTMENTS_TEXTS } from './investments.texts';
 
@@ -251,6 +251,20 @@ export class InvestmentsPage {
     const terms = pocket.pricing.termDeposit;
     if (terms && !terms.redeemed) {
       return this.t.pricing.termDeposit(formatDate(parseLocalDate(terms.endDate)));
+    }
+    const pricing = pocket.pricing;
+    if (pricing.mode === 'MARKET' && pricing.listing) {
+      // "150 cuotapartes · Precio al 24/11" (with the warning when it could not be refreshed).
+      const units = pricing.units
+        ? this.t.units.count(formatUnits(pricing.units), this.t.units.names[pricing.listing.type])
+        : pricing.listing.symbol;
+      const date = pricing.priceDate ? formatDate(parseLocalDate(pricing.priceDate)) : null;
+      const price = date
+        ? pricing.stale
+          ? this.t.pricing.stale(date)
+          : this.t.pricing.priceAt(date)
+        : this.t.pricing.noPrice;
+      return `${units} · ${price}`;
     }
     const instrument = ACCOUNTS_TEXTS.instruments[pocket.instrument ?? 'OTHER'];
     const invested = moneyText(pocket.summary.invested, pocket.currency, this.hideAmounts.hidden());

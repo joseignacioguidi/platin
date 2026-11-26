@@ -13,6 +13,10 @@ import {
 import { errorMessage } from '../../core/errors';
 import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { Today } from '../../core/today';
+import { parseTypedUnits } from '../investments/investment-format';
+import { InvestmentsStore } from '../investments/investments.store';
+import { INVESTMENTS_TEXTS } from '../investments/investments.texts';
+import { UnitsField } from '../investments/units-field';
 import { TransactionsStore } from '../transactions/transactions.store';
 import { AccountsStore } from './accounts.store';
 import { ACCOUNTS_TEXTS } from './accounts.texts';
@@ -30,7 +34,7 @@ export interface MoveSheetData {
  */
 @Component({
   selector: 'pl-move-sheet',
-  imports: [PlSheet, PlButton, PlAccountSelect, PlDateField, FormField],
+  imports: [PlSheet, PlButton, PlAccountSelect, PlDateField, FormField, UnitsField],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="t.titles[data.direction](data.reserve.name)">
@@ -80,6 +84,15 @@ export interface MoveSheetData {
             <p class="font-amount text-sm text-muted" aria-live="polite">{{ rateLabel() }}</p>
           }
         }
+        @if (pricing(); as linked) {
+          <!-- INV-09: a linked investment moves units too. -->
+          <pl-units-field
+            inputId="move-units"
+            [pricing]="linked"
+            [amount]="investmentAmount()"
+            [(units)]="units"
+          />
+        }
         <pl-form-field [label]="t.date" controlId="move-date">
           <pl-date-field
             inputId="move-date"
@@ -106,6 +119,7 @@ export class MoveSheet {
   protected readonly today = inject(Today);
   protected readonly store = inject(AccountsStore);
   private readonly transactions = inject(TransactionsStore);
+  private readonly investments = inject(InvestmentsStore);
   private readonly ref = inject(DialogRef);
 
   /** The reserve's own account balance in its currency, else in any currency, else any. */
@@ -113,6 +127,17 @@ export class MoveSheet {
   protected readonly amount = signal('');
   protected readonly received = signal('');
   protected readonly date = signal<LocalDate>(this.today.date());
+  protected readonly units = signal('');
+  /** The reserve's price when it is an investment linked to an instrument. */
+  protected readonly pricing = computed(() =>
+    this.data.reserve.kind === 'INVESTMENT'
+      ? this.investments.marketPricing(this.data.reserve.id)
+      : null,
+  );
+  /** What the investment receives or gives, in its currency, to propose the units. */
+  protected readonly investmentAmount = computed(() =>
+    this.data.direction === 'IN' && this.crossCurrency() ? this.received() : this.amount(),
+  );
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
 
@@ -154,6 +179,10 @@ export class MoveSheet {
     if (!from || !to) return this.error.set(errors.account);
     const amountIn = this.crossCurrency() ? parseTypedAmount(this.received()) : undefined;
     if (this.crossCurrency() && !amountIn) return this.error.set(errors.received);
+    const units = this.pricing() ? parseTypedUnits(this.units()) : undefined;
+    if (this.pricing() && (!units || !/[1-9]/.test(units))) {
+      return this.error.set(INVESTMENTS_TEXTS.units.invalid);
+    }
     this.saving.set(true);
     this.error.set(null);
     try {
@@ -163,6 +192,7 @@ export class MoveSheet {
         amountOut: amount,
         amountIn,
         date: this.date(),
+        units,
       });
       this.ref.close(true);
     } catch (error) {

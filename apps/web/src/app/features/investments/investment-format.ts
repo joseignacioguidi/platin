@@ -42,3 +42,17 @@ export function tnaFromPercent(typed: string): string | undefined {
 export function percentFromTna(tna: string): string {
   return toDecimal(tna).times(100).toDecimalPlaces(4).toString().replace('.', ',');
 }
+
+/** Units as typed ("24,25357324" or "24.25"): up to 8 decimals; undefined otherwise. */
+export function parseTypedUnits(typed: string): string | undefined {
+  const value = typed.trim().replace(/\s/g, '').replace(',', '.');
+  return /^\d{1,16}(\.\d{1,8})?$/.test(value) ? value.replace(/^0+(?=\d)/, '') : undefined;
+}
+
+/** "174.25357324" → "174,25357324"; "150.00000000" → "150" (es-AR, no trailing zeros). */
+export function formatUnits(units: string): string {
+  const [whole, decimals = ''] = toDecimal(units).toFixed(8).split('.');
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const trimmed = decimals.replace(/0+$/, '');
+  return trimmed ? `${grouped},${trimmed}` : grouped;
+}
