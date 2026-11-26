@@ -69,6 +69,10 @@ export async function deleteFinancialData(
   await tx.feedConnection.deleteMany({ where });
   await tx.feedDailyUsage.deleteMany({ where });
   await tx.pocketValuation.deleteMany({ where: { pocket: { userId } } });
+  // Iteration 15: they cascade with their pockets; deleted here too so the order stays explicit.
+  await tx.holdingAdjustment.deleteMany({ where: { pocket: { userId } } });
+  await tx.pocketHolding.deleteMany({ where: { pocket: { userId } } });
+  await tx.termDeposit.deleteMany({ where: { pocket: { userId } } });
   await tx.goal.deleteMany({ where });
   await tx.transfer.deleteMany({ where });
   await tx.transaction.deleteMany({ where });

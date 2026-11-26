@@ -51,6 +51,12 @@ const baseEnvSchema = z.object({
         .filter(Boolean),
     ),
   RATES_BASE_URL: z.string().default('https://dolarapi.com'),
+  // Investment prices (iteration 15). Empty turns a source off: its instruments go by hand.
+  PRICES_ARGENTINADATOS_URL: z.string().default('https://api.argentinadatos.com'),
+  PRICES_DATA912_URL: z.string().default('https://data912.com'),
+  PRICES_COINGECKO_URL: z.string().default('https://api.coingecko.com/api/v3'),
+  // Optional free (Demo) key: more requests per minute.
+  COINGECKO_API_KEY: optionalString,
   CLOCK_TODAY: optionalString.pipe(
     z
       .string()

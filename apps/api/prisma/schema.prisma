@@ -227,16 +227,19 @@ model Pocket {
   archivedAt        DateTime?
   createdAt         DateTime        @default(now())
 
-  user         User              @relation(fields: [userId], references: [id], onDelete: Restrict)
-  account      Account           @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  user         User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  account      Account             @relation(fields: [accountId], references: [id], onDelete: Restrict)
   transactions Transaction[]
-  transfersOut Transfer[]        @relation("TransferFrom")
-  transfersIn  Transfer[]        @relation("TransferTo")
+  transfersOut Transfer[]          @relation("TransferFrom")
+  transfersIn  Transfer[]          @relation("TransferTo")
   defaultFor   CreditCard[]
   fixedItems   FixedItem[]
   goalLinks    GoalPocket[]
   valuations   PocketValuation[]
   feedReserves FeedReserve[]
+  holding      PocketHolding?
+  adjustments  HoldingAdjustment[]
+  termDeposit  TermDeposit?
 
   @@unique([accountId, name, currency])
   @@index([userId])
@@ -244,12 +247,13 @@ model Pocket {
 
 // Value of an investment pocket entered by hand; it creates a YIELD movement.
 model PocketValuation {
-  id            String   @id @default(uuid()) @db.Uuid
-  pocketId      String   @db.Uuid
-  date          DateTime @db.Date
-  value         Decimal  @db.Decimal(18, 2)
-  transactionId String?  @unique @db.Uuid // the YIELD it created (null when the difference was 0)
-  createdAt     DateTime @default(now())
+  id            String          @id @default(uuid()) @db.Uuid
+  pocketId      String          @db.Uuid
+  date          DateTime        @db.Date
+  value         Decimal         @db.Decimal(18, 2)
+  transactionId String?         @unique @db.Uuid // the YIELD it created (null when the difference was 0)
+  source        ValuationSource @default(MANUAL) // AUTO = month-end valuation of a priced investment (INV-11)
+  createdAt     DateTime        @default(now())
 
   pocket      Pocket       @relation(fields: [pocketId], references: [id], onDelete: Cascade)
   transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: Restrict)
@@ -327,6 +331,7 @@ model Transfer {
   currencyIn   Currency // for a statement payment: which part it pays
   date         DateTime @db.Date
   description  String?
+  units        Decimal? @db.Decimal(24, 8) // units bought or sold when a side is a linked investment (INV-09)
   createdAt    DateTime @default(now())
 
   user       User              @relation(fields: [userId], references: [id], onDelete: Restrict)
@@ -834,4 +839,94 @@ model FeedSkippedMovement {
 model FeedWebhookEvent {
   requestId  String   @id
   receivedAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Iteration 15: investments with prices (ADR 0040)
+// ---------------------------------------------------------------------------
+
+enum PriceSource {
+  DATA912
+  ARGENTINADATOS
+  COINGECKO
+}
+
+enum ValuationSource {
+  MANUAL
+  AUTO
+}
+
+enum HoldingDirection {
+  IN
+  OUT
+}
+
+/// Shared catalog (not user data, like ExchangeRate).
+model Instrument {
+  id         String         @id @default(uuid()) @db.Uuid
+  source     PriceSource
+  externalId String // ticker ("AAPL"), fund name with its class or CoinGecko id ("bitcoin")
+  symbol     String // what the app shows: "AAPL", "BTC", "Super Ahorro $"
+  name       String // "Apple Inc.", "Super Ahorro $ - Clase A", "Bitcoin"
+  type       InstrumentType // CEDEAR, STOCK, MUTUAL_FUND or CRYPTO
+  currency   Currency
+  category   String? // ArgentinaDatos fund category ("mercadoDinero", "rentaVariable"...)
+  active     Boolean        @default(true) // false when it stopped reporting a price
+  updatedAt  DateTime       @updatedAt
+
+  prices   InstrumentPrice[]
+  holdings PocketHolding[]
+
+  @@unique([source, externalId])
+  @@index([type, active])
+}
+
+model InstrumentPrice {
+  instrumentId String   @db.Uuid
+  date         DateTime @db.Date // date of the price according to the source
+  price        Decimal  @db.Decimal(18, 6)
+  fetchedAt    DateTime @default(now())
+
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
+
+  @@id([instrumentId, date])
+}
+
+/// An investment pocket linked to an instrument (INV-07). One to one with the pocket.
+model PocketHolding {
+  pocketId     String   @id @db.Uuid
+  instrumentId String   @db.Uuid
+  initialUnits Decimal  @default(0) @db.Decimal(24, 8)
+  createdAt    DateTime @default(now())
+
+  pocket     Pocket     @relation(fields: [pocketId], references: [id], onDelete: Cascade)
+  instrument Instrument @relation(fields: [instrumentId], references: [id], onDelete: Restrict)
+
+  @@index([instrumentId])
+}
+
+/// A correction of units without moving money (INV-10).
+model HoldingAdjustment {
+  id        String           @id @default(uuid()) @db.Uuid
+  pocketId  String           @db.Uuid
+  date      DateTime         @db.Date
+  units     Decimal          @db.Decimal(24, 8) // always positive; direction gives the sign
+  direction HoldingDirection
+  note      String?
+  createdAt DateTime         @default(now())
+
+  pocket Pocket @relation(fields: [pocketId], references: [id], onDelete: Cascade)
+
+  @@index([pocketId, date])
+}
+
+/// The terms of a term deposit (INV-12). One to one with the pocket.
+model TermDeposit {
+  pocketId  String   @id @db.Uuid
+  principal Decimal  @db.Decimal(18, 2)
+  tna       Decimal  @db.Decimal(9, 6) // 0.300000 = 30 %
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+
+  pocket Pocket @relation(fields: [pocketId], references: [id], onDelete: Cascade)
 }

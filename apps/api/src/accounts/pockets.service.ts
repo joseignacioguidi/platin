@@ -145,8 +145,16 @@ export class PocketsService {
     const countsAfter = !(archived ?? current.archivedAt !== null) && nextKind !== 'AVAILABLE';
     const needs = countsAfter && !countsNow ? { pockets: 1 } : {};
     try {
-      const row = await this.entitlements.withinLimits(userId, needs, (tx) =>
-        tx.pocket.update({
+      const row = await this.entitlements.withinLimits(userId, needs, async (tx) => {
+        // Another type or use drops the automatic value: it goes back to being valued by hand,
+        // keeping its valuations and movements (ADR 0040).
+        if (nextInstrument !== 'TERM_DEPOSIT') {
+          await tx.termDeposit.deleteMany({ where: { pocketId: id } });
+        }
+        if (nextInstrument !== current.instrument) {
+          await tx.pocketHolding.deleteMany({ where: { pocketId: id } });
+        }
+        return tx.pocket.update({
           where: { id },
           data: {
             ...rest,
@@ -155,8 +163,8 @@ export class PocketsService {
             ...(archived === undefined ? {} : { archivedAt: archived ? new Date() : null }),
           },
           include: WITH_ACCOUNT,
-        }),
-      );
+        });
+      });
       return toPocketDto(row, await this.balances.balance(userId, row));
     } catch (error) {
       throw this.duplicate(error);

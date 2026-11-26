@@ -817,7 +817,7 @@ model PocketValuation {
   - `POST /pockets/:id/holding/adjustments` con `{ date, units, direction, note? }` y `DELETE /holding-adjustments/:id` (INV-10). Una corrección que deja la cantidad negativa responde `HOLDING_UNITS_NEGATIVE`.
   - `PUT /pockets/:id/term-deposit` con `{ principal, tna, startDate, endDate }` (INV-12); `endDate` posterior a `startDate` (`TERM_DEPOSIT_DATES`).
   - `POST /transfers` acepta `units` cuando un lado es un apartado vinculado y lo exige en ese caso (`UNITS_REQUIRED`); rescatar más de lo que hay responde `HOLDING_UNITS_NEGATIVE`.
-  - `GET /investments` suma, en cada apartado, `pricing: { mode: 'MANUAL' | 'MARKET' | 'TERM_DEPOSIT', units?, price?, priceDate?, stale, marketValue, liveYield, liveYieldRate }` y `instrument` (símbolo, nombre, tipo). Los totales y la composición usan `marketValue` en los automáticos. `overdue` solo mira los apartados a mano.
+  - `GET /investments` suma, en cada apartado, `pricing: { mode: 'MANUAL' | 'MARKET' | 'TERM_DEPOSIT', units, price, priceDate, stale, marketValue, liveYield, liveYieldRate, listing, termDeposit }`; `listing` es el instrumento vinculado (símbolo, nombre, tipo y moneda). `GET /pockets/:id/investment` devuelve uno solo, para su detalle (ADR 0041). Los totales y la composición usan `marketValue` en los automáticos. `overdue` solo mira los apartados a mano.
   - `POST /sync` crea las valuaciones automáticas del mes anterior (INV-11) y refresca los precios de los instrumentos en uso.
 
 | Método y ruta | Caso de uso |
@@ -1245,7 +1245,7 @@ abstract class PriceProvider {
 | Fuente | Instrumentos | Endpoints | Frescura |
 | --- | --- | --- | --- |
 | [Data912](https://data912.com) | `CEDEAR`, `STOCK` | `GET /live/arg_cedears`, `GET /live/arg_stocks` (catálogo y precios); `GET /historical/cedears/{ticker}`, `GET /historical/stocks/{ticker}` | Se vuelve a pedir si el último tiene más de una hora (la fuente cachea unas 2 horas y no es tiempo real) |
-| [ArgentinaDatos](https://argentinadatos.com/docs/) | `MUTUAL_FUND` | `GET /v1/finanzas/fci/{categoria}/ultimo` por categoría (`mercadoDinero`, `rentaFija`, `rentaVariable`, `rentaMixta`, `retornoTotal`, `otros`); histórico por fondo para fechas pasadas | Un valor por día hábil; se vuelve a pedir si el guardado es de un día hábil anterior al de hoy |
+| [ArgentinaDatos](https://argentinadatos.com/docs/) | `MUTUAL_FUND` | `GET /v1/finanzas/fci/{categoria}/ultimo` por categoría (`mercadoDinero`, `rentaFija`, `rentaVariable`, `rentaMixta`, `retornoTotal`; `otros` son cuentas remuneradas y no entra); `GET /v1/finanzas/fci/{categoria}/{AAAA}/{MM}/{DD}` para fechas pasadas | Un valor por día hábil; se vuelve a pedir si el guardado es de un día hábil anterior al de hoy |
 | [CoinGecko](https://docs.coingecko.com) | `CRYPTO` | `GET /simple/price?ids=…&vs_currencies=usd` (precios), `GET /coins/markets` (catálogo, primeras 250 por capitalización), `GET /coins/{id}/history` | Más de una hora |
 
 Cómo se usan:
@@ -1254,7 +1254,7 @@ Cómo se usan:
 2. **Precios.** En `GET /investments` y `POST /sync` se juntan los instrumentos vinculados del usuario que necesitan precio nuevo y se piden en lote a cada fuente; el resultado se guarda en `InstrumentPrice` por fecha.
 3. **Fallas.** Cada fuente es independiente (`Promise.allSettled`): si una falla, sus instrumentos usan el último precio guardado y `pricing.stale` es `true` con su `priceDate`. Sin ningún precio guardado, el apartado se muestra con su saldo y `mode: 'MARKET'` con `price: null`.
 4. **Sin float.** Las tres devuelven números JSON; se citan antes de `JSON.parse` con el mismo helper que usa `rates` (que pasa a `common/`).
-5. **Moneda.** Data912 da los CEDEARs en pesos (`AAPL`) y en dólares (`AAPLD`) como tickers distintos: cada uno es un `Instrument` con su moneda. ArgentinaDatos informa la moneda de cada fondo; CoinGecko se pide siempre en USD.
+5. **Moneda.** Data912 da cada CEDEAR o acción en pesos (`AAPL`), dólares MEP (`AAPLD`) y cable (`AAPLC`) como tickers distintos, sin decir la moneda: se deduce comparando precios. ArgentinaDatos tampoco la informa: sale del nombre del fondo. CoinGecko se pide siempre en USD. Detalle en `docs/adr/0041-inversiones-con-precio-implementacion.md`.
 6. **Pedidos con tiempo límite** de 5 segundos, como las cotizaciones. Ningún pedido a un proveedor bloquea una escritura del usuario.
 
 ## Infraestructura y deploy

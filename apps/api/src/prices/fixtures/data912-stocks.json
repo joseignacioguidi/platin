@@ -1,0 +1,8 @@
+[
+  {"symbol":"BMA","q_bid":14516.0,"px_bid":8980.0,"px_ask":9035.0,"q_ask":1010.0,"v":696684.0,"q_op":3451.0,"c":8980.0,"pct_change":-0.99},
+  {"symbol":"BMA.D","q_bid":2000.0,"px_bid":5.34,"px_ask":5.48,"q_ask":100.0,"v":6765.0,"q_op":62.0,"c":5.43,"pct_change":2.06},
+  {"symbol":"GGAL","q_bid":10000.0,"px_bid":4747.5,"px_ask":4770.0,"q_ask":1.0,"v":5635023.0,"q_op":12646.0,"c":4747.5,"pct_change":2.98},
+  {"symbol":"GGALD","q_bid":322.0,"px_bid":2.845,"px_ask":2.86,"q_ask":125.0,"v":82970.0,"q_op":421.0,"c":2.85,"pct_change":4.58},
+  {"symbol":"YPFD","q_bid":2869.0,"px_bid":5620.0,"px_ask":5635.0,"q_ask":3000.0,"v":2432149.0,"q_op":12625.0,"c":5650.0,"pct_change":-1.48},
+  {"symbol":"YPFDD","q_bid":1.0,"px_bid":3.415,"px_ask":3.425,"q_ask":5473.0,"v":310098.0,"q_op":1458.0,"c":3.36,"pct_change":-1.46}
+]

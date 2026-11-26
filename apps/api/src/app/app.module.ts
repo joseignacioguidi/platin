@@ -27,6 +27,7 @@ import { OnboardingModule } from '../onboarding/onboarding.module';
 import { PlansModule } from '../plans/plans.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RatesModule } from '../rates/rates.module';
+import { PricesModule } from '../prices/prices.module';
 import { SettingsModule } from '../settings/settings.module';
 import { SyncModule } from '../sync/sync.module';
 import { TelegramModule } from '../telegram/telegram.module';
@@ -66,6 +67,7 @@ export function clientIpOf(req: Request, header: string | undefined): string {
     CommonModule,
     PrismaModule,
     RatesModule,
+    PricesModule,
     ThrottlerModule.forRootAsync({
       inject: [AppConfig],
       useFactory: (config: AppConfig) => ({

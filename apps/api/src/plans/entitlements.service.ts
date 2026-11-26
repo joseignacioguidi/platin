@@ -59,6 +59,11 @@ export class EntitlementsService {
     }
   }
 
+  async includes(userId: string, feature: PlanFeature): Promise<boolean> {
+    const { limits } = await this.plans.current(userId);
+    return hasFeature(limits, feature);
+  }
+
   async assertFeature(userId: string, feature: PlanFeature): Promise<void> {
     const { plan, limits } = await this.plans.current(userId);
     if (!hasFeature(limits, feature)) {

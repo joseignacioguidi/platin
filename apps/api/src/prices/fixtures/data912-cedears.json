@@ -1,0 +1,11 @@
+[
+  {"symbol":"AAPL","q_bid":15000.0,"px_bid":31600.0,"px_ask":31780.0,"q_ask":15000.0,"v":219027.0,"q_op":2030.0,"c":31600.0,"pct_change":-0.75},
+  {"symbol":"AAPLC","q_bid":115.0,"px_bid":17.47,"px_ask":18.21,"q_ask":500.0,"v":32.0,"q_op":5.0,"c":18.37,"pct_change":3.9},
+  {"symbol":"AAPLD","q_bid":74.0,"px_bid":18.85,"px_ask":19.2,"q_ask":5.0,"v":37965.0,"q_op":615.0,"c":18.98,"pct_change":0.85},
+  {"symbol":"AMD","q_bid":9000.0,"px_bid":72400.0,"px_ask":72675.0,"q_ask":9000.0,"v":38642.0,"q_op":1537.0,"c":72575.0,"pct_change":-2.48},
+  {"symbol":"BB","q_bid":20000.0,"px_bid":5005.0,"px_ask":5040.0,"q_ask":85.0,"v":5865.0,"q_op":38.0,"c":5040.0,"pct_change":-0.88},
+  {"symbol":"BBD","q_bid":100.0,"px_bid":4290.0,"px_ask":4300.0,"q_ask":854.0,"v":84004.0,"q_op":632.0,"c":4300.0,"pct_change":4.49},
+  {"symbol":"GLD","q_bid":12.0,"px_bid":11660.0,"px_ask":11760.0,"q_ask":60.0,"v":266600.0,"q_op":2715.0,"c":11680.0,"pct_change":-0.34},
+  {"symbol":"HD","q_bid":3300.0,"px_bid":20080.0,"px_ask":20210.0,"q_ask":3300.0,"v":2256.0,"q_op":93.0,"c":20100.0,"pct_change":0.75},
+  {"symbol":"BMYC","q_bid":0.0,"px_bid":0.0,"px_ask":20.97,"q_ask":953.0,"v":0.0,"q_op":0.0,"c":0.0,"pct_change":0.0}
+]

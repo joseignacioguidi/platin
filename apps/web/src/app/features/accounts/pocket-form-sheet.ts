@@ -7,7 +7,14 @@ import {
   Injector,
   signal,
 } from '@angular/core';
-import { createPocketRequestSchema, type Instrument, type Pocket } from '@platin/contracts';
+import {
+  createPocketRequestSchema,
+  type Instrument,
+  type HoldingRequest,
+  type Listing,
+  type Pocket,
+  type TermDepositRequest,
+} from '@platin/contracts';
 import type { Currency, PocketKind } from '@platin/domain';
 import {
   parseTypedAmount,
@@ -24,6 +31,22 @@ import { FormField, INPUT_CLASS } from '../../core/forms/form-field';
 import { showPlanBlock } from '../plans/plan-gate';
 import { PlanStore } from '../plans/plan.store';
 import { PLANS_TEXTS } from '../plans/plans.texts';
+import {
+  emptyHoldingDraft,
+  HoldingDraft,
+  HoldingFields,
+  holdingRequest,
+  PRICED_INSTRUMENTS,
+} from '../investments/holding-fields';
+import { InvestmentsStore } from '../investments/investments.store';
+import { INVESTMENTS_TEXTS } from '../investments/investments.texts';
+import {
+  draftFromTerms,
+  emptyTermDepositDraft,
+  TermDepositDraft,
+  TermDepositFields,
+  termDepositRequest,
+} from '../investments/term-deposit-fields';
 import { ACCOUNT_KIND_ICONS } from './account-form-sheet';
 import { AccountsStore } from './accounts.store';
 import { ACCOUNTS_TEXTS } from './accounts.texts';
@@ -59,7 +82,16 @@ const INSTRUMENTS: Instrument[] = [
  */
 @Component({
   selector: 'pl-pocket-form-sheet',
-  imports: [PlSheet, PlButton, PlSegmented, PlSelect, PlCurrencySelect, FormField],
+  imports: [
+    PlSheet,
+    PlButton,
+    PlSegmented,
+    PlSelect,
+    PlCurrencySelect,
+    FormField,
+    TermDepositFields,
+    HoldingFields,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <pl-sheet [heading]="heading">
@@ -108,6 +140,21 @@ const INSTRUMENTS: Instrument[] = [
             (valueChange)="instrument.set($event ?? 'OTHER')"
           />
         </pl-form-field>
+        @if (priced()) {
+          @if (linkedListing(); as listing) {
+            <!-- Already linked: units and going back to manual live in its detail. -->
+            <p class="rounded-2xl bg-brand-soft px-4 py-3 text-sm">
+              {{ link.title }}: <strong>{{ listing.symbol }}</strong> · {{ listing.name }}
+            </p>
+          } @else {
+            <pl-holding-fields [type]="instrument()" [currency]="currency()" [(draft)]="holding" />
+          }
+        }
+        @if (instrument() === 'TERM_DEPOSIT') {
+          <!-- INV-12: with its terms the value is calculated; without them, it goes by hand. -->
+          <pl-term-deposit-fields [(draft)]="termDeposit" [currency]="currency()" />
+          <p class="-mt-2 text-sm text-muted">{{ td.optionalHint }}</p>
+        }
       }
       @if (!pocket) {
         <div class="flex flex-col gap-1.5">
@@ -151,6 +198,9 @@ const INSTRUMENTS: Instrument[] = [
 })
 export class PocketFormSheet {
   protected readonly f = ACCOUNTS_TEXTS.pocketForm;
+  protected readonly td = INVESTMENTS_TEXTS.termDeposit;
+  protected readonly link = INVESTMENTS_TEXTS.link;
+  private readonly investments = inject(InvestmentsStore);
   protected readonly input = INPUT_CLASS;
   private readonly data = inject<PocketFormData>(DIALOG_DATA);
   protected readonly pocket = this.data.pocket;
@@ -211,8 +261,42 @@ export class PocketFormSheet {
   protected readonly instrument = signal<Instrument>(this.pocket?.instrument ?? 'MUTUAL_FUND');
   protected readonly balance = signal('0');
   protected readonly includeInNetWorth = signal(this.pocket?.includeInNetWorth ?? true);
+  protected readonly termDeposit = signal<TermDepositDraft>(emptyTermDepositDraft());
+  /** INV-07: a new one starts with automatic price; an existing manual one stays manual. */
+  protected readonly holding = signal<HoldingDraft>(
+    this.pocket ? { ...emptyHoldingDraft(), mode: 'MANUAL' } : emptyHoldingDraft(),
+  );
+  protected readonly linkedListing = signal<Listing | null>(null);
+  protected readonly priced = computed(
+    () => this.kind() === 'INVESTMENT' && PRICED_INSTRUMENTS.includes(this.instrument()),
+  );
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
+
+  constructor() {
+    const pocket = this.pocket;
+    if (pocket?.kind === 'INVESTMENT' && pocket.instrument && pocket.instrument !== 'OTHER') {
+      void this.investments.pocket(pocket.id).then(
+        (investment) => {
+          const terms = investment.pricing.termDeposit;
+          if (terms) this.termDeposit.set(draftFromTerms(terms));
+          this.linkedListing.set(investment.pricing.listing);
+        },
+        () => undefined,
+      );
+    }
+  }
+
+  /** The terms to save after the pocket, null to leave it by hand, or an error message. */
+  private termsToSave(): { request: TermDepositRequest | null } | { error: string } {
+    if (this.kind() !== 'INVESTMENT' || this.instrument() !== 'TERM_DEPOSIT')
+      return { request: null };
+    const draft = this.termDeposit();
+    if (!draft.principal.trim() && !draft.tna.trim() && !draft.startDate && !draft.endDate) {
+      return { request: null };
+    }
+    return termDepositRequest(draft);
+  }
 
   private initialKind(): PocketKind {
     const kind = this.data.kind ?? 'SAVINGS';
@@ -235,6 +319,10 @@ export class PocketFormSheet {
     );
     if (!name.success) return this.error.set(this.f.errors.name);
     const instrument = this.kind() === 'INVESTMENT' ? this.instrument() : null;
+    const terms = this.termsToSave();
+    if ('error' in terms) return this.error.set(terms.error);
+    const holding = this.holdingToSave();
+    if ('error' in holding) return this.error.set(holding.error);
     const pocket = this.pocket;
     if (pocket && this.isBalance) {
       await this.run(() =>
@@ -243,13 +331,17 @@ export class PocketFormSheet {
       return;
     }
     if (pocket) {
-      await this.run(() =>
-        this.store.updatePocket(pocket.id, {
-          name: name.data,
-          kind: this.kind(),
-          instrument,
-          includeInNetWorth: this.includeInNetWorth(),
-        }),
+      await this.run(async () =>
+        this.withTerms(
+          await this.store.updatePocket(pocket.id, {
+            name: name.data,
+            kind: this.kind(),
+            instrument,
+            includeInNetWorth: this.includeInNetWorth(),
+          }),
+          terms.request,
+          holding.request,
+        ),
       );
       return;
     }
@@ -257,16 +349,38 @@ export class PocketFormSheet {
     if (!accountId) return this.error.set(this.f.errors.account);
     const balance = parseTypedAmount(this.balance() || '0');
     if (balance === undefined) return this.error.set(this.f.errors.balance);
-    await this.run(() =>
-      this.store.createPocket(accountId, {
-        name: name.data,
-        kind: this.kind(),
-        currency: this.currency(),
-        instrument,
-        initialBalance: balance,
-        includeInNetWorth: this.includeInNetWorth(),
-      }),
+    await this.run(async () =>
+      this.withTerms(
+        await this.store.createPocket(accountId, {
+          name: name.data,
+          kind: this.kind(),
+          currency: this.currency(),
+          instrument,
+          initialBalance: balance,
+          includeInNetWorth: this.includeInNetWorth(),
+        }),
+        terms.request,
+        holding.request,
+      ),
     );
+  }
+
+  /** The link to save after the pocket, null to leave it as it is, or an error message. */
+  private holdingToSave(): { request: HoldingRequest | null } | { error: string } {
+    // A linked one changes its instrument from its detail; a new type drops the link.
+    const sameLink = this.linkedListing() && this.instrument() === this.pocket?.instrument;
+    if (!this.priced() || sameLink) return { request: null };
+    return holdingRequest(this.holding());
+  }
+
+  private async withTerms(
+    pocket: Pocket,
+    request: TermDepositRequest | null,
+    holding: HoldingRequest | null = null,
+  ): Promise<Pocket> {
+    if (request) await this.investments.saveTermDeposit(pocket.id, request);
+    if (holding) await this.investments.link(pocket.id, holding);
+    return pocket;
   }
 
   private async run(action: () => Promise<Pocket>): Promise<void> {

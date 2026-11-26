@@ -13,6 +13,7 @@ export * from './lib/month-flow';
 export * from './lib/goals';
 export * from './lib/pockets';
 export * from './lib/investments';
+export * from './lib/investment-pricing';
 export * from './lib/admin';
 export * from './lib/plans';
 export * from './lib/sign-in';

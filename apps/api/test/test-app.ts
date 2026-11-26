@@ -4,6 +4,7 @@ import { AppModule } from '../src/app/app.module';
 import { configureApp } from '../src/app/configure-app';
 import { OAUTH_PROVIDERS, OAuthProvider } from '../src/auth/oauth/oauth-provider';
 import { type AccountFeedProvider, FEED_PROVIDERS } from '../src/feeds/account-feed-provider';
+import { PRICE_PROVIDERS, type PriceProvider } from '../src/prices/price-provider';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { RateProvider } from '../src/rates/rate-provider';
 import { TelegramClient } from '../src/telegram/telegram-client';
@@ -24,6 +25,8 @@ export interface TestAppOptions {
   telegramClient?: TelegramClient;
   /** Institution connections to use instead of the ones built from the environment. */
   feedProviders?: AccountFeedProvider[];
+  /** Investment price sources (none by default: tests never call the real ones). */
+  priceProviders?: PriceProvider[];
 }
 
 /** Boots the real AppModule against the test database. */
@@ -36,7 +39,9 @@ export async function createTestApp(
   const rates = new FakeRateProvider();
   let builder = Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(RateProvider)
-    .useValue(rates);
+    .useValue(rates)
+    .overrideProvider(PRICE_PROVIDERS)
+    .useValue(options.priceProviders ?? []);
   if (options.telegramClient) {
     builder = builder.overrideProvider(TelegramClient).useValue(options.telegramClient);
   }

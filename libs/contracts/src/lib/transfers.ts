@@ -1,6 +1,7 @@
 import { TransferIntent } from '@platin/domain';
 import { z } from 'zod';
 import { amountSchema, currencySchema, localDateSchema, uuidSchema } from './common';
+import { positiveUnitsSchema } from './investments';
 
 export const transferIntentSchema = z.enum([
   TransferIntent.SAVE,
@@ -23,6 +24,11 @@ export const createTransferRequestSchema = z
     amountIn: amountSchema.optional(),
     date: localDateSchema,
     description: z.string().trim().max(120).optional(),
+    /**
+     * INV-09: units bought or sold, required when one side is an investment linked to an
+     * instrument (UNITS_REQUIRED) and not allowed otherwise (UNITS_NOT_LINKED).
+     */
+    units: positiveUnitsSchema.optional(),
     /** Ignored: the API derives the intent from the pockets' kinds (iteration 6). */
     intent: transferIntentSchema.optional(),
   })
@@ -49,6 +55,8 @@ export const transferSchema = z.object({
   impliedRate: z.string().nullable(),
   date: z.string(),
   description: z.string().nullable(),
+  /** Units of the linked investment it bought or sold (INV-09). */
+  units: z.string().nullable(),
 });
 
 export type CreateTransferRequest = z.infer<typeof createTransferRequestSchema>;
