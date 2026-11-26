@@ -55,7 +55,8 @@ export const INVESTMENTS_TEXTS = {
       TERM_DEPOSIT: 'Unidades',
       OTHER: 'Unidades',
     },
-    proposed: (date: string) => `Propuesta con el precio al ${date}; corregila con la del comprobante.`,
+    proposed: (date: string) =>
+      `Propuesta con el precio al ${date}; corregila con la del comprobante.`,
     noPrice: 'Todavía no hay precio: cargá la cantidad del comprobante.',
     invalid: 'Revisá la cantidad (hasta 8 decimales).',
     count: (units: string, name: string) => `${units} ${name.toLowerCase()}`,

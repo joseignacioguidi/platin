@@ -1,12 +1,5 @@
 import { httpResource } from '@angular/common/http';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  inject,
-  input,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import type { HoldingAdjustmentsResponse, InvestmentPocket } from '@platin/contracts';
 import { parseLocalDate } from '@platin/domain';
 import { formatDate, PlBottomSheet, PlButton, PlMoney } from '@platin/web-ui';
@@ -62,7 +55,11 @@ import { TermDepositSheet } from './term-deposit-sheet';
             <div class="flex flex-col">
               <dt class="text-sm text-muted">{{ t.card.interest }}</dt>
               <dd class="font-amount text-xl" [class.text-brand-strong]="!negative()">
-                <pl-money [amount]="inv.pricing.liveYield" [currency]="inv.currency" sign="always" />
+                <pl-money
+                  [amount]="inv.pricing.liveYield"
+                  [currency]="inv.currency"
+                  sign="always"
+                />
               </dd>
             </div>
             <div class="flex flex-col">
@@ -102,7 +99,11 @@ import { TermDepositSheet } from './term-deposit-sheet';
             <div class="flex flex-col">
               <dt class="text-sm text-muted">{{ t.card.yield }}</dt>
               <dd class="font-amount text-xl" [class.text-brand-strong]="!negative()">
-                <pl-money [amount]="inv.pricing.liveYield" [currency]="inv.currency" sign="always" />
+                <pl-money
+                  [amount]="inv.pricing.liveYield"
+                  [currency]="inv.currency"
+                  sign="always"
+                />
                 @if (inv.pricing.liveYieldRate) {
                   <span class="text-sm"> · {{ rate(inv.pricing.liveYieldRate) }}</span>
                 }
@@ -126,7 +127,11 @@ import { TermDepositSheet } from './term-deposit-sheet';
           @if (priceText(); as text) {
             <p
               class="text-sm"
-              [class]="inv.pricing.stale ? 'rounded-2xl bg-pending-soft px-3 py-2 text-pending-ink' : 'text-muted'"
+              [class]="
+                inv.pricing.stale
+                  ? 'rounded-2xl bg-pending-soft px-3 py-2 text-pending-ink'
+                  : 'text-muted'
+              "
               [attr.role]="inv.pricing.stale ? 'status' : null"
             >
               {{ text }}
@@ -170,7 +175,12 @@ import { TermDepositSheet } from './term-deposit-sheet';
                   <button plButton="secondary" size="sm" type="button" (click)="unlink(inv)">
                     {{ t.link.unlinkYes }}
                   </button>
-                  <button plButton="ghost" size="sm" type="button" (click)="confirmUnlink.set(false)">
+                  <button
+                    plButton="ghost"
+                    size="sm"
+                    type="button"
+                    (click)="confirmUnlink.set(false)"
+                  >
                     {{ t.link.cancel }}
                   </button>
                 </div>

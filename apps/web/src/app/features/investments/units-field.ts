@@ -8,10 +8,13 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import type { Pricing } from '@platin/contracts';
-import { Money, parseLocalDate, unitsForAmount } from '@platin/domain';
+import type { Instrument, Pricing } from '@platin/contracts';
+import { Decimal, Money, parseLocalDate, unitsForAmount } from '@platin/domain';
 import { formatDate, parseTypedAmount } from '@platin/web-ui';
 import { INVESTMENTS_TEXTS } from './investments.texts';
+
+/** Instruments bought in whole units. */
+const WHOLE_UNITS: readonly Instrument[] = ['CEDEAR', 'STOCK'];
 
 /**
  * INV-09: the units bought or sold with a linked investment. It proposes amount ÷ last price and
@@ -44,9 +47,7 @@ export class UnitsField {
   readonly units = model('');
   private readonly edited = signal(false);
 
-  protected readonly label = computed(
-    () => this.t.names[this.pricing().listing?.type ?? 'OTHER'],
-  );
+  protected readonly label = computed(() => this.t.names[this.pricing().listing?.type ?? 'OTHER']);
   protected readonly hint = computed(() => {
     const date = this.pricing().priceDate;
     return this.pricing().price && date
@@ -61,7 +62,16 @@ export class UnitsField {
       const currency = this.pricing().listing?.currency;
       if (untracked(() => this.edited()) || !price || !amount || !currency) return;
       const units = unitsForAmount(Money.of(amount, currency), price);
-      this.units.set(units.toFixed(8).replace(/\.?0+$/, '').replace('.', ','));
+      // CEDEARs and shares are bought whole: the whole units the amount reaches.
+      const whole = WHOLE_UNITS.includes(this.pricing().listing?.type ?? 'OTHER');
+      this.units.set(
+        whole
+          ? units.toDecimalPlaces(0, Decimal.ROUND_DOWN).toFixed(0)
+          : units
+              .toFixed(8)
+              .replace(/\.?0+$/, '')
+              .replace('.', ','),
+      );
     });
   }
 

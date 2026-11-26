@@ -64,9 +64,17 @@ const DEBOUNCE_MS = 300;
           (input)="setQuery($event)"
         />
       </label>
-      <ul class="flex max-h-72 flex-col overflow-y-auto rounded-2xl bg-surface" role="listbox" [attr.aria-label]="t.search">
+      <ul
+        class="flex max-h-72 flex-col overflow-y-auto rounded-2xl bg-surface"
+        role="listbox"
+        [attr.aria-label]="t.search"
+      >
         @for (item of items(); track item.id) {
-          <li role="option" [attr.aria-selected]="false" [attr.aria-disabled]="item.currency !== currency()">
+          <li
+            role="option"
+            [attr.aria-selected]="false"
+            [attr.aria-disabled]="item.currency !== currency()"
+          >
             <button
               type="button"
               class="flex min-h-14 w-full items-center gap-3 border-b border-line-soft px-4 py-2 text-left last:border-b-0 disabled:opacity-60"

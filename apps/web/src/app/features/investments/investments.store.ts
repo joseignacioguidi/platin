@@ -78,10 +78,7 @@ export class InvestmentsStore {
   /** INV-10: corrects the units without moving money. */
   addAdjustment(pocketId: string, request: HoldingAdjustmentRequest): Promise<HoldingAdjustment> {
     return this.write(
-      this.http.post<HoldingAdjustment>(
-        `${API}/pockets/${pocketId}/holding/adjustments`,
-        request,
-      ),
+      this.http.post<HoldingAdjustment>(`${API}/pockets/${pocketId}/holding/adjustments`, request),
     );
   }
 

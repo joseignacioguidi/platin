@@ -147,11 +147,7 @@ const INSTRUMENTS: Instrument[] = [
               {{ link.title }}: <strong>{{ listing.symbol }}</strong> · {{ listing.name }}
             </p>
           } @else {
-            <pl-holding-fields
-              [type]="instrument()"
-              [currency]="currency()"
-              [(draft)]="holding"
-            />
+            <pl-holding-fields [type]="instrument()" [currency]="currency()" [(draft)]="holding" />
           }
         }
         @if (instrument() === 'TERM_DEPOSIT') {
@@ -293,7 +289,8 @@ export class PocketFormSheet {
 
   /** The terms to save after the pocket, null to leave it by hand, or an error message. */
   private termsToSave(): { request: TermDepositRequest | null } | { error: string } {
-    if (this.kind() !== 'INVESTMENT' || this.instrument() !== 'TERM_DEPOSIT') return { request: null };
+    if (this.kind() !== 'INVESTMENT' || this.instrument() !== 'TERM_DEPOSIT')
+      return { request: null };
     const draft = this.termDeposit();
     if (!draft.principal.trim() && !draft.tna.trim() && !draft.startDate && !draft.endDate) {
       return { request: null };

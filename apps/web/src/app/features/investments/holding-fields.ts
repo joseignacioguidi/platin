@@ -7,8 +7,13 @@ import { parseTypedUnits } from './investment-format';
 import { InstrumentPicker } from './instrument-picker';
 import { INVESTMENTS_TEXTS } from './investments.texts';
 
-/** The instrument types the app can price (ADR 0040; phase 43 brings FCI). */
-export const PRICED_INSTRUMENTS: readonly Instrument[] = ['MUTUAL_FUND'];
+/** The instrument types the app can price (ADR 0040): funds, CEDEARs, stocks and crypto. */
+export const PRICED_INSTRUMENTS: readonly Instrument[] = [
+  'CEDEAR',
+  'STOCK',
+  'MUTUAL_FUND',
+  'CRYPTO',
+];
 
 export interface HoldingDraft {
   mode: 'AUTO' | 'MANUAL';
@@ -38,7 +43,12 @@ export function holdingRequest(
   host: { class: 'flex flex-col gap-4' },
   template: `
     <div class="flex flex-col gap-1.5">
-      <pl-segmented [label]="t.title" [options]="modes" [value]="draft().mode" (valueChange)="setMode($event)" />
+      <pl-segmented
+        [label]="t.title"
+        [options]="modes"
+        [value]="draft().mode"
+        (valueChange)="setMode($event)"
+      />
       @if (draft().mode === 'MANUAL') {
         <p class="text-sm text-muted">{{ t.manualHint }}</p>
       }
