@@ -36,7 +36,7 @@ export interface FundRow {
 }
 
 /** Monday to Friday; holidays are not known, so they count as business days. */
-function isBusinessDay(day: LocalDate): boolean {
+export function isBusinessDay(day: LocalDate): boolean {
   const { year, month, day: d } = dateParts(day);
   const weekday = new Date(Date.UTC(year, month - 1, d)).getUTCDay();
   return weekday !== 0 && weekday !== 6;

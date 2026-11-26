@@ -2,6 +2,8 @@ import { Global, Module } from '@nestjs/common';
 import { ClockService } from '../common/clock.service';
 import { AppConfig } from '../config/app-config';
 import { ArgentinaDatosProvider } from './argentinadatos.provider';
+import { CoinGeckoProvider } from './coingecko.provider';
+import { Data912Provider } from './data912.provider';
 import { InstrumentsController } from './instruments.controller';
 import { PRICE_PROVIDERS, type PriceProvider } from './price-provider';
 import { PricesService } from './prices.service';
@@ -10,8 +12,15 @@ import { PricesService } from './prices.service';
 export function priceProvidersFromConfig(config: AppConfig, clock: ClockService): PriceProvider[] {
   const env = config.env;
   const providers: PriceProvider[] = [];
+  const today = () => clock.today();
   if (env.PRICES_ARGENTINADATOS_URL) {
-    providers.push(new ArgentinaDatosProvider(env.PRICES_ARGENTINADATOS_URL, () => clock.today()));
+    providers.push(new ArgentinaDatosProvider(env.PRICES_ARGENTINADATOS_URL, today));
+  }
+  if (env.PRICES_DATA912_URL) providers.push(new Data912Provider(env.PRICES_DATA912_URL, today));
+  if (env.PRICES_COINGECKO_URL) {
+    providers.push(
+      new CoinGeckoProvider(env.PRICES_COINGECKO_URL, today, env.COINGECKO_API_KEY || undefined),
+    );
   }
   return providers;
 }
