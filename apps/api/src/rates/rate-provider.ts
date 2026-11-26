@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { Currency, RateType } from '@platin/domain';
+import { parseQuotedArray } from '../common/quoted-json';
 import { AppConfig } from '../config/app-config';
 
 export interface FetchedRate {
@@ -56,12 +57,7 @@ export class DolarApiProvider extends RateProvider {
 }
 
 /** Quotes compra/venta before JSON.parse so they never go through a float. */
-function parseQuoted(body: string): Record<string, unknown>[] {
-  const quoted = body.replace(/"(compra|venta)"\s*:\s*(-?\d+(?:\.\d+)?)/g, '"$1":"$2"');
-  const parsed: unknown = JSON.parse(quoted);
-  if (!Array.isArray(parsed)) throw new Error('Unexpected DolarApi response');
-  return parsed as Record<string, unknown>[];
-}
+const parseQuoted = (body: string) => parseQuotedArray(body, ['compra', 'venta'], 'DolarApi');
 
 /** GET /v1/cotizaciones: EUR, BRL, CLP and UYU at the oficial rate (the dollar comes apart). */
 export function parseCotizaciones(body: string): FetchedRate[] {

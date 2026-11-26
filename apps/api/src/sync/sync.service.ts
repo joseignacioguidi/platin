@@ -7,6 +7,7 @@ import { ClockService } from '../common/clock.service';
 import { toDbDate, toDbPeriod } from '../common/serialize';
 import { FeedIngestService } from '../feeds/feed-ingest.service';
 import { FIXED_INCLUDE, toSchedule } from '../fixed/fixed.mapper';
+import { InvestmentsService } from '../investments/investments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RatesService } from '../rates/rates.service';
 import { cleanupTelegram } from '../telegram/cleanup';
@@ -17,6 +18,7 @@ import { cleanupTelegram } from '../telegram/cleanup';
  * to the current one. Fixed items on a card (TAR-09) become one-payment charges in the
  * statement of their day instead of pending movements. Idempotent: the unique
  * (fixedId, fixedPeriod) of movements and charges prevents duplicates even if two syncs overlap.
+ * It also records the month-end valuation of the investments with an automatic value (INV-11).
  */
 @Injectable()
 export class SyncService {
@@ -27,6 +29,7 @@ export class SyncService {
     private readonly clock: ClockService,
     private readonly rates: RatesService,
     private readonly feeds: FeedIngestService,
+    private readonly investments: InvestmentsService,
   ) {}
 
   async sync(userId: string): Promise<SyncResponse> {
@@ -39,6 +42,8 @@ export class SyncService {
     await cleanupTelegram(this.prisma, new Date());
     // MPG-02: what the webhook did not bring (Render asleep, a lost notice). Never throws.
     await this.feeds.syncUser(userId);
+    // INV-11: the month-end valuation of the investments with an automatic value. Never throws.
+    await this.investments.autoValuate(userId);
 
     return this.prisma.$transaction(
       async (tx) => {

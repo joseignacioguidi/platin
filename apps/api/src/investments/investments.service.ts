@@ -1,12 +1,14 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import type {
   CreateValuationsRequest,
   InvestmentPocket,
   Investments,
+  TermDepositRequest,
   Valuation,
   ValuationsResponse,
 } from '@platin/contracts';
 import {
+  autoValuationsDue,
   canConvert,
   compareDates,
   CURRENCIES,
@@ -24,15 +26,22 @@ import {
   yieldFromValuation,
 } from '@platin/domain';
 import { PocketBalancesService } from '../accounts/pocket-balances.service';
-import { PocketsService, PocketWithAccount, toPocketDto } from '../accounts/pockets.service';
+import {
+  PocketsService,
+  PocketWithAccount,
+  toPocketDto,
+  WITH_ACCOUNT,
+} from '../accounts/pockets.service';
 import { AppException } from '../common/app-exception';
 import { freezeBase } from '../common/base-conversion';
 import { ClockService } from '../common/clock.service';
 import { baseCurrency, date, money, toDbDate } from '../common/serialize';
-import type { Prisma } from '../generated/prisma/client';
+import { Prisma } from '../generated/prisma/client';
+import { EntitlementsService } from '../plans/entitlements.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RatesService } from '../rates/rates.service';
 import { UserRates } from '../rates/user-rates.service';
+import { InvestmentPricingService, PricingData } from './investment-pricing.service';
 
 const VALUATION_INCLUDE = { transaction: { select: { amount: true } } } as const;
 type ValuationRow = Prisma.PocketValuationGetPayload<{ include: typeof VALUATION_INCLUDE }>;
@@ -43,10 +52,18 @@ function toValuationDto(row: ValuationRow): Valuation {
     pocketId: row.pocketId,
     date: date(row.date),
     value: money(row.value),
+    source: row.source,
     yield: row.transaction ? money(row.transaction.amount) : '0.00',
     transactionId: row.transactionId,
   };
 }
+
+const isUniqueViolation = (error: unknown): boolean =>
+  error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+
+/** Valued by hand: neither linked to an instrument nor a term deposit. */
+const isManual = (pocketId: string, data: PricingData): boolean =>
+  !data.holdings.has(pocketId) && !data.termDeposits.has(pocketId);
 
 const emptyTotals = (currency: Currency) => ({
   invested: Money.zero(currency),
@@ -61,6 +78,8 @@ const emptyTotals = (currency: Currency) => ({
  */
 @Injectable()
 export class InvestmentsService {
+  private readonly logger = new Logger(InvestmentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly balances: PocketBalancesService,
@@ -68,13 +87,32 @@ export class InvestmentsService {
     private readonly rates: RatesService,
     private readonly userRates: UserRates,
     private readonly clock: ClockService,
+    private readonly pricing: InvestmentPricingService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
-  /** INV-05: every investment pocket with its summary, totals and composition. */
-  async overview(userId: string): Promise<Investments> {
+  /** INV-05: every investment pocket with its summary, pricing, totals and composition. */
+  overview(userId: string): Promise<Investments> {
+    return this.build(userId, {
+      userId,
+      kind: 'INVESTMENT',
+      archivedAt: null,
+      account: { archivedAt: null },
+    });
+  }
+
+  /** One investment pocket as GET /investments shows it (also archived), for its detail. */
+  async pocket(userId: string, pocketId: string): Promise<InvestmentPocket> {
+    const owned = await this.pockets.getOwned(userId, pocketId);
+    if (owned.kind !== 'INVESTMENT') throw this.notAnInvestment();
+    const result = await this.build(userId, { id: pocketId, userId });
+    return result.accounts[0].pockets[0];
+  }
+
+  private async build(userId: string, where: Prisma.PocketWhereInput): Promise<Investments> {
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     const rows = await this.prisma.pocket.findMany({
-      where: { userId, kind: 'INVESTMENT', archivedAt: null, account: { archivedAt: null } },
+      where,
       include: {
         account: { select: { id: true, name: true, archivedAt: true } },
         valuations: { orderBy: { date: 'asc' }, include: VALUATION_INCLUDE },
@@ -82,12 +120,14 @@ export class InvestmentsService {
       orderBy: [{ account: { sortOrder: 'asc' } }, { sortOrder: 'asc' }, { createdAt: 'asc' }],
     });
     const ids = rows.map((row) => row.id);
-    const [balances, transfers] = await Promise.all([
+    const pricingData = await this.pricing.load(userId, ids);
+    const [balances, transfers, latest] = await Promise.all([
       this.balances.balances(userId, rows),
       this.prisma.transfer.findMany({
         where: { userId, OR: [{ fromPocketId: { in: ids } }, { toPocketId: { in: ids } }] },
         select: { fromPocketId: true, toPocketId: true, amountOut: true, amountIn: true },
       }),
+      this.pricing.latestPrices(pricingData),
     ]);
     const baseCode = baseCurrency(user.baseCurrency);
     const rates = await this.rates.tableFor(user.valuationRate, this.clock.today());
@@ -119,6 +159,20 @@ export class InvestmentsService {
         })),
       );
       const last = row.valuations.at(-1);
+      const pricing = this.pricing.pricingFor(
+        row,
+        {
+          invested: summary.investedNet,
+          value: summary.currentValue,
+          yield: summary.accumulatedYield,
+          yieldRate: summary.yieldRate,
+        },
+        pricingData,
+        latest,
+      );
+      // The totals use the live value of the automatic ones (ADR 0040).
+      const value = Money.of(pricing.marketValue, row.currency);
+      const yieldAmount = Money.of(pricing.liveYield, row.currency);
       const pocket: InvestmentPocket = {
         ...toPocketDto(row, balance),
         summary: {
@@ -128,6 +182,7 @@ export class InvestmentsService {
           yieldRate: summary.yieldRate,
           lastYield: summary.lastYield.toString(),
         },
+        pricing,
         lastValuation: last ? toValuationDto(last) : null,
       };
       let group = accounts.find((a) => a.id === row.account.id);
@@ -140,19 +195,21 @@ export class InvestmentsService {
       const sums = totals.get(row.currency) ?? emptyTotals(row.currency);
       totals.set(row.currency, sums);
       sums.invested = sums.invested.add(summary.investedNet);
-      sums.value = sums.value.add(summary.currentValue);
-      sums.yield = sums.yield.add(summary.accumulatedYield);
+      sums.value = sums.value.add(value);
+      sums.yield = sums.yield.add(yieldAmount);
       base.invested = base.invested.add(toBase(summary.investedNet));
-      base.value = base.value.add(toBase(summary.currentValue));
-      base.yield = base.yield.add(toBase(summary.accumulatedYield));
+      base.value = base.value.add(toBase(value));
+      base.yield = base.yield.add(toBase(yieldAmount));
       const instrument = row.instrument ?? 'OTHER';
       byInstrument.set(
         instrument,
-        (byInstrument.get(instrument) ?? Money.zero(user.baseCurrency)).add(toBase(balance)),
+        (byInstrument.get(instrument) ?? Money.zero(user.baseCurrency)).add(toBase(value)),
       );
     }
 
-    const lastValuationDate = this.lastValuationDate(rows.flatMap((row) => row.valuations));
+    // "Valores cargados a mano": the automatic ones have their own date (INV-11).
+    const manual = rows.filter((row) => isManual(row.id, pricingData));
+    const lastValuationDate = this.lastValuationDate(manual.flatMap((row) => row.valuations));
     const totalsDto = (t: ReturnType<typeof emptyTotals>) => ({
       invested: t.invested.toString(),
       value: t.value.toString(),
@@ -180,21 +237,28 @@ export class InvestmentsService {
           })),
       },
       lastValuationDate,
-      overdue: this.isOverdue(rows, lastValuationDate),
+      overdue: this.isOverdue(manual),
     };
   }
 
   /** INV-03 for the home screen: is it time to update the values? */
   async overdue(userId: string): Promise<boolean> {
     const rows = await this.prisma.pocket.findMany({
-      where: { userId, kind: 'INVESTMENT', archivedAt: null, account: { archivedAt: null } },
+      // Only the ones valued by hand: the automatic ones value themselves (INV-11).
+      where: {
+        userId,
+        kind: 'INVESTMENT',
+        archivedAt: null,
+        account: { archivedAt: null },
+        holding: { is: null },
+        termDeposit: { is: null },
+      },
       select: {
         createdAt: true,
         valuations: { select: { date: true }, orderBy: { date: 'desc' }, take: 1 },
       },
     });
-    const last = this.lastValuationDate(rows.flatMap((row) => row.valuations));
-    return this.isOverdue(rows, last);
+    return this.isOverdue(rows);
   }
 
   /**
@@ -206,29 +270,11 @@ export class InvestmentsService {
     request: CreateValuationsRequest,
   ): Promise<ValuationsResponse> {
     const today = this.clock.today();
-    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
-    const category = await this.prisma.category.findUniqueOrThrow({
-      where: { userId_systemKey: { userId, systemKey: 'YIELD' } },
-      select: { id: true },
-    });
-
-    const prepared: {
-      pocket: PocketWithAccount;
-      day: LocalDate;
-      value: Money;
-      difference: Money;
-      rate: RatesInput | undefined;
-    }[] = [];
+    const items: { pocket: PocketWithAccount; day: LocalDate; value: Money }[] = [];
     for (const item of request.items) {
       const day = parseLocalDate(item.date);
       const pocket = await this.pockets.getActive(userId, item.pocketId);
-      if (pocket.kind !== 'INVESTMENT') {
-        throw new AppException(
-          'NOT_AN_INVESTMENT',
-          HttpStatus.UNPROCESSABLE_ENTITY,
-          'Only investment pockets are valued',
-        );
-      }
+      if (pocket.kind !== 'INVESTMENT') throw this.notAnInvestment();
       if (compareDates(day, today) > 0) {
         throw new AppException(
           'VALUATION_IN_FUTURE',
@@ -247,7 +293,90 @@ export class InvestmentsService {
           'There is already a valuation on that date or a later one',
         );
       }
-      const value = Money.of(item.value, pocket.currency);
+      items.push({ pocket, day, value: Money.of(item.value, pocket.currency) });
+    }
+    const ids = await this.writeValuations(userId, items, 'MANUAL');
+    const rows = await this.prisma.pocketValuation.findMany({
+      where: { id: { in: ids } },
+      include: VALUATION_INCLUDE,
+    });
+    return {
+      items: ids.map((id) => toValuationDto(rows.find((r) => r.id === id) as ValuationRow)),
+    };
+  }
+
+  /**
+   * INV-11 (POST /sync): the month-end valuation of each investment with an automatic value,
+   * dated the last day of the previous month, with the same YIELD movement as a manual one.
+   * Idempotent: autoValuationsDue skips the ones already valued, and a concurrent sync that
+   * created the same row first wins (unique pocket and date). Never throws: a sync does not fail
+   * because a price is missing. Returns how many it created.
+   */
+  async autoValuate(userId: string): Promise<number> {
+    try {
+      if (!(await this.entitlements.includes(userId, 'investments'))) return 0;
+      const rows = await this.prisma.pocket.findMany({
+        where: {
+          userId,
+          kind: 'INVESTMENT',
+          archivedAt: null,
+          account: { archivedAt: null },
+          OR: [{ holding: { isNot: null } }, { termDeposit: { isNot: null } }],
+        },
+        include: {
+          ...WITH_ACCOUNT,
+          valuations: { select: { date: true }, orderBy: { date: 'desc' }, take: 1 },
+        },
+      });
+      if (rows.length === 0) return 0;
+      const data = await this.pricing.load(
+        userId,
+        rows.map((row) => row.id),
+      );
+      const due = autoValuationsDue(
+        rows.flatMap((row) => {
+          const since = this.pricing.since(row.id, data);
+          const last = row.valuations[0];
+          return since
+            ? [{ pocketId: row.id, since, lastValuation: last ? date(last.date) : null }]
+            : [];
+        }),
+        this.clock.today(),
+      );
+      const items: { pocket: PocketWithAccount; day: LocalDate; value: Money }[] = [];
+      for (const { pocketId, date: day } of due) {
+        const pocket = rows.find((row) => row.id === pocketId) as PocketWithAccount;
+        const value = await this.pricing.valueAt(pocket, data, day);
+        if (value) items.push({ pocket, day, value });
+      }
+      if (items.length === 0) return 0;
+      return (await this.writeValuations(userId, items, 'AUTO')).length;
+    } catch (error) {
+      if (isUniqueViolation(error)) return 0;
+      this.logger.warn(`Automatic valuations failed: ${(error as Error).message}`);
+      return 0;
+    }
+  }
+
+  /** Records valuations and their yields in one transaction. Returns their ids in order. */
+  private async writeValuations(
+    userId: string,
+    items: readonly { pocket: PocketWithAccount; day: LocalDate; value: Money }[],
+    source: 'MANUAL' | 'AUTO',
+  ): Promise<string[]> {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const category = await this.prisma.category.findUniqueOrThrow({
+      where: { userId_systemKey: { userId, systemKey: 'YIELD' } },
+      select: { id: true },
+    });
+    const prepared: {
+      pocket: PocketWithAccount;
+      day: LocalDate;
+      value: Money;
+      difference: Money;
+      rate: RatesInput | undefined;
+    }[] = [];
+    for (const { pocket, day, value } of items) {
       const difference = yieldFromValuation(
         await this.balances.balance(userId, pocket, day),
         value,
@@ -259,7 +388,7 @@ export class InvestmentsService {
       prepared.push({ pocket, day, value, difference, rate });
     }
 
-    const ids = await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const created: string[] = [];
       for (const { pocket, day, value, difference, rate } of prepared) {
         let transactionId: string | null = null;
@@ -288,20 +417,64 @@ export class InvestmentsService {
             date: toDbDate(day),
             value: value.toString(),
             transactionId,
+            source,
           },
         });
         created.push(valuation.id);
       }
       return created;
     });
+  }
 
-    const rows = await this.prisma.pocketValuation.findMany({
-      where: { id: { in: ids } },
-      include: VALUATION_INCLUDE,
-    });
-    return {
-      items: ids.map((id) => toValuationDto(rows.find((r) => r.id === id) as ValuationRow)),
+  /**
+   * INV-12: sets or changes the terms of a term deposit (changing them renews it). Only for an
+   * investment pocket of type term deposit, never linked to an instrument.
+   */
+  async putTermDeposit(
+    userId: string,
+    pocketId: string,
+    request: TermDepositRequest,
+  ): Promise<InvestmentPocket> {
+    const pocket = await this.pockets.getActive(userId, pocketId);
+    if (pocket.kind !== 'INVESTMENT') throw this.notAnInvestment();
+    if (pocket.instrument !== 'TERM_DEPOSIT') {
+      throw new AppException(
+        'INSTRUMENT_TYPE_MISMATCH',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'Only an investment of type term deposit has terms',
+      );
+    }
+    if (compareDates(request.endDate, request.startDate) <= 0) {
+      throw new AppException(
+        'TERM_DEPOSIT_DATES',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'The end date has to be after the start date',
+      );
+    }
+    const terms = {
+      principal: request.principal,
+      tna: request.tna,
+      startDate: toDbDate(request.startDate),
+      endDate: toDbDate(request.endDate),
     };
+    await this.prisma.$transaction([
+      // A pocket is either linked or a term deposit, never both.
+      this.prisma.pocketHolding.deleteMany({ where: { pocketId } }),
+      this.prisma.termDeposit.upsert({
+        where: { pocketId },
+        create: { pocketId, ...terms },
+        update: terms,
+      }),
+    ]);
+    return this.pocket(userId, pocketId);
+  }
+
+  private notAnInvestment(): AppException {
+    return new AppException(
+      'NOT_AN_INVESTMENT',
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      'Only investment pockets are valued',
+    );
   }
 
   /** The valuations of one investment pocket, newest first. */
@@ -343,13 +516,10 @@ export class InvestmentsService {
   }
 
   /** Overdue since the last valuation or, without any, since the oldest investment. */
-  private isOverdue(
-    pockets: readonly { createdAt: Date }[],
-    lastValuation: LocalDate | null,
-  ): boolean {
+  private isOverdue(pockets: readonly { createdAt: Date; valuations: { date: Date }[] }[]): boolean {
     if (pockets.length === 0) return false;
     const since =
-      lastValuation ??
+      this.lastValuationDate(pockets.flatMap((p) => p.valuations)) ??
       pockets
         .map((p) => localDateAt(p.createdAt))
         .reduce((a, b) => (compareDates(a, b) <= 0 ? a : b));

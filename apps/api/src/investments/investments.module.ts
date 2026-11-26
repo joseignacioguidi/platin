@@ -5,12 +5,13 @@ import {
   PocketValuationsController,
   ValuationsController,
 } from './investments.controller';
+import { InvestmentPricingService } from './investment-pricing.service';
 import { InvestmentsService } from './investments.service';
 
 @Module({
   imports: [AccountsModule],
   controllers: [InvestmentsController, ValuationsController, PocketValuationsController],
-  providers: [InvestmentsService],
+  providers: [InvestmentsService, InvestmentPricingService],
   exports: [InvestmentsService],
 })
 export class InvestmentsModule {}

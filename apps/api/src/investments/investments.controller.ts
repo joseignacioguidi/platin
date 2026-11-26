@@ -1,9 +1,12 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put } from '@nestjs/common';
 import {
   createValuationsRequestSchema,
   idParamSchema,
+  investmentPocketSchema,
   investmentsSchema,
+  termDepositRequestSchema,
   valuationsResponseSchema,
+  type InvestmentPocket,
   type Investments,
   type ValuationsResponse,
 } from '@platin/contracts';
@@ -16,6 +19,8 @@ class InvestmentsDto extends createZodDto(investmentsSchema) {}
 class CreateValuationsDto extends createZodDto(createValuationsRequestSchema) {}
 class ValuationsDto extends createZodDto(valuationsResponseSchema) {}
 class IdParamDto extends createZodDto(idParamSchema) {}
+class InvestmentPocketDto extends createZodDto(investmentPocketSchema) {}
+class TermDepositDto extends createZodDto(termDepositRequestSchema) {}
 
 // Hidden for plans without investments; existing data is kept and shows up again with them.
 @RequiresFeature('investments')
@@ -58,5 +63,27 @@ export class PocketValuationsController {
   @ZodSerializerDto(ValuationsDto)
   list(@CurrentUser() user: AuthUser, @Param() params: IdParamDto): Promise<ValuationsResponse> {
     return this.investments.valuationsOf(user.id, params.id);
+  }
+
+  /** The investment as Inversiones shows it, with its pricing, for the pocket detail. */
+  @Get(':id/investment')
+  @ZodSerializerDto(InvestmentPocketDto)
+  investment(
+    @CurrentUser() user: AuthUser,
+    @Param() params: IdParamDto,
+  ): Promise<InvestmentPocket> {
+    return this.investments.pocket(user.id, params.id);
+  }
+
+  /** INV-12: the terms of a term deposit. */
+  @RequiresFeature('investments')
+  @Put(':id/term-deposit')
+  @ZodSerializerDto(InvestmentPocketDto)
+  termDeposit(
+    @CurrentUser() user: AuthUser,
+    @Param() params: IdParamDto,
+    @Body() body: TermDepositDto,
+  ): Promise<InvestmentPocket> {
+    return this.investments.putTermDeposit(user.id, params.id, body);
   }
 }
