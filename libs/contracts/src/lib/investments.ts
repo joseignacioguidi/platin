@@ -149,3 +149,63 @@ export type TermDeposit = z.infer<typeof termDepositSchema>;
 export type Listing = z.infer<typeof listingSchema>;
 export type Pricing = z.infer<typeof pricingSchema>;
 export type PricingMode = z.infer<typeof pricingModeSchema>;
+
+/** Units (CEDEARs, shares, fund units, coins): up to 16 digits and 8 decimals. */
+export const unitsSchema = z
+  .string()
+  .regex(/^\d{1,16}(\.\d{1,8})?$/, 'Ingresá una cantidad válida');
+
+/** Positive units: what a transfer or a correction moves. */
+export const positiveUnitsSchema = unitsSchema.refine(
+  (value) => /[1-9]/.test(value),
+  'La cantidad tiene que ser mayor a cero',
+);
+
+/** INV-07: GET /instruments?type=&q= searches the shared catalog. */
+export const instrumentsQuerySchema = z.object({
+  type: instrumentSchema,
+  q: z.string().trim().max(60).default(''),
+});
+
+export const instrumentsResponseSchema = z.object({
+  items: z.array(listingSchema),
+  /** False when no price source covers the type: it can only go by hand. */
+  priced: z.boolean(),
+});
+
+/** INV-07: PUT /pockets/:id/holding links (or relinks) an investment to an instrument. */
+export const holdingRequestSchema = z.object({
+  instrumentId: uuidSchema,
+  /** The units it already had when it was linked. */
+  initialUnits: unitsSchema,
+});
+
+export const holdingDirectionSchema = z.enum(['IN', 'OUT']);
+
+/** INV-10: a correction of units without moving money. */
+export const holdingAdjustmentRequestSchema = z.object({
+  date: localDateSchema,
+  units: positiveUnitsSchema,
+  direction: holdingDirectionSchema,
+  note: z.string().trim().max(120).optional(),
+});
+
+export const holdingAdjustmentSchema = z.object({
+  id: uuidSchema,
+  pocketId: uuidSchema,
+  date: z.string(),
+  units: z.string(),
+  direction: holdingDirectionSchema,
+  note: z.string().nullable(),
+});
+
+export const holdingAdjustmentsResponseSchema = z.object({
+  items: z.array(holdingAdjustmentSchema),
+});
+
+export type InstrumentsQuery = z.infer<typeof instrumentsQuerySchema>;
+export type InstrumentsResponse = z.infer<typeof instrumentsResponseSchema>;
+export type HoldingRequest = z.infer<typeof holdingRequestSchema>;
+export type HoldingAdjustmentRequest = z.infer<typeof holdingAdjustmentRequestSchema>;
+export type HoldingAdjustment = z.infer<typeof holdingAdjustmentSchema>;
+export type HoldingAdjustmentsResponse = z.infer<typeof holdingAdjustmentsResponseSchema>;

@@ -1,12 +1,19 @@
 import { Global, Module } from '@nestjs/common';
+import { ClockService } from '../common/clock.service';
 import { AppConfig } from '../config/app-config';
+import { ArgentinaDatosProvider } from './argentinadatos.provider';
+import { InstrumentsController } from './instruments.controller';
 import { PRICE_PROVIDERS, type PriceProvider } from './price-provider';
 import { PricesService } from './prices.service';
 
-/** The providers this deployment uses; each phase of iteration 15 adds its own. */
-export function priceProvidersFromConfig(config: AppConfig): PriceProvider[] {
-  void config;
-  return [];
+/** The sources this deployment uses: a source with an empty URL is off (ADR 0041). */
+export function priceProvidersFromConfig(config: AppConfig, clock: ClockService): PriceProvider[] {
+  const env = config.env;
+  const providers: PriceProvider[] = [];
+  if (env.PRICES_ARGENTINADATOS_URL) {
+    providers.push(new ArgentinaDatosProvider(env.PRICES_ARGENTINADATOS_URL, () => clock.today()));
+  }
+  return providers;
 }
 
 /**
@@ -15,8 +22,13 @@ export function priceProvidersFromConfig(config: AppConfig): PriceProvider[] {
  */
 @Global()
 @Module({
+  controllers: [InstrumentsController],
   providers: [
-    { provide: PRICE_PROVIDERS, useFactory: priceProvidersFromConfig, inject: [AppConfig] },
+    {
+      provide: PRICE_PROVIDERS,
+      useFactory: priceProvidersFromConfig,
+      inject: [AppConfig, ClockService],
+    },
     PricesService,
   ],
   exports: [PricesService],

@@ -111,8 +111,13 @@ export class PricesService {
   }
 
   /** Downloads a source's catalog once a day; a failure keeps the stored one. */
-  refreshCatalog(source: PriceSource): Promise<void> {
-    if (this.catalogDay.get(source) === this.clock.today()) return Promise.resolve();
+  async refreshCatalog(source: PriceSource): Promise<void> {
+    if (
+      this.catalogDay.get(source) === this.clock.today() &&
+      (await this.prisma.instrument.count({ where: { source } })) > 0
+    ) {
+      return;
+    }
     let pending = this.catalogInFlight.get(source);
     if (!pending) {
       pending = this.downloadCatalog(source).finally(() => this.catalogInFlight.delete(source));

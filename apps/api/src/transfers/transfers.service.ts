@@ -2,11 +2,13 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import type { CreateTransferRequest, Transfer } from '@platin/contracts';
 import {
   Currency,
+  Decimal,
   impliedRate,
   Money,
   transferHasAccount,
   TransferIntent,
   transferIntent,
+  UNITS_DECIMALS,
 } from '@platin/domain';
 import { PocketsService } from '../accounts/pockets.service';
 import { AppException } from '../common/app-exception';
@@ -14,6 +16,7 @@ import { CurrenciesService } from '../common/currencies.service';
 import { ClockService } from '../common/clock.service';
 import { date, money, toDbDate } from '../common/serialize';
 import type { Pocket, Transfer as TransferRow } from '../generated/prisma/client';
+import { assertUnitsNotNegative } from '../investments/holding-units';
 import { PrismaService } from '../prisma/prisma.service';
 
 export function toTransferDto(
@@ -36,6 +39,7 @@ export function toTransferDto(
     impliedRate: impliedRate(out, into) ?? null,
     date: date(row.date),
     description: row.description,
+    units: row.units ? row.units.toFixed(UNITS_DECIMALS) : null,
   };
 }
 
@@ -68,6 +72,7 @@ export class TransfersService {
       );
     }
     const amountIn = this.amountIn(from, to, request);
+    const units = await this.units(from.id, to.id, request);
 
     const row = await this.prisma.transfer.create({
       data: {
@@ -79,6 +84,7 @@ export class TransfersService {
         currencyIn: to.currency,
         date: toDbDate(request.date),
         description: request.description || null,
+        units,
       },
     });
     return toTransferDto(row, from.currency, transferIntent(from.kind, to.kind));
@@ -100,7 +106,52 @@ export class TransfersService {
         'Statement payments are removed from the card',
       );
     }
+    // Deleting a purchase of a linked investment must not leave its units negative (INV-09).
+    if (row.units) {
+      for (const pocketId of [row.fromPocketId, row.toPocketId]) {
+        if (pocketId) await assertUnitsNotNegative(this.prisma, pocketId, { withoutTransferId: id });
+      }
+    }
     await this.prisma.transfer.delete({ where: { id } });
+  }
+
+  /**
+   * INV-09: a transfer to or from an investment linked to an instrument carries the units it
+   * bought or sold; any other transfer has none. Selling more than there is is refused.
+   */
+  private async units(
+    fromId: string,
+    toId: string,
+    request: CreateTransferRequest,
+  ): Promise<string | null> {
+    const holdings = await this.prisma.pocketHolding.findMany({
+      where: { pocketId: { in: [fromId, toId] } },
+      select: { pocketId: true },
+    });
+    if (holdings.length === 0) {
+      if (request.units) {
+        throw new AppException(
+          'UNITS_NOT_LINKED',
+          HttpStatus.UNPROCESSABLE_ENTITY,
+          'Units go only with an investment linked to an instrument',
+        );
+      }
+      return null;
+    }
+    if (!request.units) {
+      throw new AppException(
+        'UNITS_REQUIRED',
+        HttpStatus.UNPROCESSABLE_ENTITY,
+        'An investment linked to an instrument needs the units bought or sold',
+      );
+    }
+    const units = new Decimal(request.units).toFixed(UNITS_DECIMALS);
+    if (holdings.some((h) => h.pocketId === fromId)) {
+      await assertUnitsNotNegative(this.prisma, fromId, {
+        adding: { date: request.date, direction: 'OUT', units },
+      });
+    }
+    return units;
   }
 
   private amountIn(from: Pocket, to: Pocket, request: CreateTransferRequest): Money {
