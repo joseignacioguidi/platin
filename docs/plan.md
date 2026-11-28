@@ -1608,6 +1608,93 @@ Forma de trabajo:
 - Rama feat/fase-44-cedears-acciones-cripto. Todo en verde antes del PR, con capturas de Inversiones con un FCI, un CEDEAR, una cripto y un plazo fijo, y del aviso con Data912 caído.
 ```
 
+## Iteración 16: bonos y cartera
+
+Lo que surgió al usar las inversiones con precio en producción. Primero, que los datos sean confiables: bonos, precio a la vista y un alta vinculada que no permita cargar un saldo que no coincide con el valor. Después, la cartera. Las decisiones están en `docs/adr/0042-bonos-y-cartera.md`.
+
+| Fase | Qué se construye | Casos de uso | Terminado cuando |
+| --- | --- | --- | --- |
+| 45 | Bonos y ONs con precio, cobro de renta o amortización, precio en el buscador y en las filas, y alta vinculada sin saldo para escribir | INV-13 a 16 | Vinculo mi GD46 con sus nominales y veo su valor; al crear 60 SPY ya no puedo escribir un saldo y veo el valor de hoy antes de guardar |
+| 46 | Cartera por cuenta y total, con dona, pesos, monedas y evolución | INV-17 | El detalle de Santander muestra una sola fila "Cartera"; al tocarla veo cuánto pesa cada posición y cada tipo, y cómo evolucionó |
+
+## Fase 45 — Bonos y alta coherente
+
+**Terminado cuando:**
+- los ejemplos de bonos y de alta vinculada de la regla "Inversiones con precio automático" pasan como tests literales en `libs/domain`;
+- busco "GD46" en tipo Bono y aparecen GD46 en pesos, GD46D en dólares MEP y GD46C en dólares cable, cada uno con su precio y la fecha; busco "PN35" en tipo ON y aparece con su moneda;
+- con 1.000 VN de AL30D a USD 49,61, Inversiones muestra "1.000 VN × USD 49,61 c/100" y USD 496,10;
+- un cobro de renta de USD 10 de un bono pasa la plata a la cuenta, deja los nominales igual y en Movimientos se lee "Cobraste USD 10 de renta de AL30D"; en un CEDEAR, el cobro responde `PAYOUT_NOT_ALLOWED`;
+- en el buscador de FCI, "Super Ahorro $ - Clase A" muestra su valor cuotaparte con la fecha;
+- al crear una inversión en SPY ya no hay "Saldo de hoy": cargo 60 y $ 1.625.000 pagados, veo $ 1.285.200 antes de guardar y queda con −20,9 % de rendimiento; sin lo pagado, queda en 0 %;
+- vincular una reserva que estaba a mano la deja en su valor de mercado con una valuación de hoy;
+- una inversión vinculada o un plazo fijo no muestran "Actualizar valor", y la API responde `VALUATION_AUTOMATIC` a una valuación manual;
+- el script de corrección, en `--dry-run`, lista las reservas vinculadas cuyo saldo no coincide con su valor y lo que haría con cada una;
+- el aislamiento entre usuarios está probado para el alta con `holding` y el cobro.
+
+```
+Leé CLAUDE.md; INV-07 a 16 y la regla "Inversiones con precio automático" de docs/especificacion.md; en docs/arquitectura.md "Iteración 15: inversiones con precio", "Iteración 16: bonos y cartera", "Precios de inversiones" y "Componentes y patrones de la iteración 16"; y docs/adr/0040, 0041 y 0042.
+
+Vamos a hacer la Fase 45 de docs/plan.md: bonos y ONs, precio a la vista y alta vinculada coherente.
+
+Dominio y contratos:
+1. priceBase(type) y marketValue con el divisor; tests literales con los ejemplos de bonos y de alta vinculada (con y sin lo pagado).
+2. BOND y CORPORATE_BOND en instrumentSchema; price y priceDate en los resultados de /instruments; holding en el alta de reserva; payout en POST /transfers.
+
+Backend:
+3. Migración con los dos valores del enum y Transfer.payout, y la restricción CHECK de unidades actualizada. Avisame antes de correrla.
+4. Data912Provider: paneles arg_bonds y arg_corp, histórico de bonos para los tickers en pesos y nombres legibles ("AL30 · Bono en dólares MEP", "PN35D · ON en dólares MEP"). Fixtures con el panel real; verificá que la regla de la moneda funcione con los bonos y explicame si algún ticker queda mal.
+5. El catálogo guarda el precio de cada fila en InstrumentPrice, en las tres fuentes; /instruments lo devuelve.
+6. POST /accounts/:id/pockets con holding (reserva, vínculo y valuación AUTO de hoy en una transacción); PUT /pockets/:id/holding con la valuación de hoy; VALUATION_AUTOMATIC en POST /investments/valuations; payout en POST /transfers con sus validaciones.
+7. apps/api/scripts/reconcile-linked-investments.mjs con --dry-run, que reutilice la lógica del servicio (no la dupliques en SQL).
+8. Tests e2e: el criterio de terminado, los errores nuevos y el aislamiento entre usuarios.
+
+Web:
+9. Bono y ON en el selector de tipo. El selector de instrumento muestra precio y fecha.
+10. Formulario de reserva con instrumento elegido: "Cantidad" y "Cuánto pagaste (opcional)" en lugar de "Saldo de hoy", con el valor de hoy en vivo; guarda con un solo pedido.
+11. Detalle de una inversión vinculada o plazo fijo sin "Actualizar valor"; en bonos y ONs, "Cobro de renta o amortización" (PayoutSheet). Filas con "cantidad × precio".
+12. Textos en investments.texts.ts y accounts.texts.ts.
+
+Forma de trabajo:
+- Plan primero, esperame.
+- Rama feat/fase-45-bonos-y-alta. Todo en verde antes del PR, con capturas del buscador de bonos y de FCI con precio, del alta con el valor en vivo, del detalle de un bono con el cobro y de la salida del script en --dry-run.
+```
+
+## Fase 46 — Cartera
+
+**Terminado cuando:**
+- el detalle de la cuenta Santander muestra una sola fila "Cartera" con el valor en pesos y en dólares, la cantidad de posiciones y el rendimiento, en lugar de las reservas de inversión; las demás reservas no cambian;
+- en Ahorros e inversiones › Inversiones hay una tarjeta por cuenta ("Cartera Santander", "Cartera Mercado Pago") con valor, rendimiento y barra de composición, y "Ver cartera completa";
+- `/app/cuentas/:id/cartera` muestra el valor y el rendimiento, la dona por tipo con porcentajes, el reparto entre monedas, la evolución de 12 meses con lo invertido y las posiciones ordenadas por valor con su peso;
+- `/app/ahorros/inversiones/cartera` muestra lo mismo para todas las cuentas, más el reparto por cuenta;
+- los pesos de las posiciones coinciden con `portfolioBreakdown` (test con una cartera en pesos y dólares, y con una moneda sin cotización);
+- la evolución termina en el valor de hoy y sus puntos de fin de mes coinciden con los saldos de esas fechas;
+- tocar una posición lleva a su detalle; "+ Nueva inversión" abre el formulario con la cuenta elegida;
+- `GET /investments?accountId=` de una cuenta de otro usuario responde 404;
+- en celular todo entra en 360 px de ancho, los gráficos se leen sin pasar el mouse y lo tocable mide 44 px o más.
+
+```
+Leé CLAUDE.md; INV-05, INV-06 e INV-17 y la regla "Inversiones con precio automático" de docs/especificacion.md; en docs/arquitectura.md "Iteración 16: bonos y cartera" y "Componentes y patrones de la iteración 16"; y docs/adr/0042-bonos-y-cartera.md.
+
+Vamos a hacer la Fase 46 de docs/plan.md: la cartera, como vista sobre las reservas de inversión (sin cambiar el modelo).
+
+Dominio:
+1. portfolioBreakdown y portfolioHistory en libs/domain, con tests: cartera en pesos y dólares, una moneda sin cotización, una sola posición y una cartera vacía.
+
+Backend:
+2. GET /investments?accountId= con weight, byCurrency y byAccount. GET /investments/history?accountId=&months=12, con los saldos a fin de cada mes y la cotización de ese día o la anterior más cercana. Tests e2e con ClockService fijado y aislamiento entre usuarios.
+
+Web:
+3. pl-donut y pl-line-chart en libs/web-ui, en SVG y con los tokens de color, accesibles (aria-label por segmento y por punto) y con tests.
+4. PortfolioRow en el detalle de la cuenta en lugar de las reservas de inversión.
+5. PortfolioCard por cuenta en la pestaña Inversiones en lugar de la lista de posiciones; el resumen de arriba queda igual, con "Ver cartera completa".
+6. PortfolioPage en /app/cuentas/:id/cartera y /app/ahorros/inversiones/cartera (carga diferida, títulos "Cartera Santander · platin" y "Cartera · platin"), con los bloques de la arquitectura. Los montos con pl-money.
+7. Textos en un archivo de textos de la cartera.
+
+Forma de trabajo:
+- Plan primero, esperame.
+- Rama feat/fase-46-cartera. Todo en verde antes del PR, con capturas en escritorio (1440 px, claro y oscuro) y en celular (390 px) del detalle de la cuenta, de la pestaña Inversiones y de las dos carteras.
+```
+
 ## Después del MVP
 
 La segunda tanda de la especificación, en fases chicas que se pueden hacer en cualquier orden. Los prompts siguen el mismo molde que las fases anteriores: leer `CLAUDE.md` y la sección de la especificación, plan primero, rama propia, PR con todo en verde.
