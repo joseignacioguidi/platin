@@ -92,7 +92,7 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 - **CTA-05** En el detalle de una reserva, **Retirar** devuelve plata al saldo de una cuenta (la suya, por defecto). No hay botones Apartar, Invertir ni Rescatar: la intención de la transferencia se deduce del uso de la reserva.
 - **CTA-06** En el detalle de una reserva, **Ajustar saldo** abre dos opciones:
   - **Ingresar desde una cuenta**: transferencia desde el saldo de cualquier cuenta (la suya, por defecto), con dos montos si las monedas son distintas.
-  - **Ajustar saldo** (en una inversión, **Actualizar valor**): "Usalo para sumar intereses o corregir una diferencia con tu banco." Crea un movimiento de ajuste por la diferencia; en una inversión, una valuación (INV-03, 04).
+  - **Ajustar saldo** (en una inversión, **Actualizar valor**): "Usalo para sumar intereses o corregir una diferencia con tu banco." Crea un movimiento de ajuste por la diferencia; en una inversión, una valuación (INV-03, 04). Una inversión vinculada o un plazo fijo no la tienen: su valor se calcula (INV-16).
   - El saldo de una cuenta también se puede ajustar, solo con la segunda opción: "Corregí una diferencia con tu banco o billetera."
 - **CTA-07** Archivar un apartado o una cuenta cuando su saldo es 0; el histórico se conserva.
 
@@ -180,6 +180,25 @@ Catorce módulos; cada caso de uso tiene un código para referenciarlo en el pla
 - **INV-10** Corregir cantidad: en el detalle de una inversión vinculada, "Corregir cantidad" suma o resta unidades con fecha y motivo (un split, un dividendo en especie, una diferencia con el broker), sin mover plata.
 - **INV-11** Valuación automática: al abrir la app por primera vez en el mes, platin registra la valuación del último día del mes anterior de cada inversión vinculada y de cada plazo fijo, con su rendimiento (INV-04). Estas inversiones aparecen en "Actualizar valores" con su valor, sin campo para cargar, y no cuentan para el aviso de INV-03.
 - **INV-12** Plazo fijo: una inversión de tipo plazo fijo se carga con capital, TNA, fecha de constitución y vencimiento. Su valor se calcula día a día; al vencer queda en el valor final y se marca "Vencido" hasta que se rescata. Sus condiciones se pueden editar (para renovarlo).
+- **INV-13** Bonos y ONs con precio automático (iteración 16): una inversión de tipo bono (soberano, como AL30 o GD46) u ON se vincula como un CEDEAR, en pesos, dólares MEP o dólares cable. La cantidad es el valor nominal y el precio es cada 100 nominales ("1.000 VN × USD 49,61 c/100").
+- **INV-14** Cobro de renta o amortización: en un bono o una ON, "Cobro de renta o amortización" pasa la plata cobrada a una cuenta sin cambiar los nominales. En la lista de movimientos se lee "Cobraste USD 12 de renta de GD46".
+- **INV-15** Precio a la vista: al buscar un instrumento, cada resultado muestra su último precio con la fecha ("$ 20.615,52 al 27/11"). Cada inversión vinculada muestra la cantidad por el precio ("60 CEDEARs × $ 21.420").
+- **INV-16** Una inversión vinculada vale su cantidad por el precio:
+  - Al crearla se carga el instrumento, la cantidad y, opcionalmente, cuánto pagaste. El saldo no se escribe: platin lo calcula y lo muestra antes de guardar.
+  - Lo pagado es lo invertido, y la diferencia con el valor de hoy es el rendimiento desde el primer día.
+  - Vincular una inversión que se seguía a mano la lleva al valor de hoy de la misma forma.
+  - Una inversión vinculada o un plazo fijo no se actualizan a mano: no tienen "Actualizar valor". Para cambiar la cantidad se invierte, se rescata o se corrige la cantidad (INV-09, 10).
+- **INV-17** Cartera: las inversiones de una cuenta se ven juntas como su cartera.
+  - En el detalle de la cuenta, una sola fila "Cartera" reemplaza a las reservas de inversión. Muestra el valor en cada moneda, la cantidad de posiciones y el rendimiento.
+  - En Ahorros e inversiones › Inversiones, el resumen de arriba no cambia y debajo hay una tarjeta por cuenta ("Cartera Santander") con su valor, su rendimiento y una barra de composición, en lugar de la lista de posiciones. "Ver cartera completa" abre la cartera de todas las cuentas.
+  - La pantalla de cartera (de una cuenta o de todas) muestra:
+    - el valor total en moneda base con el rendimiento sobre lo invertido;
+    - la composición por tipo (FCI, CEDEARs, acciones, bonos, ONs, plazo fijo, cripto, otro) en un gráfico de dona;
+    - el reparto entre monedas;
+    - la evolución del valor y de lo invertido mes a mes (12 meses);
+    - en la de todas las cuentas, el reparto por cuenta;
+    - las posiciones ordenadas por valor, con cantidad × precio, valor, peso en la cartera y rendimiento. Cada una lleva a su detalle.
+  - Desde la cartera se puede crear una inversión nueva en esa cuenta.
 
 ### 10. Dashboard, reportes y landing
 
@@ -468,6 +487,9 @@ Ejemplo (tests literales): tenías al empezar $ 300.000; cobraste $ 1.600.000 y 
 - Valuación automática: el primer día que se abre la app en un mes, por cada inversión vinculada o plazo fijo sin valuación en el último día del mes anterior ni después, se registra una con el valor de ese día (el precio de ese día o el anterior más cercano). Genera su rendimiento como cualquier valuación.
 - Plazo fijo: valor a la fecha F = capital + capital × TNA × días ÷ 365, con días desde la constitución hasta F sin pasar del vencimiento, redondeado a 2 decimales.
 - Ejemplo plazo fijo: $ 1.000.000 al 30 % de TNA, constituido el 01/11/2026 a 30 días. El 16/11 vale $ 1.012.328,77; al vencer, el 01/12, vale $ 1.024.657,53 y queda en ese valor hasta que se rescata.
+- Bonos y ONs: valor = valor nominal × precio ÷ 100, redondeado a 2 decimales. Ejemplo: 1.000 VN de AL30D a USD 49,61 valen USD 496,10. Un cobro de renta de USD 10 pasa USD 10 a la cuenta y los nominales siguen en 1.000.
+- Alta de una inversión vinculada: saldo inicial = lo pagado (o el valor de hoy, si no se carga). En la misma operación se registra una valuación automática con fecha de hoy por valor de hoy − lo pagado. Ejemplo: 60 SPY a $ 21.420 valen $ 1.285.200. Si pagaste $ 1.625.000, la inversión queda con $ 1.625.000 invertidos, un valor de $ 1.285.200 y un rendimiento de −$ 339.800 (−20,9 %). Si no cargás lo pagado, queda en $ 1.285.200 invertidos y 0 % de rendimiento.
+- Cartera: el peso de una posición es su valor en moneda base ÷ el valor de la cartera en moneda base, con 1 decimal. Una moneda sin cotización no suma. La evolución toma el saldo de cada reserva a fin de cada mes, pasado a moneda base con la cotización de ese día (o la anterior más cercana), y termina en el valor de hoy.
 
 ### Planes
 
@@ -689,7 +711,7 @@ El MVP es lo mínimo para dejar de usar la versión actual: cuentas, movimientos
 | Compromisos | COM-01, 02 | COM-03 liberación de cuotas |
 | Presupuestos | — | PRE-01 a 03 |
 | Metas | MET-01, 02, 03 | MET-04 simulación, MET-05 |
-| Inversiones | — | INV-01 a 03, INV-07 a 12 precio automático (iteración 15) |
+| Inversiones | — | INV-01 a 03, INV-07 a 12 precio automático (iteración 15), INV-13 a 17 bonos y cartera (iteración 16) |
 | Dashboard y reportes | DAS-01 (versión simple) | DAS-02, DAS-03 |
 | Landing | LAN-01, LAN-02 | — |
 
@@ -697,7 +719,6 @@ Fuera de alcance por ahora:
 
 - Importar extractos bancarios o resúmenes en PDF/CSV. (La conexión con Mercado Pago de la iteración 14 no es una importación de extractos: trae los movimientos desde que se conecta.)
 - Conexiones con otras billeteras y bancos además de Mercado Pago.
-- Bonos y ONs con precio automático (cotizan cada 100 de valor nominal y pagan cupones); se siguen a mano.
 - Dividendos y splits automáticos: se cargan como ingreso o como corrección de cantidad.
 - Criptomonedas como moneda (USDT, BTC). Se pueden seguir como apartados de inversión con valuación manual.
 - Cuentas compartidas entre usuarios (pareja, familia).
@@ -808,6 +829,15 @@ Que los movimientos de Mercado Pago entren solos, al momento.
 - Inversiones con precio automático: CEDEARs y acciones (Data912), FCI con sus clases, incluidos los Superfondos (ArgentinaDatos), y cripto (CoinGecko). Se carga la cantidad y platin calcula el valor (INV-07 a 10).
 - Plazos fijos con valor calculado a partir de capital, TNA y fechas (INV-12).
 - Valuación automática a fin de mes para todo lo que tiene precio (INV-11). Lo demás se sigue actualizando a mano.
+
+### Iteración 16 (noviembre 2026)
+
+Lo que surgió al usar las inversiones con precio en producción.
+
+- Bonos y ONs con precio automático, con su valor nominal y el cobro de renta o amortización (INV-13, 14).
+- El precio a la vista en el buscador y en cada inversión (INV-15).
+- El alta de una inversión vinculada sin saldo para escribir: vale su cantidad por el precio (INV-16).
+- La cartera de cada cuenta y la de todas, con composición, pesos y evolución (INV-17).
 
 ## Identidad visual y UX
 

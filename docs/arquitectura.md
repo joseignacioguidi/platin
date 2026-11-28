@@ -830,6 +830,41 @@ model PocketValuation {
 | `GET /investments` con `pricing` | INV-08 |
 | `POST /sync` (valuaciones automáticas) | INV-11 |
 
+
+### Iteración 16: bonos y cartera
+
+Las decisiones están en `docs/adr/0042-bonos-y-cartera.md`.
+
+```prisma
+enum InstrumentType { CEDEAR STOCK MUTUAL_FUND TERM_DEPOSIT CRYPTO BOND CORPORATE_BOND OTHER }
+
+model Transfer {
+  // ...
+  payout Boolean @default(false) // cobro de renta o amortización de un bono u ON: REDEEM sin units (INV-14)
+}
+```
+
+- La restricción `CHECK` de unidades pasa a: `units` positivo, o nulo cuando `payout` es `true`. `payout` solo con `intent = REDEEM` y origen en un apartado vinculado a un `BOND` o `CORPORATE_BOND`; si no, `PAYOUT_NOT_ALLOWED`.
+- **Endpoints**:
+  - `GET /instruments?type=&q=` devuelve en cada resultado `price` y `priceDate` (nulos si nunca tuvo precio), con el precio que vino en la descarga del catálogo.
+  - `POST /accounts/:id/pockets` acepta `holding: { instrumentId, units, cost? }` para los tipos con precio. En una transacción: crea la reserva con `initialBalance = cost ?? valor de hoy`, la vincula y registra la valuación `AUTO` de hoy si el valor difiere de lo pagado. Con `holding`, `initialBalance` no se acepta (`INITIAL_BALANCE_WITH_HOLDING`). Sin precio para el instrumento, `cost` es obligatorio (`COST_REQUIRED`).
+  - `PUT /pockets/:id/holding` sobre una reserva que ya existe registra la valuación `AUTO` de hoy al valor de mercado (si no hay una hoy o después).
+  - `POST /investments/valuations` rechaza las reservas vinculadas y los plazos fijos con `VALUATION_AUTOMATIC` (409).
+  - `POST /transfers` acepta `payout: true` sin `units` (INV-14).
+  - `GET /investments?accountId=` filtra por cuenta (404 si la cuenta no es del usuario). Cada posición suma `weight` (su peso en el total de la respuesta, en moneda base, ratio con 4 decimales) y la respuesta suma `byCurrency` (valor en moneda base por moneda, con su peso) y `byAccount` (lo mismo por cuenta).
+  - `GET /investments/history?accountId=&months=12` devuelve `{ currency, points: [{ period, value, invested }] }`: valor e invertido en moneda base al último día de cada mes, y un último punto con el valor en vivo de hoy.
+- **Script** `apps/api/scripts/reconcile-linked-investments.mjs` (con `--dry-run`): valuación `AUTO` de hoy para cada reserva vinculada cuyo saldo no coincide con su valor de mercado. Se corre una vez en producción después del deploy de la fase 45.
+
+| Método y ruta | Caso de uso |
+| --- | --- |
+| `GET /instruments` con `price` y `priceDate` | INV-15 |
+| `POST /accounts/:id/pockets` con `holding` | INV-16 |
+| `PUT /pockets/:id/holding` con valuación de hoy | INV-16 |
+| `POST /investments/valuations` con `VALUATION_AUTOMATIC` | INV-16 |
+| `POST /transfers` con `payout` | INV-14 |
+| `GET /investments?accountId=` con `weight`, `byCurrency` y `byAccount` | INV-17 |
+| `GET /investments/history?accountId=&months=` | INV-17 |
+
 ## Backend
 
 Un módulo de Nest por dominio; los controladores son finos, los servicios orquestan y las reglas viven en `libs/domain`.
@@ -912,6 +947,9 @@ Todo lo que tiene una regla de la especificación es una función pura en `libs/
 - `marketValue(units, price, currency)` y `unitsForAmount(amount, price)`: valor a precio de mercado y cantidad propuesta al invertir un monto.
 - `termDepositValue(terms, at)`: valor de un plazo fijo a una fecha, con interés simple y tope en el vencimiento.
 - `autoValuationsDue(pockets, today)`: qué apartados necesitan la valuación automática del mes anterior y con qué fecha.
+- `priceBase(type)`: divisor del precio (100 en bonos y ONs, 1 en el resto); `marketValue` lo usa (iteración 16).
+- `portfolioBreakdown(positions, rates)`: valor en moneda base, peso de cada posición, composición por tipo, por moneda y por cuenta (iteración 16).
+- `portfolioHistory(balancesByMonth, investedByMonth, rates)`: valor e invertido a fin de cada mes en moneda base (iteración 16).
 - `Money`: suma, resta, conversión y redondeo sobre decimal.js; nunca `number` para montos.
 
 ## Frontend
@@ -1107,6 +1145,22 @@ Sin mockups propios: siguen el patrón de Perfil › Telegram y de los avisos de
 | Acciones del detalle de un movimiento de Mercado Pago | "Es una transferencia mía", "Es el pago de una tarjeta" y, si está vinculado, "También llegó de Mercado Pago" con "No es el mismo" |
 | Módulo `feeds` de Nest | `FeedsController` (connect, callback, ajustes), `FeedWebhookController`, `FeedIngestService` (lo comparten webhook y sync), `FeedTokenCipher` (AES-256-GCM con `node:crypto`), `FeedProviderRegistry` y `MercadoPagoProvider` |
 
+### Componentes y patrones de la iteración 16
+
+Sin mockups propios: siguen las pantallas de Inversiones y del detalle de la cuenta.
+
+| Pieza | Uso |
+| --- | --- |
+| `pl-donut` (`libs/web-ui`) | Anillo SVG con segmentos por valor, con los colores de `pl-stacked-bar`, el total al centro y la leyenda con porcentajes. Cada segmento tiene un `aria-label` con nombre y porcentaje |
+| `pl-line-chart` (`libs/web-ui`) | Línea SVG de hasta 13 puntos con una segunda serie punteada (invertido) y `pl-chart-tooltip` al tocar o pasar por un punto |
+| `PortfolioRow` | La fila "Cartera" del detalle de la cuenta: valor por moneda, cantidad de posiciones y rendimiento. Reemplaza a las reservas de inversión en la lista de reservas |
+| `PortfolioCard` | Tarjeta por cuenta en Inversiones: nombre, valor, rendimiento y barra de composición por tipo. Reemplaza a la lista de posiciones |
+| `PortfolioPage` | `/app/cuentas/:id/cartera` y `/app/ahorros/inversiones/cartera`: encabezado con valor y rendimiento, dona por tipo, reparto por moneda, evolución, reparto por cuenta (solo en la de todas) y posiciones con barra de peso. "+ Nueva inversión" abre el formulario de reserva con el tipo inversión y la cuenta elegidos |
+| Fila de posición | Símbolo, "cantidad × precio" (en bonos y ONs, "VN × precio c/100"), valor, peso y rendimiento; lleva al detalle de la reserva |
+| Selector de instrumento | Cada resultado con su precio y la fecha ("$ 20.615,52 al 27/11") |
+| Alta vinculada | En el formulario de reserva, con un instrumento elegido, "Cantidad" y "Cuánto pagaste (opcional)" en lugar de "Saldo de hoy"; abajo, el valor de hoy calculado en vivo |
+| `PayoutSheet` | "Cobro de renta o amortización" en el detalle de un bono u ON: monto, cuenta destino y fecha |
+
 ## Auth y seguridad
 
 Auth propio con dos tokens: un JWT de acceso corto que vive en memoria y un refresh token largo en una cookie httpOnly, rotado en cada uso. Como Vercel reenvía `/api/*` a Render, la cookie es del mismo dominio que la app y no depende de cookies de terceros.
@@ -1244,7 +1298,7 @@ abstract class PriceProvider {
 
 | Fuente | Instrumentos | Endpoints | Frescura |
 | --- | --- | --- | --- |
-| [Data912](https://data912.com) | `CEDEAR`, `STOCK` | `GET /live/arg_cedears`, `GET /live/arg_stocks` (catálogo y precios); `GET /historical/cedears/{ticker}`, `GET /historical/stocks/{ticker}` | Se vuelve a pedir si el último tiene más de una hora (la fuente cachea unas 2 horas y no es tiempo real) |
+| [Data912](https://data912.com) | `CEDEAR`, `STOCK`, `BOND`, `CORPORATE_BOND` | `GET /live/arg_cedears`, `GET /live/arg_stocks`, `GET /live/arg_bonds`, `GET /live/arg_corp` (catálogo y precios); `GET /historical/cedears/{ticker}`, `GET /historical/stocks/{ticker}`, `GET /historical/bonds/{ticker}` | Se vuelve a pedir si el último tiene más de una hora (la fuente cachea unas 2 horas y no es tiempo real) |
 | [ArgentinaDatos](https://argentinadatos.com/docs/) | `MUTUAL_FUND` | `GET /v1/finanzas/fci/{categoria}/ultimo` por categoría (`mercadoDinero`, `rentaFija`, `rentaVariable`, `rentaMixta`, `retornoTotal`; `otros` son cuentas remuneradas y no entra); `GET /v1/finanzas/fci/{categoria}/{AAAA}/{MM}/{DD}` para fechas pasadas | Un valor por día hábil; se vuelve a pedir si el guardado es de un día hábil anterior al de hoy |
 | [CoinGecko](https://docs.coingecko.com) | `CRYPTO` | `GET /simple/price?ids=…&vs_currencies=usd` (precios), `GET /coins/markets` (catálogo, primeras 250 por capitalización), `GET /coins/{id}/history` | Más de una hora |
 
@@ -1256,6 +1310,8 @@ Cómo se usan:
 4. **Sin float.** Las tres devuelven números JSON; se citan antes de `JSON.parse` con el mismo helper que usa `rates` (que pasa a `common/`).
 5. **Moneda.** Data912 da cada CEDEAR o acción en pesos (`AAPL`), dólares MEP (`AAPLD`) y cable (`AAPLC`) como tickers distintos, sin decir la moneda: se deduce comparando precios. ArgentinaDatos tampoco la informa: sale del nombre del fondo. CoinGecko se pide siempre en USD. Detalle en `docs/adr/0041-inversiones-con-precio-implementacion.md`.
 6. **Pedidos con tiempo límite** de 5 segundos, como las cotizaciones. Ningún pedido a un proveedor bloquea una escritura del usuario.
+7. **Bonos y ONs (iteración 16).** Cotizan cada 100 de valor nominal: valor = nominales × precio ÷ 100 (`priceBase(type)` en `libs/domain`: 100 para `BOND` y `CORPORATE_BOND`, 1 para el resto). Su moneda sale de la misma regla que los CEDEARs. El histórico solo existe para los tickers en pesos.
+8. **Precio en el catálogo (iteración 16).** La descarga del catálogo guarda también el precio que trae cada fila en `InstrumentPrice` (el `c` de Data912, el `vcp` de ArgentinaDatos, el `current_price` de `/coins/markets`). Así el buscador muestra precio sin pedidos extra.
 
 ## Infraestructura y deploy
 
